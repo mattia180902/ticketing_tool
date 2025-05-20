@@ -1,0 +1,37 @@
+services:
+  postgres:
+    container_name: postgres-sql-ticket
+    image: postgres
+    environment:
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+      PGDATA: /var/lib/postgresql/data
+      POSTGRES_DB: ticket_tool
+    volumes:
+      - postgres:/data/postgres
+    ports:
+      - 5432:5432
+    networks:
+      - ticketing_tool
+    restart: unless-stopped
+
+  keycloak:
+    container_name: keycloak-ticket
+    image: quay.io/keycloak/keycloak:26.0.0
+    ports:
+      - 9090:8080
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    networks:
+      - ticketing_tool
+    command:
+      - "start-dev"
+
+networks:
+  ticketing_tool:
+    driver: bridge
+
+volumes:
+  postgres:
+    driver: local
