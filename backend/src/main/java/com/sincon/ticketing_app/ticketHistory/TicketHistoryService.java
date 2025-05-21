@@ -14,7 +14,7 @@ public class TicketHistoryService {
     private final TicketHistoryMapper ticketHistoryMapper;
 
     public List<TicketHistoryDTO> getHistoryByTicketId(Long ticketId) {
-        return ticketHistoryRepository.findByTicketIdOrderByCreatedAtDesc(ticketId)
+        return ticketHistoryRepository.findByTicketIdOrderByCreatedByDesc(ticketId)
                 .stream()
                 .map(ticketHistoryMapper::toDTO)
                 .collect(Collectors.toList());

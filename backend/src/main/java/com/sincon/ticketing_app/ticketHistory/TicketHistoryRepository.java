@@ -8,5 +8,5 @@ import java.util.List;
 @Repository
 public interface TicketHistoryRepository extends JpaRepository<TicketHistory, Long> {
 
-    List<TicketHistory> findByTicketIdOrderByCreatedAtDesc(Long ticketId);
+    List<TicketHistory> findByTicketIdOrderByCreatedByDesc(Long ticketId);
 }

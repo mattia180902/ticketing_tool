@@ -5,11 +5,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/ticketHistories")
+@RequestMapping("/api/v1/ticketHistories")
 @RequiredArgsConstructor
+@Tag(name = "TicketHistory")
 public class TicketHistoryController {
 
     private final TicketHistoryService ticketHistoryService;

@@ -4,18 +4,21 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/notifications")
+@RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
+@Tag(name = "Notification")
 public class NotificationController {
 
     private final NotificationService service;
     private final NotificationMapper mapper;
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<NotificationDTO>> getUserNotifications(@PathVariable Long userId) {
+    public ResponseEntity<List<NotificationDTO>> getUserNotifications(@PathVariable String userId) {
         List<NotificationDTO> notifications = service.getNotificationsForUser(userId)
                 .stream()
                 .map(mapper::toDTO)

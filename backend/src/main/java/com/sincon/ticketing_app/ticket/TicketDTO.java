@@ -2,7 +2,6 @@ package com.sincon.ticketing_app.ticket;
 
 import lombok.*;
 import com.sincon.ticketing_app.enums.*;
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -16,8 +15,6 @@ public class TicketDTO {
     private String description;
     private TicketPriority priority;
     private TicketStatus status;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
     private Long categoryId;
     private Long createdByUserId;
     private Long assignedToUserId;
