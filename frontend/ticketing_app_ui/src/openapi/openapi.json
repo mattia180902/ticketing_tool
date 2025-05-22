@@ -1,0 +1,672 @@
+{
+    "openapi": "3.0.1",
+    "info": {
+      "title": "OpenAPI definition",
+      "version": "v0"
+    },
+    "servers": [
+      {
+        "url": "http://localhost:8080",
+        "description": "Generated server url"
+      }
+    ],
+    "paths": {
+      "/api/v1/tickets/{id}": {
+        "get": {
+          "tags": [
+            "Ticket"
+          ],
+          "operationId": "getTicketById",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TicketDTO"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "Ticket"
+          ],
+          "operationId": "updateTicket",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketDTO"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TicketDTO"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "delete": {
+          "tags": [
+            "Ticket"
+          ],
+          "operationId": "deleteTicket",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK"
+            }
+          }
+        }
+      },
+      "/api/v1/categories/{id}": {
+        "get": {
+          "tags": [
+            "Category"
+          ],
+          "operationId": "getCategoryById",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/CategoryDTO"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "Category"
+          ],
+          "operationId": "updateCategory",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDTO"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/CategoryDTO"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "delete": {
+          "tags": [
+            "Category"
+          ],
+          "operationId": "deleteCategory",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK"
+            }
+          }
+        }
+      },
+      "/api/v1/tickets": {
+        "get": {
+          "tags": [
+            "Ticket"
+          ],
+          "operationId": "getAllTickets",
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/TicketDTO"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "Ticket"
+          ],
+          "operationId": "createTicket",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketDTO"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TicketDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/ticketHistories": {
+        "post": {
+          "tags": [
+            "TicketHistory"
+          ],
+          "operationId": "createTicketHistory",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketHistoryDTO"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TicketHistoryDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/notifications": {
+        "post": {
+          "tags": [
+            "Notification"
+          ],
+          "operationId": "createNotification",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDTO"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/NotificationDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/categories": {
+        "get": {
+          "tags": [
+            "Category"
+          ],
+          "operationId": "getAllCategories",
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CategoryDTO"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "Category"
+          ],
+          "operationId": "createCategory",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDTO"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/CategoryDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/notifications/{id}/read": {
+        "patch": {
+          "tags": [
+            "Notification"
+          ],
+          "operationId": "markAsRead",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK"
+            }
+          }
+        }
+      },
+      "/api/v1/users": {
+        "get": {
+          "tags": [
+            "User"
+          ],
+          "operationId": "getAllUsers",
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/UserDTO"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/ticketHistories/ticket/{ticketId}": {
+        "get": {
+          "tags": [
+            "TicketHistory"
+          ],
+          "operationId": "getHistoryByTicketId",
+          "parameters": [
+            {
+              "name": "ticketId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/TicketHistoryDTO"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/notifications/user/{userId}": {
+        "get": {
+          "tags": [
+            "Notification"
+          ],
+          "operationId": "getUserNotifications",
+          "parameters": [
+            {
+              "name": "userId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/NotificationDTO"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/ticketHistories/{id}": {
+        "delete": {
+          "tags": [
+            "TicketHistory"
+          ],
+          "operationId": "deleteTicketHistory",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK"
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "TicketDTO": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "title": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "priority": {
+              "type": "string",
+              "enum": [
+                "LOW",
+                "MEDIUM",
+                "HIGH",
+                "CRITICAL"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "IN_PROGRESS",
+                "RESOLVED",
+                "CLOSED",
+                "REJECTED"
+              ]
+            },
+            "categoryId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "createdByUserId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "assignedToUserId": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        },
+        "CategoryDTO": {
+          "required": [
+            "name"
+          ],
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "name": {
+              "maxLength": 100,
+              "minLength": 2,
+              "type": "string"
+            },
+            "description": {
+              "maxLength": 500,
+              "minLength": 0,
+              "type": "string"
+            },
+            "ticketCount": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        },
+        "TicketHistoryDTO": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "ticketId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "changedByUserId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "oldStatus": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "IN_PROGRESS",
+                "RESOLVED",
+                "CLOSED",
+                "REJECTED"
+              ]
+            },
+            "newStatus": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "IN_PROGRESS",
+                "RESOLVED",
+                "CLOSED",
+                "REJECTED"
+              ]
+            },
+            "comment": {
+              "type": "string"
+            }
+          }
+        },
+        "NotificationDTO": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "message": {
+              "type": "string"
+            },
+            "isRead": {
+              "type": "boolean"
+            },
+            "userId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "ticketId": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        },
+        "UserDTO": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "firstName": {
+              "type": "string"
+            },
+            "lastName": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "securitySchemes": {
+        "keycloak": {
+          "type": "oauth2",
+          "in": "header",
+          "scheme": "bearer",
+          "bearerFormat": "JWT",
+          "flows": {
+            "password": {
+              "authorizationUrl": "http://localhost:9090/realms/ticket_tool/protocol/openid-connect/auth",
+              "tokenUrl": "http://localhost:9090/realms/ticket_tool/protocol/openid-connect/token",
+              "scopes": {
+  
+              }
+            }
+          }
+        }
+      }
+    }
+  }
