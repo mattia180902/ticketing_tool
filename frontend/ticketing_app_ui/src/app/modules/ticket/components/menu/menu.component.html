@@ -1,20 +1,89 @@
-<nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top bg-body-tertiary z-50">
+<nav
+  class="navbar navbar-expand-lg navbar-light bg-light fixed-top bg-body-tertiary z-50"
+>
   <div class="container-fluid">
-    <!-- Burger Icon -->
     <button
       class="text-3xl md:hidden border-0 bg-transparent"
       aria-label="Open Menu"
-      (click)="toggleMenu()"
+      (click)="openSidebar()"
     >
       <i class="fas fa-bars"></i>
     </button>
 
-    <!-- Logo -->
+    <p-sidebar [(visible)]="sidebarVisible" (onHide)="closeSidebar()">
+      <ng-template pTemplate="headless">
+        <div class="flex flex-column h-full">
+          <div
+            class="flex align-items-center justify-content-between px-4 pt-3 flex-shrink-0"
+          >
+            <span class="inline-flex align-items-center gap-2">
+              <span class="font-semibold text-2xl text-primary"
+                ><img src="assets/logo.png" alt="Logo" width="150" height="auto" /></span
+              >
+            </span>
+            <span>
+              <p-button
+                type="button"
+                (onClick)="closeSidebar()"
+                icon="pi pi-times"
+                rounded="true"
+                outlined="true"
+                styleClass="h-2rem w-2rem"
+              ></p-button>
+            </span>
+          </div>
+          <div class="overflow-y-auto">
+            <ul class="list-none p-3 m-0">
+              <li>
+                <ul class="list-none p-0 m-0 overflow-hidden">
+                  <li>
+                    <a
+                      pRipple
+                      class="flex align-items-center cursor-pointer p-3 border-round text-700 hover:surface-100 transition-duration-150 transition-colors p-ripple"
+                      (click)="navigateTo('/books')" >
+                      <i class="pi pi-home mr-2"></i>
+                      <span class="font-medium">Dashboard</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      pRipple
+                      class="flex align-items-center cursor-pointer p-3 border-round text-700 hover:surface-100 transition-duration-150 transition-colors p-ripple"
+                      (click)="navigateTo('/my-tickets')"
+                    >
+                      <i class="pi pi-bookmark mr-2"></i>
+                      <span class="font-medium">My Tickets</span>
+                    </a>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+          <div class="mt-auto">
+            <hr class="mb-3 mx-3 border-top-1 border-none surface-border" />
+            <a
+              pRipple
+              class="m-3 flex align-items-center cursor-pointer p-3 gap-2 border-round text-700 hover:surface-100 transition-duration-150 transition-colors p-ripple"
+            >
+              <p-avatar
+                image="https://primefaces.org/cdn/primeng/images/demo/avatar/amyelsner.png"
+                shape="circle"
+              />
+              <span class="font-bold">{{username}}</span>
+            </a>
+          </div>
+        </div>
+      </ng-template>
+    </p-sidebar>
+
     <a class="navbar-brand ms-2" routerLink="/books">
       <img src="assets/logo.png" alt="Logo" width="150" height="auto" />
     </a>
 
-    <div class="collapse navbar-collapse justify-content-end" id="navbarSupportedContent">
+    <div
+      class="collapse navbar-collapse justify-content-end"
+      id="navbarSupportedContent"
+    >
       <form class="d-flex gap-2 align-items-center" role="search">
         <input
           class="form-control"
@@ -26,7 +95,7 @@
           <i class="fas fa-search"></i>
         </button>
         <span>Welcome</span>
-        <span class="text-capitalize fw-bold">{{username}}</span>
+        <span class="text-capitalize fw-bold">{{ username }}</span>
         <button class="btn btn-link" type="button" (click)="logout()">
           <i class="fas fa-door-open"></i>
         </button>
@@ -34,68 +103,3 @@
     </div>
   </div>
 </nav>
-
-<!-- Sidebar Mobile -->
-<div
-  *ngIf="menuOpen"
-  class="fixed top-0 left-0 w-64 h-full bg-white shadow-lg z-50 flex flex-col p-4 gap-4 transition-transform duration-300 ease-in-out"
-  style="transform: translateX(0);"
->
-  <div class="flex items-center justify-between mb-4">
-    <span class="text-lg font-semibold">Menu</span>
-    <button (click)="closeMenu()" class="text-2xl border-0 bg-transparent" aria-label="Chiudi menu">
-      <i class="fas fa-times"></i>
-    </button>
-  </div>
-
-  <button
-    class="py-3 text-left border-b"
-    (click)="navigateTo('/home')"
-    (keyup.enter)="navigateTo('/home')"
-    role="button"
-    tabindex="0"
-  >
-    🏠 Home
-  </button>
-
-  <button
-    class="py-3 text-left border-b"
-    (click)="navigateTo('/services')"
-    (keyup.enter)="navigateTo('/services')"
-    role="button"
-    tabindex="0"
-  >
-    📋 Servizi
-  </button>
-
-  <button
-    class="py-3 text-left border-b"
-    (click)="navigateTo('/tickets')"
-    (keyup.enter)="navigateTo('/tickets')"
-    role="button"
-    tabindex="0"
-  >
-    🎫 Ticket
-  </button>
-
-  <button
-    class="py-3 text-left text-red-600 border-t mt-auto"
-    (click)="logout()"
-    (keyup.enter)="logout()"
-    role="button"
-    tabindex="0"
-  >
-    🚪 Logout
-  </button>
-</div>
-
-<!-- Overlay scuro -->
-<div
-  *ngIf="menuOpen"
-  (click)="closeMenu()"
-  (keyup.enter)="closeMenu()"
-  tabindex="0"
-  role="button"
-  aria-label="Chiudi menu"
-  class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-40"
-></div>

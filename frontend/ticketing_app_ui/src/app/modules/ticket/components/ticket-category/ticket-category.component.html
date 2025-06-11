@@ -1,1 +1,6 @@
-<p>ticket-category works!</p>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <p-card *ngFor="let category of categories">
+    <h3>{{ category.name }}</h3>
+    <button pButton label="Crea Ticket" (click)="createTicket(category.id)"></button>
+  </p-card>
+</div>

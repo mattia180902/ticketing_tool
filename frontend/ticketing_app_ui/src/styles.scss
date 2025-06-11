@@ -14,5 +14,16 @@
 }
 
 body {
-  padding-top: 150px; 
+  padding-top: 150px;
+}
+
+.card {
+    background: var(--surface-card);
+    padding: 2rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+}
+
+html {
+    font-size: 14px;
 }

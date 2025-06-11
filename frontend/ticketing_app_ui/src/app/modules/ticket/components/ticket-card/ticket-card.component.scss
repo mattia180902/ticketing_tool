@@ -1,0 +1,36 @@
+.card-total {
+  @apply bg-green-500 text-white;
+}
+
+.card-new {
+  @apply bg-red-500 text-white;
+}
+
+.card-open {
+  @apply bg-emerald-500 text-white;
+}
+
+.card-closed {
+  @apply bg-gray-600 text-white;
+}
+
+.card-answered {
+  @apply bg-blue-600 text-white;
+}
+
+.card-unanswered {
+  @apply bg-orange-400 text-white;
+}
+
+.card-solved {
+  @apply bg-emerald-500 text-white;
+}
+
+.card-rated {
+  @apply bg-orange-400 text-white;
+}
+
+.p-card {
+  border: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}

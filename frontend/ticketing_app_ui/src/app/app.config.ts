@@ -4,6 +4,7 @@ import { routes } from './app.routes';
 import { HttpClientModule, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { KeycloakService } from './utils/keycloak/keycloak.service';
 import { keycloakHttpInterceptor } from './utils/http/keycloak-http.interceptor';
+import { provideAnimations } from '@angular/platform-browser/animations';
 
 
 
@@ -18,8 +19,9 @@ export const appConfig: ApplicationConfig = {
       provide: APP_INITIALIZER,
       useFactory: (keycloakService: KeycloakService) => () => keycloakService.init(),
       deps: [KeycloakService],
-      multi: true 
+      multi: true
     },
     importProvidersFrom(HttpClientModule),
+    provideAnimations()
   ],
 };

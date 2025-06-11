@@ -12,10 +12,12 @@ import { TableModule } from 'primeng/table';
 })
 export class TicketCardComponent implements OnInit{
   totalTickets = 0;
-  newTickets = 0;
   openTickets = 0;
   closedTickets = 0;
-  //recentTickets = [];
+  resolvedTickets = 0;
+  rejectedTickets = 0;
+  inProgressTicket = 0;
+  recentTickets:any = [];
 
   constructor(private ticketService: TicketService) {}
 
@@ -28,7 +30,10 @@ export class TicketCardComponent implements OnInit{
       this.totalTickets = tickets.length;
       this.openTickets = tickets.filter(t => t.status === 'OPEN').length;
       this.closedTickets = tickets.filter(t => t.status === 'CLOSED').length;
-      //this.recentTickets = tickets.slice(0, 5);
+      this.resolvedTickets = tickets.filter(t => t.status === 'RESOLVED').length;
+      this.rejectedTickets = tickets.filter(t => t.status === 'REJECTED').length;
+      this.inProgressTicket = tickets.filter(t => t.status === 'IN_PROGRESS').length;
+      this.recentTickets = tickets.slice(0, 5);
     });
   }
 }

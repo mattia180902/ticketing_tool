@@ -1,32 +1,49 @@
-import { Component, OnInit } from '@angular/core';
 import { KeycloakService } from '../../../../utils/keycloak/keycloak.service';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MenubarModule } from 'primeng/menubar';
+import { Component, ViewChild, OnInit } from '@angular/core';
+import { SidebarModule } from 'primeng/sidebar';
+import { ButtonModule } from 'primeng/button';
+import { RippleModule } from 'primeng/ripple';
+import { AvatarModule } from 'primeng/avatar';
+import { StyleClassModule } from 'primeng/styleclass';
+import { Sidebar } from 'primeng/sidebar';
 
 @Component({
   selector: 'app-menu',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    MenubarModule,
+    SidebarModule,
+    ButtonModule,
+    RippleModule,
+    AvatarModule,
+    StyleClassModule,
+  ],
   templateUrl: './menu.component.html',
-  styleUrl: './menu.component.scss'
+  styleUrl: './menu.component.scss',
 })
-export class MenuComponent implements OnInit {
+export class MenuComponent {
   username: string;
-  menuOpen = false;
-
-  constructor(private keycloakService: KeycloakService, private router: Router) {
+  constructor(
+    private keycloakService: KeycloakService,
+    private router: Router
+  ) {
     this.username = this.keycloakService.fullName || 'User';
   }
 
-  toggleMenu(): void {
-    this.menuOpen = !this.menuOpen;
+  sidebarVisible: boolean = false;
+
+  // Questo metodo ora apre la sidebar
+  openSidebar(): void {
+    this.sidebarVisible = true;
   }
 
-  closeMenu(): void {
-    this.menuOpen = false;
-  }
-  ngOnInit(): void {
+  /* ngOnInit(): void {
     const linkColor = document.querySelectorAll('.nav-link');
     linkColor.forEach((link) => {
       if (window.location.href.endsWith(link.getAttribute('href') || '')) {
@@ -38,19 +55,20 @@ export class MenuComponent implements OnInit {
       });
     });
   }
+*/
+
+  // Questo metodo chiude la sidebar e si lega a (onHide) della p-sidebar o al click del bottone interno
+  // La chiusura del bottone 'X' all'interno della sidebar può anche semplicemente settare sidebarVisible = false
+  closeSidebar(): void {
+    this.sidebarVisible = false;
+  }
+  // Il metodo navigateTo può chiamare closeSidebar()
+  navigateTo(route: string) {
+    this.router.navigate([route]);
+    this.closeSidebar(); // Chiudi la sidebar dopo la navigazione
+  }
 
   async logout() {
     this.keycloakService.logout();
-  }
-
-  navigateTo(route: string) {
-    this.router.navigate([route]);
-    this.closeMenu();
-  }
-
-  isSidebarVisible = false;
-
-  toggleSidebar() {
-    this.isSidebarVisible = !this.isSidebarVisible;
   }
 }
