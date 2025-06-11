@@ -22,10 +22,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .cors(Customizer.withDefaults())
-            .csrf(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(req ->
-                req.requestMatchers(
+                .cors(Customizer.withDefaults())
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(req -> req.requestMatchers(
                         "/auth/**",
                         "/v2/api-docs",
                         "/v3/api-docs",
@@ -36,17 +35,12 @@ public class SecurityConfig {
                         "/configuration/security",
                         "/swagger-ui/**",
                         "/webjars/**",
-                        "/swagger-ui.html"
-                    )
-                    .permitAll()
-                    .anyRequest()
-                    .authenticated()
-            )
-        .oauth2ResourceServer(auth ->
-            auth.jwt(token ->
-                token.jwtAuthenticationConverter(new KeycloakJwtAuthenticationConverter())
-            )
-        );
+                        "/swagger-ui.html")
+                        .permitAll()
+                        .anyRequest()
+                        .authenticated())
+                .oauth2ResourceServer(auth -> auth
+                        .jwt(token -> token.jwtAuthenticationConverter(new KeycloakJwtAuthenticationConverter())));
         return http.build();
     }
 
@@ -60,16 +54,14 @@ public class SecurityConfig {
                 HttpHeaders.ORIGIN,
                 HttpHeaders.CONTENT_TYPE,
                 HttpHeaders.ACCEPT,
-                HttpHeaders.AUTHORIZATION
-        ));
+                HttpHeaders.AUTHORIZATION));
         config.setAllowedMethods(Arrays.asList(
                 "GET",
-                    "POST",
-                    "PUT",
-                    "DELETE",
-                    "OPTIONS",
-                    "PATCH"
-        ));
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS",
+                "PATCH"));
 
         source.registerCorsConfiguration("/**", config);
 

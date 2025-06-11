@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import Keycloak from 'keycloak-js';
+import { UserProfile } from './user-profile';
 
 @Injectable({
   providedIn: 'root',
@@ -8,6 +9,7 @@ import Keycloak from 'keycloak-js';
 export class KeycloakService {
 
   private _keycloak: Keycloak | undefined;
+  private _profile: UserProfile | undefined;
 
   constructor(
     private router: Router
@@ -28,6 +30,15 @@ export class KeycloakService {
     const authenticated = await this.keycloak.init({
       onLoad: 'login-required',
     });
+
+    if (authenticated) {
+      this._profile = (await this.keycloak.loadUserProfile()) as UserProfile;
+      this._profile.token = this.keycloak.token;
+    }
+  }
+
+  get userProfile(): UserProfile | undefined {
+    return this._profile;
   }
 
   async login() {

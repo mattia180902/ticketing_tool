@@ -1,1 +1,18 @@
-/* You can add global styles to this file, and also import other style files */
+@import "bootstrap/scss/bootstrap";
+@import "@fortawesome/fontawesome-free/css/all.min.css";
+@import 'primeng/resources/themes/lara-light-blue/theme.css';
+@import 'primeng/resources/primeng.min.css';
+@import 'primeicons/primeicons.css';
+
+.login-container {
+  width: 800px !important;
+  margin-top: 15%;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+body {
+  padding-top: 150px; 
+}

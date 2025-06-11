@@ -1,7 +1,7 @@
-import { ApplicationConfig, inject, provideZoneChangeDetection, APP_INITIALIZER } from '@angular/core';
+import { ApplicationConfig, provideZoneChangeDetection, APP_INITIALIZER, importProvidersFrom } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClientModule, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { KeycloakService } from './utils/keycloak/keycloak.service';
 import { keycloakHttpInterceptor } from './utils/http/keycloak-http.interceptor';
 
@@ -19,6 +19,7 @@ export const appConfig: ApplicationConfig = {
       useFactory: (keycloakService: KeycloakService) => () => keycloakService.init(),
       deps: [KeycloakService],
       multi: true 
-    }
-  ]
+    },
+    importProvidersFrom(HttpClientModule),
+  ],
 };

@@ -1,0 +1,7 @@
+<button
+  *ngFor="let service of services"
+  (click)="goToTickets(service.id)"
+  class="w-full text-left border p-4 rounded mb-2 cursor-pointer hover:bg-gray-100 focus:outline-none"
+>
+  <strong>{{ service.name }}</strong>
+</button>
