@@ -1,89 +1,20 @@
+<!-- eslint-disable @angular-eslint/template/click-events-have-key-events -->
 <nav
   class="navbar navbar-expand-lg navbar-light bg-light fixed-top bg-body-tertiary z-50"
 >
-  <div class="container-fluid">
-    <button
-      class="text-3xl md:hidden border-0 bg-transparent"
+  <div class="container-fluid px-0 flex items-center"> <button
+      class="text-3xl border-0 bg-transparent"
       aria-label="Open Menu"
       (click)="openSidebar()"
     >
       <i class="fas fa-bars"></i>
     </button>
 
-    <p-sidebar [(visible)]="sidebarVisible" (onHide)="closeSidebar()">
-      <ng-template pTemplate="headless">
-        <div class="flex flex-column h-full">
-          <div
-            class="flex align-items-center justify-content-between px-4 pt-3 flex-shrink-0"
-          >
-            <span class="inline-flex align-items-center gap-2">
-              <span class="font-semibold text-2xl text-primary"
-                ><img src="assets/logo.png" alt="Logo" width="150" height="auto" /></span
-              >
-            </span>
-            <span>
-              <p-button
-                type="button"
-                (onClick)="closeSidebar()"
-                icon="pi pi-times"
-                rounded="true"
-                outlined="true"
-                styleClass="h-2rem w-2rem"
-              ></p-button>
-            </span>
-          </div>
-          <div class="overflow-y-auto">
-            <ul class="list-none p-3 m-0">
-              <li>
-                <ul class="list-none p-0 m-0 overflow-hidden">
-                  <li>
-                    <a
-                      pRipple
-                      class="flex align-items-center cursor-pointer p-3 border-round text-700 hover:surface-100 transition-duration-150 transition-colors p-ripple"
-                      (click)="navigateTo('/books')" >
-                      <i class="pi pi-home mr-2"></i>
-                      <span class="font-medium">Dashboard</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      pRipple
-                      class="flex align-items-center cursor-pointer p-3 border-round text-700 hover:surface-100 transition-duration-150 transition-colors p-ripple"
-                      (click)="navigateTo('/my-tickets')"
-                    >
-                      <i class="pi pi-bookmark mr-2"></i>
-                      <span class="font-medium">My Tickets</span>
-                    </a>
-                  </li>
-                </ul>
-              </li>
-            </ul>
-          </div>
-          <div class="mt-auto">
-            <hr class="mb-3 mx-3 border-top-1 border-none surface-border" />
-            <a
-              pRipple
-              class="m-3 flex align-items-center cursor-pointer p-3 gap-2 border-round text-700 hover:surface-100 transition-duration-150 transition-colors p-ripple"
-            >
-              <p-avatar
-                image="https://primefaces.org/cdn/primeng/images/demo/avatar/amyelsner.png"
-                shape="circle"
-              />
-              <span class="font-bold">{{username}}</span>
-            </a>
-          </div>
-        </div>
-      </ng-template>
-    </p-sidebar>
-
-    <a class="navbar-brand ms-2" routerLink="/books">
+    <a class="navbar-brand ml-2" routerLink="">
       <img src="assets/logo.png" alt="Logo" width="150" height="auto" />
     </a>
 
-    <div
-      class="collapse navbar-collapse justify-content-end"
-      id="navbarSupportedContent"
-    >
+    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-end flex-grow-1">
       <form class="d-flex gap-2 align-items-center" role="search">
         <input
           class="form-control"
@@ -94,12 +25,102 @@
         <button class="btn btn-outline-success" type="submit">
           <i class="fas fa-search"></i>
         </button>
-        <span>Welcome</span>
-        <span class="text-capitalize fw-bold">{{ username }}</span>
-        <button class="btn btn-link" type="button" (click)="logout()">
-          <i class="fas fa-door-open"></i>
-        </button>
       </form>
+      <span>Welcome</span>
+      <span class="text-capitalize fw-bold">{{ username }}</span>
+      <button class="btn btn-link" type="button" (click)="logout()">
+        <i class="fas fa-door-open"></i>
+      </button>
     </div>
   </div>
 </nav>
+
+<p-sidebar [(visible)]="sidebarVisible" (onHide)="closeSidebar()">
+  <ng-template pTemplate="headless">
+    <div class="flex flex-column h-full">
+      <div
+        class="flex align-items-center justify-content-between px-4 pt-3 flex-shrink-0"
+      >
+        <span class="inline-flex align-items-center gap-2">
+          <span class="font-semibold text-2xl text-primary"
+            ><img src="assets/logo.png" alt="Logo" width="150" height="auto"
+          /></span>
+        </span>
+        <span>
+          <p-button
+            type="button"
+            (onClick)="closeSidebar()"
+            icon="pi pi-times"
+            rounded="true"
+            outlined="true"
+            styleClass="h-2rem w-2rem"
+          ></p-button>
+        </span>
+      </div>
+      <div class="overflow-y-auto">
+        <ul class="list-none p-3 m-0">
+          <li>
+            <a
+              pRipple
+              class="flex align-items-center cursor-pointer p-3 border-round text-700 hover:surface-100 transition-duration-150 transition-colors p-ripple"
+              routerLink=""
+              (click)="closeSidebar()"
+            >
+              <i class="pi pi-home mr-2"></i>
+              <span class="font-medium">Dashboard</span>
+            </a>
+          </li>
+          <li>
+            <a
+              pRipple
+              class="flex align-items-center cursor-pointer p-3 border-round text-700 hover:surface-100 transition-duration-150 transition-colors p-ripple"
+              routerLink="/my-tickets"
+              (click)="closeSidebar()"
+            >
+              <i class="pi pi-bookmark mr-2"></i>
+              <span class="font-medium">My Tickets</span>
+            </a>
+          </li>
+          <li>
+            <a
+              pRipple
+              class="flex align-items-center cursor-pointer p-3 border-round text-700 hover:surface-100 transition-duration-150 transition-colors p-ripple"
+              routerLink="/new-ticket/:categoryId"
+              (click)="closeSidebar()"
+            >
+              <i class="pi pi-bookmark mr-2"></i>
+              <span class="font-medium">New Ticket</span>
+            </a>
+          </li>
+          <li>
+            <a
+              pRipple
+              class="flex align-items-center cursor-pointer p-3 border-round text-700 hover:surface-100 transition-duration-150 transition-colors p-ripple"
+              routerLink="/categories"
+              (click)="closeSidebar()"
+            >
+              <i class="pi pi-bookmark mr-2"></i>
+              <span class="font-medium">Service List</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+      <div class="mt-auto">
+        <hr class="mb-3 mx-3 border-top-1 border-none surface-border" />
+        <a
+          pRipple
+          class="m-3 flex align-items-center cursor-pointer p-3 gap-2 border-round text-700 hover:surface-100 transition-duration-150 transition-colors p-ripple"
+          tabindex="0"
+          role="button"
+          (click)="manageAccount()"
+        >
+          <p-avatar
+            image="https://primefaces.org/cdn/primeng/images/demo/avatar/amyelsner.png"
+            shape="circle"
+          />
+          <span class="font-bold">{{ username }}</span>
+        </a>
+      </div>
+    </div>
+  </ng-template>
+</p-sidebar>

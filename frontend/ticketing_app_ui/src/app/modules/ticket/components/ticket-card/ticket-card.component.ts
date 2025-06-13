@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Component, OnInit } from '@angular/core';
 import { TicketService } from '../../../../services/services';
 import { CardModule } from 'primeng/card';
@@ -17,7 +18,7 @@ export class TicketCardComponent implements OnInit{
   resolvedTickets = 0;
   rejectedTickets = 0;
   inProgressTicket = 0;
-  recentTickets:any = [];
+  recentTickets: any = [];
 
   constructor(private ticketService: TicketService) {}
 

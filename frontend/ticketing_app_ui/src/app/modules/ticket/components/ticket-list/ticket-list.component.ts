@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { TicketDto } from '../../../../services/models';
 import { TicketService } from '../../../../services/services';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-ticket-list',
@@ -14,7 +15,7 @@ export class TicketListComponent implements OnInit {
 
   tickets: TicketDto[] = [];
 
-  constructor(private ticketService: TicketService) {}
+  constructor(private ticketService: TicketService, private router: Router) {}
 
   ngOnInit(): void {
     this.loadTickets();

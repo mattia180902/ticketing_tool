@@ -1,36 +1,50 @@
+/* Stili per le card */
+
 .card-total {
-  @apply bg-green-500 text-white;
+  ::ng-deep .p-card {
+    background-color: #22c55e; /* verde */
+    color: white;
+  }
 }
 
 .card-new {
-  @apply bg-red-500 text-white;
+  ::ng-deep .p-card {
+    background-color: #ef4444; /* rosso */
+    color: white;
+  }
 }
 
-.card-open {
-  @apply bg-emerald-500 text-white;
+.card-open, .card-solved {
+  ::ng-deep .p-card {
+    background-color: #10b981; /* smeraldo */
+    color: white;
+  }
 }
 
 .card-closed {
-  @apply bg-gray-600 text-white;
+  ::ng-deep .p-card {
+    background-color: #4b5563; /* grigio */
+    color: white;
+  }
 }
 
 .card-answered {
-  @apply bg-blue-600 text-white;
+  ::ng-deep .p-card {
+    background-color: #2563eb; /* blu */
+    color: white;
+  }
 }
 
-.card-unanswered {
-  @apply bg-orange-400 text-white;
+.card-unanswered, .card-rated {
+  ::ng-deep .p-card {
+    background-color: #f97316; /* arancione */
+    color: white;
+  }
 }
 
-.card-solved {
-  @apply bg-emerald-500 text-white;
-}
-
-.card-rated {
-  @apply bg-orange-400 text-white;
-}
-
-.p-card {
+/* Stile base della card che hai definito */
+.p-card { // Questo stile si riferisce al tuo selettore p-card se lo usi direttamente, non al componente PrimeNG
   border: none;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin: auto;
 }

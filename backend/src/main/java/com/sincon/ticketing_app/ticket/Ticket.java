@@ -37,7 +37,7 @@ public class Ticket extends Auditable {
     @JoinColumn(name = "created_by_user_id")
     private User creator;  // rinominato per evitare conflitto
 
-    @ManyToOne
+    @ManyToOne(optional = true)
     @JoinColumn(name = "assigned_to_user_id")
     private User assignedTo;
 }

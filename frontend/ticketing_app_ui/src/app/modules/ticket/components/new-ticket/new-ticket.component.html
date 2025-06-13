@@ -1,1 +1,32 @@
-<p>new-ticket works!</p>
+<div class="p-4">
+    <h2 class="text-xl font-bold mb-4">Crea Nuovo Ticket</h2>
+  
+    <form (ngSubmit)="saveTicket()" #ticketForm="ngForm" class="flex flex-col gap-4">
+      <input
+        type="text"
+        [(ngModel)]="ticket.title"
+        name="title"
+        required
+        placeholder="Titolo"
+        class="p-2 border rounded"
+      />
+  
+      <textarea
+        [(ngModel)]="ticket.description"
+        name="description"
+        required
+        placeholder="Descrizione"
+        class="p-2 border rounded"
+      ></textarea>
+  
+      <select [(ngModel)]="ticket.priority" name="priority" required class="p-2 border rounded">
+        <option value="LOW">Bassa</option>
+        <option value="MEDIUM">Media</option>
+        <option value="HIGH">Alta</option>
+        <option value="CRITICAL">Critica</option>
+      </select>
+  
+      <button type="submit" class="bg-blue-500 text-white p-2 rounded">Salva Ticket</button>
+    </form>
+  </div>
+  

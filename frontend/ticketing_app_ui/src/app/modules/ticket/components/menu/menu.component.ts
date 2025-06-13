@@ -1,15 +1,15 @@
+/* eslint-disable @typescript-eslint/no-inferrable-types */
 import { KeycloakService } from '../../../../utils/keycloak/keycloak.service';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MenubarModule } from 'primeng/menubar';
-import { Component, ViewChild, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { SidebarModule } from 'primeng/sidebar';
 import { ButtonModule } from 'primeng/button';
 import { RippleModule } from 'primeng/ripple';
 import { AvatarModule } from 'primeng/avatar';
 import { StyleClassModule } from 'primeng/styleclass';
-import { Sidebar } from 'primeng/sidebar';
 
 @Component({
   selector: 'app-menu',
@@ -28,6 +28,9 @@ import { Sidebar } from 'primeng/sidebar';
   styleUrl: './menu.component.scss',
 })
 export class MenuComponent {
+manageAccount() {
+ this.keycloakService.accountManagement();
+}
   username: string;
   constructor(
     private keycloakService: KeycloakService,
@@ -61,11 +64,6 @@ export class MenuComponent {
   // La chiusura del bottone 'X' all'interno della sidebar può anche semplicemente settare sidebarVisible = false
   closeSidebar(): void {
     this.sidebarVisible = false;
-  }
-  // Il metodo navigateTo può chiamare closeSidebar()
-  navigateTo(route: string) {
-    this.router.navigate([route]);
-    this.closeSidebar(); // Chiudi la sidebar dopo la navigazione
   }
 
   async logout() {

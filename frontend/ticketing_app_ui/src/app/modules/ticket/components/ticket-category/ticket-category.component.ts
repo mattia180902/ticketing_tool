@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Component, OnInit } from '@angular/core';
 import { CategoryService } from '../../../../services/services';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -12,7 +13,7 @@ import { CardModule } from 'primeng/card';
   templateUrl: './ticket-category.component.html',
   styleUrl: './ticket-category.component.scss'
 })
-export class TicketCategoryComponent {
+export class TicketCategoryComponent implements OnInit{
 categories: any = [];
 
   constructor(private categoryService: CategoryService, private router: Router) {}
