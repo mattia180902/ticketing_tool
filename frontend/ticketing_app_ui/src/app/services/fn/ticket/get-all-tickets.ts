@@ -8,14 +8,18 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { TicketDto } from '../../models/ticket-dto';
+import { PageResponseTicketResponse } from '../../models/page-response-ticket-response';
 
 export interface GetAllTickets$Params {
+  page?: number;
+  size?: number;
 }
 
-export function getAllTickets(http: HttpClient, rootUrl: string, params?: GetAllTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<TicketDto>>> {
+export function getAllTickets(http: HttpClient, rootUrl: string, params?: GetAllTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<PageResponseTicketResponse>> {
   const rb = new RequestBuilder(rootUrl, getAllTickets.PATH, 'get');
   if (params) {
+    rb.query('page', params.page, {});
+    rb.query('size', params.size, {});
   }
 
   return http.request(
@@ -23,7 +27,7 @@ export function getAllTickets(http: HttpClient, rootUrl: string, params?: GetAll
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<TicketDto>>;
+      return r as StrictHttpResponse<PageResponseTicketResponse>;
     })
   );
 }

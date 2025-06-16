@@ -1,15 +1,11 @@
 package com.sincon.ticketing_app.ticket;
 
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.factory.Mappers;
+import org.springframework.stereotype.Service;
 
-@Mapper(componentModel = "spring")
-public interface TicketMapper {
+@Service
+public class TicketMapper {
 
-    TicketMapper INSTANCE = Mappers.getMapper(TicketMapper.class);
-
-    @Mapping(source = "category.id", target = "categoryId")
+    /* @Mapping(source = "category.id", target = "categoryId")
     @Mapping(source = "creator.id", target = "createdByUserId")
     @Mapping(source = "assignedTo.id", target = "assignedToUserId")
     TicketDTO toDTO(Ticket ticket);
@@ -17,7 +13,28 @@ public interface TicketMapper {
     @Mapping(source = "categoryId", target = "category.id")
     @Mapping(source = "createdByUserId", target = "creator.id")
     @Mapping(source = "assignedToUserId", target = "assignedTo.id")
-    Ticket toEntity(TicketDTO ticketDTO);
+    Ticket toEntity(TicketDTO ticketDTO); */
+
+
+    public Ticket toTicket(TicketDTO dto) {
+        return Ticket.builder()
+            .id(dto.id())
+            .title(dto.title())
+            .description(dto.description())
+            .priority(dto.priority())
+            .status(dto.status())
+            .build();
+    }
+
+    public TicketResponse toTicketResponse(Ticket ticket) {
+        return TicketResponse.builder()
+            .id(ticket.getId())
+            .title(ticket.getTitle())
+            .description(ticket.getDescription())
+            .priority(ticket.getPriority())
+            .status(ticket.getStatus())
+            .build();
+    }
 }
 
 

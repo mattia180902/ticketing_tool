@@ -1,8 +1,8 @@
 import { Component, OnInit } from '@angular/core';
-import { TicketDto } from '../../../../services/models';
 import { TicketService } from '../../../../services/services';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { TicketDto } from '../../../../services/models';
 
 @Component({
   selector: 'app-ticket-list',
@@ -24,12 +24,17 @@ export class TicketListComponent implements OnInit {
   loadTickets() {
     this.ticketService.getAllTickets().subscribe({
       next: (data) => {
-        this.tickets = data;
+        this.tickets = (data.content ?? []).map(ticket => ({
+          id: ticket.id,
+          title: ticket.title ?? '',
+          description: ticket.description ?? '',
+          priority: ticket.priority ?? 'LOW',  // fallback se undefined
+          status: ticket.status ?? 'OPEN'     // fallback se undefined
+        }));
       },
       error: (err) => {
         console.error('Errore nel recupero ticket', err);
       }
     });
   }
-
 }

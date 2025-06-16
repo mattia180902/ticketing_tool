@@ -1,4 +1,4 @@
-package com.sincon.ticketing_app.auditable;
+package com.sincon.ticketing_app.common;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
@@ -23,19 +23,21 @@ import java.util.Date;
 public abstract class Auditable {
 
     @CreatedBy
-    @Column(updatable = false)
+    @Column(nullable = false, updatable = false)
     private String createdBy;
+
+    @LastModifiedBy
+    @Column(insertable = false)
+    private String lastModifiedBy;
 
     @CreatedDate
     @Temporal(TemporalType.TIMESTAMP)
-    @Column(updatable = false)
+    @Column(updatable = false, nullable = false)
     private Date createdDate;
-
-    @LastModifiedBy
-    private String lastModifiedBy;
 
     @LastModifiedDate
     @Temporal(TemporalType.TIMESTAMP)
+    @Column(insertable = false)
     private Date lastModifiedDate;
 }
 

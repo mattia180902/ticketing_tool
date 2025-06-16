@@ -1,21 +1,21 @@
 package com.sincon.ticketing_app.ticket;
 
-import lombok.*;
 import com.sincon.ticketing_app.enums.*;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
-@Getter
-@Setter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class TicketDTO {
+public record TicketDTO(
+        Long id,
 
-    private Long id;
-    private String title;
-    private String description;
-    private TicketPriority priority;
-    private TicketStatus status;
-    private Long categoryId;
-    private Long createdByUserId;
-    private Long assignedToUserId;
+        @NotNull(message = "100") @NotEmpty(message = "100")
+        String title,
+
+        String description,
+
+        @NotNull(message = "100")
+        TicketPriority priority,
+
+        @NotNull(message = "100")
+        TicketStatus status
+) {
 }

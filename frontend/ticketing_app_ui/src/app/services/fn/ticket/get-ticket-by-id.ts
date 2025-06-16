@@ -8,13 +8,13 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { TicketDto } from '../../models/ticket-dto';
+import { TicketResponse } from '../../models/ticket-response';
 
 export interface GetTicketById$Params {
   id: number;
 }
 
-export function getTicketById(http: HttpClient, rootUrl: string, params: GetTicketById$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketDto>> {
+export function getTicketById(http: HttpClient, rootUrl: string, params: GetTicketById$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponse>> {
   const rb = new RequestBuilder(rootUrl, getTicketById.PATH, 'get');
   if (params) {
     rb.path('id', params.id, {});
@@ -25,7 +25,7 @@ export function getTicketById(http: HttpClient, rootUrl: string, params: GetTick
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<TicketDto>;
+      return r as StrictHttpResponse<TicketResponse>;
     })
   );
 }

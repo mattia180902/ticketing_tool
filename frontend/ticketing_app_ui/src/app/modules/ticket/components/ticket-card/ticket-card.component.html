@@ -87,14 +87,16 @@
       <th>Codice</th>
       <th>Categoria</th>
       <th>Stato</th>
+      <th>Priorità</th>
       <th>Azioni</th>
     </tr>
   </ng-template>
   <ng-template pTemplate="body" let-ticket>
     <tr>
-      <td>{{ ticket.code }}</td>
-      <td>{{ ticket.category.name }}</td>
+      <td>{{ ticket.id }}</td>
+      <td>{{ ticket.category?.name || 'N/D' }}</td>
       <td>{{ ticket.status }}</td>
+      <td>{{ ticket.priority }}</td>
       <td>
         <button
           pButton

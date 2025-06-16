@@ -1,9 +1,9 @@
 import { Component, OnInit } from '@angular/core';
-import { CategoryDto } from '../../../../services/models';
-import { CategoryService } from '../../../../services/services';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { CategoryDto } from '../../../../services/models';
+import { CategoryService } from '../../../../services/services';
 
 @Component({
   selector: 'app-service-list',
@@ -35,7 +35,7 @@ export class ServiceListComponent implements OnInit{
     });
   }
 
-  goToTickets(serviceId: number) {
+  goToTickets(serviceId: number | undefined) {
     this.router.navigate(['/services', serviceId, 'tickets']);
   }
 }

@@ -11,24 +11,16 @@ import io.swagger.v3.oas.annotations.security.OAuthFlows;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 
 @SpringBootApplication
-@EnableJpaAuditing
-@SecurityScheme(
-		name = "keycloak",
-		type = SecuritySchemeType.OAUTH2,
-		bearerFormat = "JWT",
-		scheme = "bearer",
-		in = SecuritySchemeIn.HEADER,
-		flows = @OAuthFlows(
-				password = @OAuthFlow(
-						authorizationUrl = "http://localhost:9090/realms/ticket_tool/protocol/openid-connect/auth",
-						tokenUrl = "http://localhost:9090/realms/ticket_tool/protocol/openid-connect/token"
-				)
-		)
-)
+@EnableJpaAuditing(auditorAwareRef = "auditorAware")
+@SecurityScheme(name = "keycloak", type = SecuritySchemeType.OAUTH2, bearerFormat = "JWT", scheme = "bearer", in = SecuritySchemeIn.HEADER, flows = @OAuthFlows(password = @OAuthFlow(authorizationUrl = "http://localhost:9090/realms/ticket_tool/protocol/openid-connect/auth", tokenUrl = "http://localhost:9090/realms/ticket_tool/protocol/openid-connect/token")))
 public class TicketingAppApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(TicketingAppApplication.class, args);
 	}
 
+	// @Bean
+	// public AuditorAware<String> auditorProvider() {
+	// 	return () -> Optional.ofNullable(SecurityContextHolder.getContext().getAuthentication().getName());
+	// }
 }

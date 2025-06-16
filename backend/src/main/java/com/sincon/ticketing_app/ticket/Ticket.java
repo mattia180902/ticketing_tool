@@ -1,8 +1,11 @@
 package com.sincon.ticketing_app.ticket;
 
-import com.sincon.ticketing_app.auditable.Auditable;
+import java.util.List;
+
 import com.sincon.ticketing_app.category.Category;
+import com.sincon.ticketing_app.common.Auditable;
 import com.sincon.ticketing_app.enums.*;
+import com.sincon.ticketing_app.ticketHistory.TicketHistory;
 import com.sincon.ticketing_app.user.User;
 
 import jakarta.persistence.*;
@@ -40,5 +43,8 @@ public class Ticket extends Auditable {
     @ManyToOne(optional = true)
     @JoinColumn(name = "assigned_to_user_id")
     private User assignedTo;
+
+    @OneToMany(mappedBy = "ticket")
+    private List<TicketHistory> histories;
 }
 

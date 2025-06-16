@@ -1,9 +1,9 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { TicketService } from '../../../../services/services';
-import { TicketDto } from '../../../../services/models';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TicketDto } from '../../../../services/models';
 
 @Component({
   selector: 'app-new-ticket',

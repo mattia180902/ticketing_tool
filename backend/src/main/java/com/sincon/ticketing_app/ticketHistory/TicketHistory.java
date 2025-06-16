@@ -1,6 +1,6 @@
 package com.sincon.ticketing_app.ticketHistory;
 
-import com.sincon.ticketing_app.auditable.Auditable;
+import com.sincon.ticketing_app.common.Auditable;
 import com.sincon.ticketing_app.enums.TicketStatus;
 import com.sincon.ticketing_app.ticket.Ticket;
 import com.sincon.ticketing_app.user.User;

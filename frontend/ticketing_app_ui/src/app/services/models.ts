@@ -4,6 +4,8 @@
 
 export type { CategoryDto } from './models/category-dto';
 export type { NotificationDto } from './models/notification-dto';
+export type { PageResponseTicketResponse } from './models/page-response-ticket-response';
 export type { TicketDto } from './models/ticket-dto';
 export type { TicketHistoryDto } from './models/ticket-history-dto';
+export type { TicketResponse } from './models/ticket-response';
 export type { UserDto } from './models/user-dto';

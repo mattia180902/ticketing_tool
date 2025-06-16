@@ -10,6 +10,7 @@ import { ButtonModule } from 'primeng/button';
 import { RippleModule } from 'primeng/ripple';
 import { AvatarModule } from 'primeng/avatar';
 import { StyleClassModule } from 'primeng/styleclass';
+import { HttpClientModule } from '@angular/common/http';
 
 @Component({
   selector: 'app-menu',
@@ -23,6 +24,7 @@ import { StyleClassModule } from 'primeng/styleclass';
     RippleModule,
     AvatarModule,
     StyleClassModule,
+    HttpClientModule
   ],
   templateUrl: './menu.component.html',
   styleUrl: './menu.component.scss',

@@ -4,7 +4,7 @@
 
 export interface CategoryDto {
   description?: string;
-  id: number;
+  id?: number;
   name: string;
   ticketCount?: number;
 }

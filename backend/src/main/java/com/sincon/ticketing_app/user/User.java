@@ -1,6 +1,6 @@
 package com.sincon.ticketing_app.user;
 
-import com.sincon.ticketing_app.auditable.Auditable;
+import com.sincon.ticketing_app.common.Auditable;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
