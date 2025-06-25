@@ -1,27 +1,26 @@
 package com.sincon.ticketing_app.category;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
-@Data
-@Builder
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
+@Builder
 public class CategoryDTO {
-    
+
     private Long id;
-    
-    @NotBlank(message = "Category name is required")
-    @Size(min = 2, max = 100, message = "Category name must be between 2 and 100 characters")
+
+    @NotBlank
+    @Size(min = 2, max = 100)
     private String name;
-    
-    @Size(max = 500, message = "Description cannot exceed 500 characters")
+
+    @Size(max = 500)
     private String description;
-    
-    // Statistics, not mapped directly to entity
-    private Integer ticketCount;
+
+    private List<Long> serviceIds;
 }

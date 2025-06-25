@@ -11,12 +11,105 @@
     }
   ],
   "paths": {
+    "/api/v1/users/contact-info": {
+      "put": {
+        "tags": [
+          "User"
+        ],
+        "operationId": "updateContactInfo",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserContactUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/services/{id}": {
+      "put": {
+        "tags": [
+          "Support Services"
+        ],
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportServiceUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportServiceResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Support Services"
+        ],
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/categories/{id}": {
       "get": {
         "tags": [
           "Category"
         ],
-        "operationId": "getCategoryById",
+        "operationId": "getCategory",
         "parameters": [
           {
             "name": "id",
@@ -34,7 +127,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CategoryDTO"
+                  "$ref": "#/components/schemas/CategoryResponse"
                 }
               }
             }
@@ -45,7 +138,7 @@
         "tags": [
           "Category"
         ],
-        "operationId": "updateCategory",
+        "operationId": "update_1",
         "parameters": [
           {
             "name": "id",
@@ -73,7 +166,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CategoryDTO"
+                  "$ref": "#/components/schemas/CategoryResponse"
                 }
               }
             }
@@ -106,28 +199,16 @@
     "/api/v1/tickets": {
       "get": {
         "tags": [
-          "Ticket"
+          "ticket-controller"
         ],
-        "operationId": "getAllTickets",
+        "operationId": "getTickets",
         "parameters": [
           {
-            "name": "page",
+            "name": "pageable",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 0
-            }
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 10
+              "$ref": "#/components/schemas/Pageable"
             }
           }
         ],
@@ -137,7 +218,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageResponseTicketResponse"
+                  "$ref": "#/components/schemas/PageTicketResponseDTO"
                 }
               }
             }
@@ -146,14 +227,14 @@
       },
       "post": {
         "tags": [
-          "Ticket"
+          "ticket-controller"
         ],
         "operationId": "createTicket",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TicketDTO"
+                "$ref": "#/components/schemas/TicketRequestDTO"
               }
             }
           },
@@ -165,8 +246,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "integer",
-                  "format": "int64"
+                  "$ref": "#/components/schemas/TicketResponseDTO"
                 }
               }
             }
@@ -174,47 +254,38 @@
         }
       }
     },
-    "/api/v1/ticketHistories": {
-      "post": {
+    "/api/v1/services": {
+      "get": {
         "tags": [
-          "TicketHistory"
+          "Support Services"
         ],
-        "operationId": "createTicketHistory",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TicketHistoryDTO"
-              }
-            }
-          },
-          "required": true
-        },
+        "operationId": "getAll",
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TicketHistoryDTO"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SupportServiceResponse"
+                  }
                 }
               }
             }
           }
         }
-      }
-    },
-    "/api/v1/notifications": {
+      },
       "post": {
         "tags": [
-          "Notification"
+          "Support Services"
         ],
-        "operationId": "createNotification",
+        "operationId": "create",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NotificationDTO"
+                "$ref": "#/components/schemas/SupportServiceCreateRequest"
               }
             }
           },
@@ -226,7 +297,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NotificationDTO"
+                  "$ref": "#/components/schemas/SupportServiceResponse"
                 }
               }
             }
@@ -248,7 +319,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/CategoryDTO"
+                    "$ref": "#/components/schemas/CategoryResponse"
                   }
                 }
               }
@@ -277,7 +348,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CategoryDTO"
+                  "$ref": "#/components/schemas/CategoryResponse"
                 }
               }
             }
@@ -285,63 +356,12 @@
         }
       }
     },
-    "/api/v1/tickets/{id}": {
-      "get": {
-        "tags": [
-          "Ticket"
-        ],
-        "operationId": "getTicketById",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TicketResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Ticket"
-        ],
-        "operationId": "deleteTicket",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
+    "/api/v1/tickets/{id}/status": {
       "patch": {
         "tags": [
-          "Ticket"
+          "ticket-controller"
         ],
-        "operationId": "updateTicket",
+        "operationId": "updateStatus",
         "parameters": [
           {
             "name": "id",
@@ -350,27 +370,30 @@
             "schema": {
               "type": "integer",
               "format": "int64"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TicketDTO"
-              }
             }
           },
-          "required": true
-        },
+          {
+            "name": "status",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "ANSWERED",
+                "SOLVED",
+                "DRAFT"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "integer",
-                  "format": "int64"
+                  "$ref": "#/components/schemas/TicketResponseDTO"
                 }
               }
             }
@@ -378,12 +401,12 @@
         }
       }
     },
-    "/api/v1/notifications/{id}/read": {
+    "/api/v1/tickets/{id}/assign": {
       "patch": {
         "tags": [
-          "Notification"
+          "ticket-controller"
         ],
-        "operationId": "markAsRead",
+        "operationId": "assignTicket",
         "parameters": [
           {
             "name": "id",
@@ -393,11 +416,26 @@
               "type": "integer",
               "format": "int64"
             }
+          },
+          {
+            "name": "helperId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
           }
         }
       }
@@ -425,12 +463,344 @@
         }
       }
     },
-    "/api/v1/ticketHistories/ticket/{ticketId}": {
+    "/api/v1/users/me": {
       "get": {
         "tags": [
-          "TicketHistory"
+          "User"
         ],
-        "operationId": "getHistoryByTicketId",
+        "operationId": "getMe",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/helpers": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "operationId": "getHelpers",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/helpers-junior": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "operationId": "getHelpersJunior",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/helpers-and-admins": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "operationId": "getHelpersAndAdmins",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/{id}": {
+      "get": {
+        "tags": [
+          "ticket-controller"
+        ],
+        "operationId": "getTicketDetails",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ticket-controller"
+        ],
+        "operationId": "deleteTicket",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/my": {
+      "get": {
+        "tags": [
+          "ticket-controller"
+        ],
+        "operationId": "getMyTickets",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/my/status": {
+      "get": {
+        "tags": [
+          "ticket-controller"
+        ],
+        "operationId": "getMyTicketsByStatus",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "ANSWERED",
+                "SOLVED",
+                "DRAFT"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/my/drafts": {
+      "get": {
+        "tags": [
+          "ticket-controller"
+        ],
+        "operationId": "getDrafts",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/helpers/available": {
+      "get": {
+        "tags": [
+          "ticket-controller"
+        ],
+        "operationId": "getAvailableHelpers",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/dashboard/counts": {
+      "get": {
+        "tags": [
+          "ticket-controller"
+        ],
+        "operationId": "getCounts",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardCountsDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/assigned": {
+      "get": {
+        "tags": [
+          "ticket-controller"
+        ],
+        "operationId": "getAssignedTickets",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/assigned/status": {
+      "get": {
+        "tags": [
+          "ticket-controller"
+        ],
+        "operationId": "getAssignedTicketsByStatus",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "ANSWERED",
+                "SOLVED",
+                "DRAFT"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ticket-history/{ticketId}": {
+      "get": {
+        "tags": [
+          "Ticket History"
+        ],
+        "operationId": "getHistoryByTicket",
         "parameters": [
           {
             "name": "ticketId",
@@ -459,19 +829,20 @@
         }
       }
     },
-    "/api/v1/notifications/user/{userId}": {
+    "/api/v1/services/category/{categoryId}": {
       "get": {
         "tags": [
-          "Notification"
+          "Support Services"
         ],
-        "operationId": "getUserNotifications",
+        "operationId": "getByCategory",
         "parameters": [
           {
-            "name": "userId",
+            "name": "categoryId",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
@@ -483,7 +854,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/NotificationDTO"
+                    "$ref": "#/components/schemas/SupportServiceResponse"
                   }
                 }
               }
@@ -491,34 +862,96 @@
           }
         }
       }
-    },
-    "/api/v1/ticketHistories/{id}": {
-      "delete": {
-        "tags": [
-          "TicketHistory"
-        ],
-        "operationId": "deleteTicketHistory",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
     }
   },
   "components": {
     "schemas": {
+      "UserContactUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "fiscalCode": {
+            "pattern": "^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$",
+            "type": "string"
+          },
+          "phoneNumber": {
+            "pattern": "^\\+?[0-9]{7,15}$",
+            "type": "string"
+          }
+        }
+      },
+      "UserDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "HELPER_JUNIOR",
+              "HELPER_SENIOR",
+              "PM",
+              "USER"
+            ]
+          },
+          "fiscalCode": {
+            "type": "string"
+          },
+          "phoneNumber": {
+            "type": "string"
+          }
+        }
+      },
+      "SupportServiceUpdateRequest": {
+        "required": [
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "maxLength": 100,
+            "minLength": 2,
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string"
+          }
+        }
+      },
+      "SupportServiceResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "categoryName": {
+            "type": "string"
+          }
+        }
+      },
       "CategoryDTO": {
         "required": [
           "name"
@@ -539,24 +972,52 @@
             "minLength": 0,
             "type": "string"
           },
-          "ticketCount": {
-            "type": "integer",
-            "format": "int32"
+          "serviceIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         }
       },
-      "TicketDTO": {
-        "required": [
-          "priority",
-          "status",
-          "title"
-        ],
+      "CategoryResponse": {
         "type": "object",
         "properties": {
           "id": {
             "type": "integer",
             "format": "int64"
           },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupportServiceResponse"
+            }
+          },
+          "ticketCount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "TicketRequestDTO": {
+        "required": [
+          "categoryId",
+          "description",
+          "fiscalCode",
+          "phoneNumber",
+          "priority",
+          "supportServiceId",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
           "title": {
             "type": "string"
           },
@@ -572,15 +1033,284 @@
               "CRITICAL"
             ]
           },
+          "email": {
+            "type": "string"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "fiscalCode": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "supportServiceId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "assignedToId": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
             "enum": [
               "OPEN",
-              "IN_PROGRESS",
-              "RESOLVED",
-              "CLOSED",
-              "REJECTED"
+              "ANSWERED",
+              "SOLVED",
+              "DRAFT"
             ]
+          }
+        }
+      },
+      "TicketResponseDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "ANSWERED",
+              "SOLVED",
+              "DRAFT"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "userId": {
+            "type": "string"
+          },
+          "userFirstName": {
+            "type": "string"
+          },
+          "userLastName": {
+            "type": "string"
+          },
+          "userEmail": {
+            "type": "string"
+          },
+          "userPhoneNumber": {
+            "type": "string"
+          },
+          "userFiscalCode": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "categoryName": {
+            "type": "string"
+          },
+          "supportServiceId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "supportServiceName": {
+            "type": "string"
+          },
+          "assignedToId": {
+            "type": "string"
+          },
+          "assignedToName": {
+            "type": "string"
+          },
+          "createdOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "solvedOn": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SupportServiceCreateRequest": {
+        "required": [
+          "categoryId",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "maxLength": 100,
+            "minLength": 2,
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string"
+          },
+          "categoryId": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "Pageable": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PageTicketResponseDTO": {
+        "type": "object",
+        "properties": {
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "numberOfElements": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageable": {
+            "$ref": "#/components/schemas/PageableObject"
+          },
+          "first": {
+            "type": "boolean"
+          },
+          "last": {
+            "type": "boolean"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketResponseDTO"
+            }
+          },
+          "number": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortObject"
+            }
+          },
+          "empty": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageableObject": {
+        "type": "object",
+        "properties": {
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "paged": {
+            "type": "boolean"
+          },
+          "unpaged": {
+            "type": "boolean"
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortObject"
+            }
+          }
+        }
+      },
+      "SortObject": {
+        "type": "object",
+        "properties": {
+          "direction": {
+            "type": "string"
+          },
+          "nullHandling": {
+            "type": "string"
+          },
+          "ascending": {
+            "type": "boolean"
+          },
+          "property": {
+            "type": "string"
+          },
+          "ignoreCase": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DashboardCountsDTO": {
+        "type": "object",
+        "properties": {
+          "totalTickets": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "openTickets": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "answeredTickets": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "solvedTickets": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "draftTickets": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -595,139 +1325,36 @@
             "type": "integer",
             "format": "int64"
           },
-          "changedByUserId": {
-            "type": "integer",
-            "format": "int64"
+          "changedById": {
+            "type": "string"
           },
-          "oldStatus": {
+          "changedByName": {
+            "type": "string"
+          },
+          "previousStatus": {
             "type": "string",
             "enum": [
               "OPEN",
-              "IN_PROGRESS",
-              "RESOLVED",
-              "CLOSED",
-              "REJECTED"
+              "ANSWERED",
+              "SOLVED",
+              "DRAFT"
             ]
           },
           "newStatus": {
             "type": "string",
             "enum": [
               "OPEN",
-              "IN_PROGRESS",
-              "RESOLVED",
-              "CLOSED",
-              "REJECTED"
+              "ANSWERED",
+              "SOLVED",
+              "DRAFT"
             ]
           },
-          "comment": {
-            "type": "string"
-          }
-        }
-      },
-      "NotificationDTO": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "message": {
+          "note": {
             "type": "string"
           },
-          "isRead": {
-            "type": "boolean"
-          },
-          "userId": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "ticketId": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
-      "UserDTO": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "firstName": {
-            "type": "string"
-          },
-          "lastName": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          }
-        }
-      },
-      "PageResponseTicketResponse": {
-        "type": "object",
-        "properties": {
-          "content": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TicketResponse"
-            }
-          },
-          "number": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "size": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalElements": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "totalPages": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "first": {
-            "type": "boolean"
-          },
-          "last": {
-            "type": "boolean"
-          }
-        }
-      },
-      "TicketResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "title": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "priority": {
+          "createdOn": {
             "type": "string",
-            "enum": [
-              "LOW",
-              "MEDIUM",
-              "HIGH",
-              "CRITICAL"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "OPEN",
-              "IN_PROGRESS",
-              "RESOLVED",
-              "CLOSED",
-              "REJECTED"
-            ]
+            "format": "date-time"
           }
         }
       }

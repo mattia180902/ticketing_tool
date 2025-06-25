@@ -11,17 +11,17 @@ import { BaseService } from '../base-service';
 import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
-import { CategoryDto } from '../models/category-dto';
+import { CategoryResponse } from '../models/category-response';
 import { createCategory } from '../fn/category/create-category';
 import { CreateCategory$Params } from '../fn/category/create-category';
 import { deleteCategory } from '../fn/category/delete-category';
 import { DeleteCategory$Params } from '../fn/category/delete-category';
 import { getAllCategories } from '../fn/category/get-all-categories';
 import { GetAllCategories$Params } from '../fn/category/get-all-categories';
-import { getCategoryById } from '../fn/category/get-category-by-id';
-import { GetCategoryById$Params } from '../fn/category/get-category-by-id';
-import { updateCategory } from '../fn/category/update-category';
-import { UpdateCategory$Params } from '../fn/category/update-category';
+import { getCategory } from '../fn/category/get-category';
+import { GetCategory$Params } from '../fn/category/get-category';
+import { update1 } from '../fn/category/update-1';
+import { Update1$Params } from '../fn/category/update-1';
 
 @Injectable({ providedIn: 'root' })
 export class CategoryService extends BaseService {
@@ -29,53 +29,53 @@ export class CategoryService extends BaseService {
     super(config, http);
   }
 
-  /** Path part for operation `getCategoryById()` */
-  static readonly GetCategoryByIdPath = '/api/v1/categories/{id}';
+  /** Path part for operation `getCategory()` */
+  static readonly GetCategoryPath = '/api/v1/categories/{id}';
 
   /**
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `getCategoryById()` instead.
+   * To access only the response body, use `getCategory()` instead.
    *
    * This method doesn't expect any request body.
    */
-  getCategoryById$Response(params: GetCategoryById$Params, context?: HttpContext): Observable<StrictHttpResponse<CategoryDto>> {
-    return getCategoryById(this.http, this.rootUrl, params, context);
+  getCategory$Response(params: GetCategory$Params, context?: HttpContext): Observable<StrictHttpResponse<CategoryResponse>> {
+    return getCategory(this.http, this.rootUrl, params, context);
   }
 
   /**
    * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `getCategoryById$Response()` instead.
+   * To access the full response (for headers, for example), `getCategory$Response()` instead.
    *
    * This method doesn't expect any request body.
    */
-  getCategoryById(params: GetCategoryById$Params, context?: HttpContext): Observable<CategoryDto> {
-    return this.getCategoryById$Response(params, context).pipe(
-      map((r: StrictHttpResponse<CategoryDto>): CategoryDto => r.body)
+  getCategory(params: GetCategory$Params, context?: HttpContext): Observable<CategoryResponse> {
+    return this.getCategory$Response(params, context).pipe(
+      map((r: StrictHttpResponse<CategoryResponse>): CategoryResponse => r.body)
     );
   }
 
-  /** Path part for operation `updateCategory()` */
-  static readonly UpdateCategoryPath = '/api/v1/categories/{id}';
+  /** Path part for operation `update1()` */
+  static readonly Update1Path = '/api/v1/categories/{id}';
 
   /**
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `updateCategory()` instead.
+   * To access only the response body, use `update1()` instead.
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  updateCategory$Response(params: UpdateCategory$Params, context?: HttpContext): Observable<StrictHttpResponse<CategoryDto>> {
-    return updateCategory(this.http, this.rootUrl, params, context);
+  update1$Response(params: Update1$Params, context?: HttpContext): Observable<StrictHttpResponse<CategoryResponse>> {
+    return update1(this.http, this.rootUrl, params, context);
   }
 
   /**
    * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `updateCategory$Response()` instead.
+   * To access the full response (for headers, for example), `update1$Response()` instead.
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  updateCategory(params: UpdateCategory$Params, context?: HttpContext): Observable<CategoryDto> {
-    return this.updateCategory$Response(params, context).pipe(
-      map((r: StrictHttpResponse<CategoryDto>): CategoryDto => r.body)
+  update1(params: Update1$Params, context?: HttpContext): Observable<CategoryResponse> {
+    return this.update1$Response(params, context).pipe(
+      map((r: StrictHttpResponse<CategoryResponse>): CategoryResponse => r.body)
     );
   }
 
@@ -113,7 +113,7 @@ export class CategoryService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  getAllCategories$Response(params?: GetAllCategories$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<CategoryDto>>> {
+  getAllCategories$Response(params?: GetAllCategories$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<CategoryResponse>>> {
     return getAllCategories(this.http, this.rootUrl, params, context);
   }
 
@@ -123,9 +123,9 @@ export class CategoryService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  getAllCategories(params?: GetAllCategories$Params, context?: HttpContext): Observable<Array<CategoryDto>> {
+  getAllCategories(params?: GetAllCategories$Params, context?: HttpContext): Observable<Array<CategoryResponse>> {
     return this.getAllCategories$Response(params, context).pipe(
-      map((r: StrictHttpResponse<Array<CategoryDto>>): Array<CategoryDto> => r.body)
+      map((r: StrictHttpResponse<Array<CategoryResponse>>): Array<CategoryResponse> => r.body)
     );
   }
 
@@ -138,7 +138,7 @@ export class CategoryService extends BaseService {
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  createCategory$Response(params: CreateCategory$Params, context?: HttpContext): Observable<StrictHttpResponse<CategoryDto>> {
+  createCategory$Response(params: CreateCategory$Params, context?: HttpContext): Observable<StrictHttpResponse<CategoryResponse>> {
     return createCategory(this.http, this.rootUrl, params, context);
   }
 
@@ -148,9 +148,9 @@ export class CategoryService extends BaseService {
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  createCategory(params: CreateCategory$Params, context?: HttpContext): Observable<CategoryDto> {
+  createCategory(params: CreateCategory$Params, context?: HttpContext): Observable<CategoryResponse> {
     return this.createCategory$Response(params, context).pipe(
-      map((r: StrictHttpResponse<CategoryDto>): CategoryDto => r.body)
+      map((r: StrictHttpResponse<CategoryResponse>): CategoryResponse => r.body)
     );
   }
 

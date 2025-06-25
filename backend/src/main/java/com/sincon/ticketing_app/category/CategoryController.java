@@ -1,12 +1,14 @@
 package com.sincon.ticketing_app.category;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 import java.util.List;
+
+import org.springframework.http.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/categories")
@@ -14,31 +16,37 @@ import java.util.List;
 @Tag(name = "Category")
 public class CategoryController {
 
-    private final CategoryService categoryService;
-
-    @PostMapping
-    public ResponseEntity<CategoryDTO> createCategory(@RequestBody CategoryDTO CategoryDTO) {
-        return ResponseEntity.ok(categoryService.createCategory(CategoryDTO));
-    }
+    private final CategoryService service;
 
     @GetMapping
-    public ResponseEntity<List<CategoryDTO>> getAllCategories() {
-        return ResponseEntity.ok(categoryService.getAllCategories());
+    public ResponseEntity<List<CategoryResponse>> getAllCategories() {
+        return ResponseEntity.ok(service.getAllCategories());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CategoryDTO> getCategoryById(@PathVariable Long id) {
-        return ResponseEntity.ok(categoryService.getCategoryById(id));
+    public ResponseEntity<CategoryResponse> getCategory(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getCategory(id));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CategoryResponse> createCategory(@RequestBody @Valid CategoryDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.createCategory(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<CategoryDTO> updateCategory(@PathVariable Long id, @RequestBody CategoryDTO CategoryDTO) {
-        return ResponseEntity.ok(categoryService.updateCategory(id, CategoryDTO));
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CategoryResponse> update(
+        @PathVariable Long id,
+        @Valid @RequestBody CategoryDTO dto
+    ) {
+        return ResponseEntity.ok(service.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
-        categoryService.deleteCategory(id);
+        service.deleteCategory(id);
         return ResponseEntity.noContent().build();
     }
 }

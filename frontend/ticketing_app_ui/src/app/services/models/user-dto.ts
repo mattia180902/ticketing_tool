@@ -5,6 +5,9 @@
 export interface UserDto {
   email?: string;
   firstName?: string;
+  fiscalCode?: string;
   id?: string;
   lastName?: string;
+  phoneNumber?: string;
+  role?: 'ADMIN' | 'HELPER_JUNIOR' | 'HELPER_SENIOR' | 'PM' | 'USER';
 }

@@ -6,11 +6,11 @@ import { NgModule, ModuleWithProviders, SkipSelf, Optional } from '@angular/core
 import { HttpClient } from '@angular/common/http';
 import { ApiConfiguration, ApiConfigurationParams } from './api-configuration';
 
-import { CategoryService } from './services/category.service';
-import { TicketService } from './services/ticket.service';
-import { TicketHistoryService } from './services/ticket-history.service';
-import { NotificationService } from './services/notification.service';
 import { UserService } from './services/user.service';
+import { SupportServicesService } from './services/support-services.service';
+import { CategoryService } from './services/category.service';
+import { TicketControllerService } from './services/ticket-controller.service';
+import { TicketHistoryService } from './services/ticket-history.service';
 
 /**
  * Module that provides all services and configuration.
@@ -20,11 +20,11 @@ import { UserService } from './services/user.service';
   exports: [],
   declarations: [],
   providers: [
-    CategoryService,
-    TicketService,
-    TicketHistoryService,
-    NotificationService,
     UserService,
+    SupportServicesService,
+    CategoryService,
+    TicketControllerService,
+    TicketHistoryService,
     ApiConfiguration
   ],
 })

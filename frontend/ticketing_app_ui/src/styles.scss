@@ -1,12 +1,11 @@
-@import "bootstrap/scss/bootstrap";
-@import "@fortawesome/fontawesome-free/css/all.min.css";
+// PrimeNG e PrimeFlex
 @import 'primeng/resources/themes/lara-light-blue/theme.css';
 @import 'primeng/resources/primeng.min.css';
 @import 'primeicons/primeicons.css';
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'primeflex/primeflex.scss';
 
+
+/* ... il tuo CSS custom ... */
 .login-container {
   width: 800px !important;
   margin-top: 15%;

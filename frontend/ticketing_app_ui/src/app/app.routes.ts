@@ -2,9 +2,12 @@ import { Routes } from '@angular/router';
 import { authGuard } from './utils/guard/auth.guard';
 import { MainComponent } from './modules/ticket/pages/main/main.component';
 import { TicketListComponent } from './modules/ticket/components/ticket-list/ticket-list.component';
-import { TicketCardComponent } from './modules/ticket/components/ticket-card/ticket-card.component';
-import { TicketCategoryComponent } from './modules/ticket/components/ticket-category/ticket-category.component';
 import { NewTicketComponent } from './modules/ticket/components/new-ticket/new-ticket.component';
+import { CategoryListComponent } from './modules/ticket/components/category-list/category-list.component';
+import { CreateCategoryComponent } from './modules/ticket/components/create-category/create-category.component';
+import { ServiceListComponent } from './modules/ticket/components/service-list/service-list.component';
+import { TicketDashboardComponent } from './modules/ticket/components/ticket-dashboard/ticket-dashboard.component';
+
 
 export const routes: Routes = [
   {
@@ -12,7 +15,11 @@ export const routes: Routes = [
     component: MainComponent,
     canActivate: [authGuard],
     children: [
-      { path: '', component: TicketCardComponent, canActivate: [authGuard] },
+      {
+        path: '',
+        component: TicketDashboardComponent,
+        canActivate: [authGuard],
+      },
       {
         path: 'my-tickets',
         component: TicketListComponent,
@@ -20,13 +27,27 @@ export const routes: Routes = [
       },
       {
         path: 'categories',
-        component: TicketCategoryComponent,
+        component: CategoryListComponent,
         canActivate: [authGuard],
       },
       {
-        path: 'new-ticket/:categoryId',
+        path: 'new-ticket',
         component: NewTicketComponent,
         canActivate: [authGuard],
+      },
+      {
+        path: 'create-category',
+        component: CreateCategoryComponent,
+        canActivate: [authGuard],
+      },
+      {
+        path: 'services',
+        component: ServiceListComponent,
+        canActivate: [authGuard],
+      },
+      {
+        path: '**',
+        redirectTo: '',
       },
     ],
   },

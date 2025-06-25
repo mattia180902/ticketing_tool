@@ -22,6 +22,18 @@ spring:
   servlet:
     multipart:
       max-file-size: 50MB
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+        debug: true  # opzionale per log di debug mail
 
 springdoc:
   default-produces-media-type: application/json

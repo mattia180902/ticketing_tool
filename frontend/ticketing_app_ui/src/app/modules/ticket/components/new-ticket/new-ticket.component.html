@@ -1,32 +1,35 @@
-<div class="p-4">
-    <h2 class="text-xl font-bold mb-4">Crea Nuovo Ticket</h2>
-  
-    <form (ngSubmit)="saveTicket()" #ticketForm="ngForm" class="flex flex-col gap-4">
-      <input
-        type="text"
-        [(ngModel)]="ticket.title"
-        name="title"
-        required
-        placeholder="Titolo"
-        class="p-2 border rounded"
-      />
-  
-      <textarea
-        [(ngModel)]="ticket.description"
-        name="description"
-        required
-        placeholder="Descrizione"
-        class="p-2 border rounded"
-      ></textarea>
-  
-      <select [(ngModel)]="ticket.priority" name="priority" required class="p-2 border rounded">
-        <option value="LOW">Bassa</option>
-        <option value="MEDIUM">Media</option>
-        <option value="HIGH">Alta</option>
-        <option value="CRITICAL">Critica</option>
-      </select>
-  
-      <button type="submit" class="bg-blue-500 text-white p-2 rounded">Salva Ticket</button>
-    </form>
-  </div>
-  
+<!-- eslint-disable @angular-eslint/template/elements-content -->
+<div class="ticket-form-wrapper">
+  <h2 class="form-title">Nuovo Ticket</h2>
+
+  <form [formGroup]="ticketForm" (ngSubmit)="submitTicket()" class="ticket-form">
+
+    <input type="text" pInputText formControlName="title" placeholder="Titolo" />
+    <textarea pInputTextarea formControlName="description" rows="4" placeholder="Descrizione dettagliata"></textarea>
+
+    <input type="email" pInputText formControlName="email" placeholder="Email" />
+
+    <div class="input-group">
+      <input type="text" pInputText formControlName="phoneNumber" placeholder="Telefono" />
+      <input type="text" pInputText formControlName="fiscalCode" placeholder="Codice Fiscale" />
+    </div>
+
+    <p-dropdown 
+      [options]="['LOW','MEDIUM','HIGH','CRITICAL']" 
+      formControlName="priority" 
+      placeholder="Seleziona priorità">
+    </p-dropdown>
+
+    <p-dropdown 
+      [options]="helpers" 
+      optionLabel="fullName" 
+      optionValue="id" 
+      formControlName="assignedToId" 
+      placeholder="Assegna a uno degli helper o a te stesso">
+    </p-dropdown>
+
+    <div class="actions">
+      <button pButton type="submit" label="Crea Ticket" [disabled]="ticketForm.invalid"></button>
+    </div>
+  </form>
+</div>

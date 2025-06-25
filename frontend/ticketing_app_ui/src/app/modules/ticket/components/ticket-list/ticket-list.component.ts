@@ -1,8 +1,8 @@
-import { Component, OnInit } from '@angular/core';
-import { TicketService } from '../../../../services/services';
+import { Component } from '@angular/core';
+//import { TicketService } from '../../../../services/services';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-import { TicketDto } from '../../../../services/models';
+//import { Router } from '@angular/router';
+//import { TicketDto } from '../../../../services/models';
 
 @Component({
   selector: 'app-ticket-list',
@@ -11,8 +11,9 @@ import { TicketDto } from '../../../../services/models';
   templateUrl: './ticket-list.component.html',
   styleUrl: './ticket-list.component.scss'
 })
-export class TicketListComponent implements OnInit {
-
+export class TicketListComponent //implements OnInit 
+{
+/* 
   tickets: TicketDto[] = [];
 
   constructor(private ticketService: TicketService, private router: Router) {}
@@ -36,5 +37,5 @@ export class TicketListComponent implements OnInit {
         console.error('Errore nel recupero ticket', err);
       }
     });
-  }
+  } */
 }

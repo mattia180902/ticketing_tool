@@ -1,0 +1,40 @@
+.dashboard-grid {
+  .clickable-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+
+    &:hover {
+      transform: scale(1.03);
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.2);
+    }
+
+    &.info ::ng-deep .p-card-header {
+      border-top: 5px solid #2196f3 !important;
+    }
+
+    &.success ::ng-deep .p-card-header {
+      border-top: 5px solid #4caf50 !important;
+    }
+
+    &.contrast ::ng-deep .p-card-header {
+      border-top: 5px solid #607d8b !important;
+    }
+
+    &.primary ::ng-deep .p-card-header {
+      border-top: 5px solid #3f51b5 !important;
+    }
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  .mt-4 {
+    margin-top: 2rem;
+  }
+
+  .mt-3 {
+    margin-top: 1.5rem;
+  }
+}

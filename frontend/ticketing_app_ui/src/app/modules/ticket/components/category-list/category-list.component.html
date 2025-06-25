@@ -1,0 +1,122 @@
+<!-- eslint-disable @angular-eslint/template/label-has-associated-control -->
+<!-- eslint-disable @angular-eslint/template/elements-content -->
+<div class="px-4 py-3">
+  <div class="flex justify-content-between align-items-center mb-4">
+    <h3 class="text-3xl font-bold">Categorie</h3>
+    <button
+      *ngIf="hasRole('ADMIN')"
+      pButton
+      label="Nuova Categoria"
+      icon="pi pi-plus"
+      class="p-button-success p-button-sm"
+      (click)="openCreateDialog()"
+    ></button>
+  </div>
+
+  <p-message
+  *ngIf="!categories.length"
+  severity="info"
+  text="Nessuna categoria disponibile."
+></p-message>
+
+  <div class="grid">
+    <div *ngFor="let category of categories" class="col-12 sm:col-6 lg:col-4 p-2">
+      <p-card>
+        <ng-template pTemplate="title">
+          <span class="font-bold text-lg">{{ category.name }}</span>
+        </ng-template>
+        <ng-template pTemplate="subtitle">
+          <p class="text-sm text-600">
+            {{ category.description || "Nessuna descrizione"}}
+          </p>
+        </ng-template>
+        <ng-template pTemplate="footer">
+          <div class="flex justify-content-between gap-2">
+            <button
+              pButton
+              label="Servizi"
+              icon="pi pi-list"
+              class="p-button-sm p-button-secondary"
+              (click)="goToServices(category.id!)"
+            ></button>
+            <button
+              *ngIf="hasRole('ADMIN')"
+              pButton
+              label="Modifica"
+              icon="pi pi-pencil"
+              class="p-button-sm p-button-primary"
+              (click)="openEditDialog(category)"
+            ></button>
+          </div>
+        </ng-template>
+      </p-card>
+    </div>
+  </div>
+</div>
+
+<!-- Dialog Creazione e Modifica Categoria -->
+<p-dialog
+  header="Crea Categoria"
+  [(visible)]="displayCreateDialog"
+  [modal]="true"
+  [style]="{ width: '40vw' }"
+>
+  <div class="p-fluid">
+    <div class="field">
+      <label>Nome Categoria *</label>
+      <input pInputText [(ngModel)]="newCategoryName" />
+    </div>
+    <div class="field">
+      <label>Descrizione</label>
+      <textarea pInputTextarea [(ngModel)]="newCategoryDesc"></textarea>
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <button
+      pButton
+      label="Annulla"
+      class="p-button-text"
+      (click)="closeDialogs()"
+    ></button>
+    <button
+      pButton
+      label="Crea"
+      class="p-button-success"
+      (click)="createCategory()"
+    ></button>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog Modifica -->
+<p-dialog
+  header="Modifica Categoria"
+  [(visible)]="displayEditDialog"
+  [modal]="true"
+  [style]="{ width: '40vw' }"
+>
+  <!-- Stessa struttura di sopra ma con updateCategory() -->
+  <div class="p-fluid">
+    <div class="field">
+      <label>Nome Categoria *</label>
+      <input pInputText [(ngModel)]="newCategoryName" />
+    </div>
+    <div class="field">
+      <label>Descrizione</label>
+      <textarea pInputTextarea [(ngModel)]="newCategoryDesc"></textarea>
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <button
+      pButton
+      label="Annulla"
+      class="p-button-text"
+      (click)="closeDialogs()"
+    ></button>
+    <button
+      pButton
+      label="Salva"
+      class="p-button-primary"
+      (click)="updateCategory()"
+    ></button>
+  </ng-template>
+</p-dialog>

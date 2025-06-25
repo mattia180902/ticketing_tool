@@ -6,5 +6,5 @@ export interface CategoryDto {
   description?: string;
   id?: number;
   name: string;
-  ticketCount?: number;
+  serviceIds?: Array<number>;
 }

@@ -9,12 +9,13 @@ import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
 import { CategoryDto } from '../../models/category-dto';
+import { CategoryResponse } from '../../models/category-response';
 
 export interface CreateCategory$Params {
       body: CategoryDto
 }
 
-export function createCategory(http: HttpClient, rootUrl: string, params: CreateCategory$Params, context?: HttpContext): Observable<StrictHttpResponse<CategoryDto>> {
+export function createCategory(http: HttpClient, rootUrl: string, params: CreateCategory$Params, context?: HttpContext): Observable<StrictHttpResponse<CategoryResponse>> {
   const rb = new RequestBuilder(rootUrl, createCategory.PATH, 'post');
   if (params) {
     rb.body(params.body, 'application/json');
@@ -25,7 +26,7 @@ export function createCategory(http: HttpClient, rootUrl: string, params: Create
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<CategoryDto>;
+      return r as StrictHttpResponse<CategoryResponse>;
     })
   );
 }

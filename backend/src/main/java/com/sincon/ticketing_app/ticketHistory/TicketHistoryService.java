@@ -1,32 +1,41 @@
 package com.sincon.ticketing_app.ticketHistory;
 
+import com.sincon.ticketing_app.enums.TicketStatus;
+import com.sincon.ticketing_app.ticket.Ticket;
+import com.sincon.ticketing_app.ticket.TicketRepository;
+import com.sincon.ticketing_app.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class TicketHistoryService {
 
-    private final TicketHistoryRepository ticketHistoryRepository;
-    private final TicketHistoryMapper ticketHistoryMapper;
+    private final TicketHistoryRepository historyRepository;
+    private final TicketHistoryMapper mapper;
+    private final TicketRepository ticketRepository;
 
-    public List<TicketHistoryDTO> getHistoryByTicketId(Long ticketId) {
-        return ticketHistoryRepository.findByTicketIdOrderByCreatedByDesc(ticketId)
+    public void recordHistory(Ticket ticket, TicketStatus previousStatus, TicketStatus newStatus, User changedBy, String note) {
+        TicketHistory history = TicketHistory.builder()
+                .ticket(ticket)
+                .previousStatus(previousStatus)
+                .newStatus(newStatus)
+                .changedBy(changedBy)
+                .note(note)
+                .build();
+
+        historyRepository.save(history);
+    }
+
+    public List<TicketHistoryDTO> getHistoryByTicket(Long ticketId) {
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+
+        return historyRepository.findByTicket(ticket)
                 .stream()
-                .map(ticketHistoryMapper::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    public TicketHistoryDTO saveHistory(TicketHistoryDTO dto) {
-        TicketHistory entity = ticketHistoryMapper.toEntity(dto);
-        entity = ticketHistoryRepository.save(entity);
-        return ticketHistoryMapper.toDTO(entity);
-    }
-
-    public void deleteById(Long id) {
-        ticketHistoryRepository.deleteById(id);
+                .map(mapper::toDTO)
+                .toList();
     }
 }

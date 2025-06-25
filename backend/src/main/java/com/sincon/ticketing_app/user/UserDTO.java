@@ -1,10 +1,8 @@
 package com.sincon.ticketing_app.user;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import com.sincon.ticketing_app.enums.UserRole;
+
+import lombok.*;
 
 @Getter
 @Setter
@@ -16,4 +14,7 @@ public class UserDTO {
     private String firstName;
     private String lastName;
     private String email;
+    private UserRole role;
+    private String fiscalCode;
+    private String phoneNumber;
 }

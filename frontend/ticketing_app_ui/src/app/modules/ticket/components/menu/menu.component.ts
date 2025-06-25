@@ -4,11 +4,13 @@ import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MenubarModule } from 'primeng/menubar';
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { SidebarModule } from 'primeng/sidebar';
 import { ButtonModule } from 'primeng/button';
 import { RippleModule } from 'primeng/ripple';
 import { AvatarModule } from 'primeng/avatar';
+import { ToolbarModule } from 'primeng/toolbar'; // Per la p-toolbar
+import { InputTextModule } from 'primeng/inputtext'; // Per pInputText
 import { StyleClassModule } from 'primeng/styleclass';
 import { HttpClientModule } from '@angular/common/http';
 
@@ -23,17 +25,19 @@ import { HttpClientModule } from '@angular/common/http';
     ButtonModule,
     RippleModule,
     AvatarModule,
+    ToolbarModule,
+    InputTextModule,
     StyleClassModule,
     HttpClientModule
   ],
   templateUrl: './menu.component.html',
   styleUrl: './menu.component.scss',
 })
-export class MenuComponent {
-manageAccount() {
- this.keycloakService.accountManagement();
-}
+export class MenuComponent implements OnInit {
   username: string;
+  sidebarVisible: boolean = false;
+  roles: string[] = [];
+
   constructor(
     private keycloakService: KeycloakService,
     private router: Router
@@ -41,34 +45,28 @@ manageAccount() {
     this.username = this.keycloakService.fullName || 'User';
   }
 
-  sidebarVisible: boolean = false;
+  ngOnInit() {
+    this.roles = this.keycloakService.getUserRoles();
+    console.log('Ruoli utente:', this.roles);
+  }
 
-  // Questo metodo ora apre la sidebar
   openSidebar(): void {
     this.sidebarVisible = true;
   }
 
-  /* ngOnInit(): void {
-    const linkColor = document.querySelectorAll('.nav-link');
-    linkColor.forEach((link) => {
-      if (window.location.href.endsWith(link.getAttribute('href') || '')) {
-        link.classList.add('active');
-      }
-      link.addEventListener('click', () => {
-        linkColor.forEach((l) => l.classList.remove('active'));
-        link.classList.add('active');
-      });
-    });
-  }
-*/
-
-  // Questo metodo chiude la sidebar e si lega a (onHide) della p-sidebar o al click del bottone interno
-  // La chiusura del bottone 'X' all'interno della sidebar può anche semplicemente settare sidebarVisible = false
   closeSidebar(): void {
     this.sidebarVisible = false;
   }
 
-  async logout() {
+  manageAccount() {
+    this.keycloakService.accountManagement();
+  }
+
+  logout() {
     this.keycloakService.logout();
+  }
+
+  hasRole(role: string): boolean {
+    return this.roles.includes(role);
   }
 }

@@ -1,22 +1,25 @@
 package com.sincon.ticketing_app.ticket;
 
-import java.util.List;
-
 import com.sincon.ticketing_app.category.Category;
 import com.sincon.ticketing_app.common.Auditable;
-import com.sincon.ticketing_app.enums.*;
+import com.sincon.ticketing_app.enums.TicketPriority;
+import com.sincon.ticketing_app.enums.TicketStatus;
+import com.sincon.ticketing_app.supportservice.SupportService;
 import com.sincon.ticketing_app.ticketHistory.TicketHistory;
 import com.sincon.ticketing_app.user.User;
-
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.util.Date;
+import java.util.List;
 
 @Entity
 @Getter
 @Setter
 @Builder
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
+@Table(name = "tickets")
 public class Ticket extends Auditable {
 
     @Id
@@ -24,6 +27,8 @@ public class Ticket extends Auditable {
     private Long id;
 
     private String title;
+
+    @Column(length = 1000)
     private String description;
 
     @Enumerated(EnumType.STRING)
@@ -32,19 +37,34 @@ public class Ticket extends Auditable {
     @Enumerated(EnumType.STRING)
     private TicketStatus status;
 
-    @ManyToOne
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date solveDate;
+
+    // Contatti utente richiesti al momento della creazione del ticket
+    private String email;
+    private String phoneNumber;
+    private String fiscalCode;
+
+    // Categoria selezionata per il ticket
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
 
-    @ManyToOne
-    @JoinColumn(name = "created_by_user_id")
-    private User creator;  // rinominato per evitare conflitto
+    // Servizio specifico associato
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "service_id")
+    private SupportService service;
 
-    @ManyToOne(optional = true)
-    @JoinColumn(name = "assigned_to_user_id")
+    // Utente che ha creato il ticket
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User owner;
+
+    // Helper a cui è assegnato il ticket (può essere null finché non assegnato)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_to")
     private User assignedTo;
 
-    @OneToMany(mappedBy = "ticket")
-    private List<TicketHistory> histories;
+    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TicketHistory> history;
 }
-

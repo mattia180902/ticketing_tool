@@ -1,17 +1,20 @@
 package com.sincon.ticketing_app.ticketHistory;
 
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
+import org.springframework.stereotype.Service;
 
-@Mapper(componentModel = "spring")
-public interface TicketHistoryMapper {
+@Service
+public class TicketHistoryMapper {
 
-    @Mapping(source = "ticket.id", target = "ticketId")
-    @Mapping(source = "changedBy.id", target = "changedByUserId")
-    TicketHistoryDTO toDTO(TicketHistory entity);
-
-    @Mapping(source = "ticketId", target = "ticket.id")
-    @Mapping(source = "changedByUserId", target = "changedBy.id")
-    TicketHistory toEntity(TicketHistoryDTO dto);
+    public TicketHistoryDTO toDTO(TicketHistory history) {
+        return TicketHistoryDTO.builder()
+                .id(history.getId())
+                .ticketId(history.getTicket().getId())
+                .changedById(history.getChangedBy().getId())
+                .changedByName(history.getChangedBy().getFirstName() + " " + history.getChangedBy().getLastName())
+                .previousStatus(history.getPreviousStatus())
+                .newStatus(history.getNewStatus())
+                .note(history.getNote())
+                .createdOn(history.getCreatedDate())
+                .build();
+    }
 }
-

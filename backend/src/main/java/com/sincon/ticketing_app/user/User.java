@@ -1,34 +1,34 @@
 package com.sincon.ticketing_app.user;
 
-import com.sincon.ticketing_app.common.Auditable;
+import com.sincon.ticketing_app.enums.UserRole;
+import jakarta.persistence.*;
+import lombok.*;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.NamedQuery;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
 @Entity
 @Table(name = "users")
-@NamedQuery(name = UserConstants.FIND_USER_BY_EMAIL,
-            query = "SELECT u FROM User u WHERE u.email = :email")
-@NamedQuery(name = UserConstants.FIND_ALL_USERS_EXCEPT_SELF,
-            query = "SELECT u FROM User u WHERE u.id != :publicId")
-@NamedQuery(name = UserConstants.FIND_USER_BY_PUBLIC_ID,
-            query = "SELECT u FROM User u WHERE u.id = :publicId")
-public class User extends Auditable {
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class User{
 
-    @Id
-    private String id; // from keycloak
+        @Id
+        private String id; //preso da keycloak
+    
+        private String firstName;
+        private String lastName;
+        private String email;
+    
+        @Enumerated(EnumType.STRING)
+        private UserRole role;
+    
+        @Column(length = 16)
+        private String fiscalCode;
+    
+        @Column(length = 15)
+        private String phoneNumber;
 
-    private String firstName;
-    private String lastName;
-    private String email;
+        public String getFullName() {
+                return this.firstName + " " + this.lastName;
+        }
 }

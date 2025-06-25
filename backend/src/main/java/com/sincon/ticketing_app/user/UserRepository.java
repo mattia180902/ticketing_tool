@@ -1,22 +1,21 @@
 package com.sincon.ticketing_app.user;
 
-import java.util.List;
-import java.util.Optional;
-
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
-public interface UserRepository extends JpaRepository<User, String>{
+import com.sincon.ticketing_app.enums.UserRole;
 
-    @Query(name = UserConstants.FIND_USER_BY_EMAIL)
-    Optional<User> findByEmail(@Param("email") String userEmail);
+import java.util.*;
 
-    @Query(name = UserConstants.FIND_USER_BY_PUBLIC_ID)
-    Optional<User> findByPublicId(String publicId);
+public interface UserRepository extends JpaRepository<User, String> {
 
+    @Query("SELECT u FROM User u WHERE u.id <> :excludedId")
+    List<User> findAllUsersExceptSelf(@Param("excludedId") String excludedId);
 
-    @Query(name = UserConstants.FIND_ALL_USERS_EXCEPT_SELF)
-    List<User> findAllUsersExceptSelf(@Param("publicId") String senderId);
+    List<User> findByRole(UserRole role);
 
+    Optional<User> findByEmail(String email);
+
+    @Query("SELECT u FROM User u WHERE u.role IN :roles")
+    List<User> findByRoleIn(@Param("roles") List<UserRole> roles);
 }

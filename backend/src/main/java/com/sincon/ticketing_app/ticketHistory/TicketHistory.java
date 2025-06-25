@@ -1,38 +1,55 @@
 package com.sincon.ticketing_app.ticketHistory;
 
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDateTime;
+
 import com.sincon.ticketing_app.common.Auditable;
 import com.sincon.ticketing_app.enums.TicketStatus;
 import com.sincon.ticketing_app.ticket.Ticket;
 import com.sincon.ticketing_app.user.User;
 
-import jakarta.persistence.*;
-import lombok.*;
-
 @Entity
 @Getter
 @Setter
-@Builder
-@NoArgsConstructor
 @AllArgsConstructor
-public class TicketHistory extends Auditable {
+@NoArgsConstructor
+@Builder
+public class TicketHistory extends Auditable{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "ticket_id")
+    // Ticket di riferimento
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ticket_id", nullable = false)
     private Ticket ticket;
 
-    @ManyToOne
-    @JoinColumn(name = "changed_by_user_id")
-    private User changedBy;
-
+    // Stato precedente
     @Enumerated(EnumType.STRING)
-    private TicketStatus oldStatus;
+    @Column(nullable = false)
+    private TicketStatus previousStatus;
 
+    // Nuovo stato
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private TicketStatus newStatus;
 
-    private String comment;
+    // Utente che ha eseguito il cambio
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "changed_by", nullable = false)
+    private User changedBy;
+
+    @ManyToOne
+    private User fromAssignee;
+
+    @ManyToOne
+    private User toAssignee;
+
+    private LocalDateTime changedAt;
+
+    // Eventuale commento opzionale
+    @Column(length = 500)
+    private String note;
 }

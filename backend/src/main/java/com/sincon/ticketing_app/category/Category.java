@@ -1,13 +1,14 @@
 package com.sincon.ticketing_app.category;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.sincon.ticketing_app.ticket.Ticket;
-
-import jakarta.persistence.*;
-import lombok.*;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import com.sincon.ticketing_app.common.Auditable;
+import com.sincon.ticketing_app.supportservice.SupportService;
+
+import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
 @Table(name = "categories")
@@ -16,32 +17,22 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Category {
+public class Category extends Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
-    @Column(nullable = false, unique = true, length = 100)
+
+    @Column(nullable = false, length = 100, unique = true)
     private String name;
-    
+
     @Column(length = 500)
     private String description;
 
-    // Relazione bidirezionale con Ticket
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore // evita ricorsione infinita se restituito via API
-    private List<Ticket> tickets = new ArrayList<>();
+    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
+    private final List<SupportService> services = new ArrayList<>();
 
-    // Metodo di utilità per aggiungere un ticket alla categoria
-    public void addTicket(Ticket ticket) {
-        tickets.add(ticket);
-        ticket.setCategory(this);
-    }
-
-    // Metodo di utilità per rimuovere un ticket dalla categoria
-    public void removeTicket(Ticket ticket) {
-        tickets.remove(ticket);
-        ticket.setCategory(null);
-    }
+    //per tenere traccia di quanti ticket sono in una categoria
+    @Transient
+    private Long ticketCount;
 }
