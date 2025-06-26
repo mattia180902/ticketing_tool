@@ -10,6 +10,12 @@
       "description": "Generated server url"
     }
   ],
+  "tags": [
+    {
+      "name": "Ticket Management",
+      "description": "API per la gestione dei ticket"
+    }
+  ],
   "paths": {
     "/api/v1/users/contact-info": {
       "put": {
@@ -199,13 +205,16 @@
     "/api/v1/tickets": {
       "get": {
         "tags": [
-          "ticket-controller"
+          "Ticket Management"
         ],
+        "summary": "Recupera tutti i ticket (paginati e filtrati per ruolo)",
+        "description": "Recupera una lista paginata di ticket in base al ruolo dell'utente autenticato.",
         "operationId": "getTickets",
         "parameters": [
           {
             "name": "pageable",
             "in": "query",
+            "description": "Parametri di paginazione e ordinamento",
             "required": true,
             "schema": {
               "$ref": "#/components/schemas/Pageable"
@@ -214,7 +223,27 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Lista di ticket recuperata con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageTicketResponseDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageTicketResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato (ruolo non supportato).",
             "content": {
               "application/json": {
                 "schema": {
@@ -227,9 +256,24 @@
       },
       "post": {
         "tags": [
-          "ticket-controller"
+          "Ticket Management"
         ],
-        "operationId": "createTicket",
+        "summary": "Crea un nuovo ticket o aggiorna una bozza esistente",
+        "description": "Permette a USER, HELPER, PM e ADMIN di creare un nuovo ticket o di salvare/finalizzare una bozza.",
+        "operationId": "createOrUpdateTicket",
+        "parameters": [
+          {
+            "name": "ticketId",
+            "in": "query",
+            "description": "ID del ticket da aggiornare (solo per le bozze)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -241,8 +285,48 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Ticket creato/aggiornato con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dati di input non validi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Risorsa non trovata (es. categoria, servizio).",
             "content": {
               "application/json": {
                 "schema": {
@@ -356,25 +440,30 @@
         }
       }
     },
-    "/api/v1/tickets/{id}/status": {
+    "/api/v1/tickets/{ticketId}/status": {
       "patch": {
         "tags": [
-          "ticket-controller"
+          "Ticket Management"
         ],
-        "operationId": "updateStatus",
+        "summary": "Aggiorna lo stato di un ticket",
+        "description": "Permette a HELPER, PM e ADMIN di cambiare lo stato di un ticket. Le bozze non possono essere modificate qui.",
+        "operationId": "updateTicketStatus",
         "parameters": [
           {
-            "name": "id",
+            "name": "ticketId",
             "in": "path",
+            "description": "ID del ticket da aggiornare",
             "required": true,
             "schema": {
               "type": "integer",
               "format": "int64"
-            }
+            },
+            "example": 1
           },
           {
-            "name": "status",
+            "name": "newStatus",
             "in": "query",
+            "description": "Nuovo stato del ticket",
             "required": true,
             "schema": {
               "type": "string",
@@ -384,12 +473,53 @@
                 "SOLVED",
                 "DRAFT"
               ]
-            }
+            },
+            "example": "SOLVED"
           }
         ],
         "responses": {
+          "404": {
+            "description": "Ticket non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
           "200": {
-            "description": "OK",
+            "description": "Stato del ticket aggiornato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Stato non valido o tentativo di modificare una bozza.",
             "content": {
               "application/json": {
                 "schema": {
@@ -401,34 +531,325 @@
         }
       }
     },
-    "/api/v1/tickets/{id}/assign": {
+    "/api/v1/tickets/{ticketId}/reject": {
       "patch": {
         "tags": [
-          "ticket-controller"
+          "Ticket Management"
         ],
-        "operationId": "assignTicket",
+        "summary": "Rifiuta e riassegna un ticket",
+        "description": "Un helper/PM/admin rifiuta un ticket e lo riassegna a un altro helper/admin. Il ticket deve essere in stato OPEN.",
+        "operationId": "rejectTicket",
         "parameters": [
           {
-            "name": "id",
+            "name": "ticketId",
             "in": "path",
+            "description": "ID del ticket da rifiutare",
             "required": true,
             "schema": {
               "type": "integer",
               "format": "int64"
-            }
+            },
+            "example": 1
           },
           {
-            "name": "helperId",
+            "name": "newAssignedToId",
             "in": "query",
+            "description": "ID del nuovo utente (helper/admin) a cui assegnare il ticket",
             "required": true,
             "schema": {
               "type": "string"
+            },
+            "example": "uuid-helper-2"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Stato del ticket o nuovo assegnatario non validi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
             }
+          },
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato (non sei l'assegnatario).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ticket o nuovo assegnatario non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Ticket rifiutato e riassegnato con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/{ticketId}/escalate": {
+      "patch": {
+        "tags": [
+          "Ticket Management"
+        ],
+        "summary": "Escala un ticket",
+        "description": "Un helper/PM/admin scala un ticket (portandolo da ANSWERED a OPEN) e lo riassegna a un altro helper/admin.",
+        "operationId": "escalateTicket",
+        "parameters": [
+          {
+            "name": "ticketId",
+            "in": "path",
+            "description": "ID del ticket da escalare",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "newAssignedToId",
+            "in": "query",
+            "description": "ID del nuovo utente (helper/admin) a cui assegnare il ticket",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "uuid-admin-1"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Ticket escalato con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Stato del ticket o nuovo assegnatario non validi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato (non sei l'assegnatario).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ticket o nuovo assegnatario non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/{ticketId}/assign": {
+      "patch": {
+        "tags": [
+          "Ticket Management"
+        ],
+        "summary": "Assegna un ticket a un helper/admin",
+        "description": "Permette a PM e ADMIN di assegnare manualmente un ticket a un utente specifico (solo helper/admin).",
+        "operationId": "assignTicket",
+        "parameters": [
+          {
+            "name": "ticketId",
+            "in": "path",
+            "description": "ID del ticket da assegnare",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "helperId",
+            "in": "query",
+            "description": "ID dell'helper/admin a cui assegnare il ticket",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "uuid-helper-3"
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Ticket o helper non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ID helper non valido o tentativo di assegnare una bozza.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Ticket assegnato con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/{ticketId}/accept": {
+      "patch": {
+        "tags": [
+          "Ticket Management"
+        ],
+        "summary": "Accetta un ticket",
+        "description": "Un helper/PM/admin accetta un ticket assegnatogli, portandolo da OPEN ad ANSWERED.",
+        "operationId": "acceptTicket",
+        "parameters": [
+          {
+            "name": "ticketId",
+            "in": "path",
+            "description": "ID del ticket da accettare",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Ticket non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Stato del ticket non valido per l'accettazione.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Ticket accettato con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato (non sei l'assegnatario).",
             "content": {
               "application/json": {
                 "schema": {
@@ -552,26 +973,60 @@
         }
       }
     },
-    "/api/v1/tickets/{id}": {
+    "/api/v1/tickets/{ticketId}": {
       "get": {
         "tags": [
-          "ticket-controller"
+          "Ticket Management"
         ],
+        "summary": "Recupera i dettagli di un ticket specifico",
+        "description": "Recupera i dettagli completi di un ticket tramite il suo ID.",
         "operationId": "getTicketDetails",
         "parameters": [
           {
-            "name": "id",
+            "name": "ticketId",
             "in": "path",
+            "description": "ID del ticket",
             "required": true,
             "schema": {
               "type": "integer",
               "format": "int64"
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
+          "404": {
+            "description": "Ticket non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato (non sei owner, assegnatario o admin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponseDTO"
+                }
+              }
+            }
+          },
           "200": {
-            "description": "OK",
+            "description": "Dettagli del ticket recuperati con successo.",
             "content": {
               "application/json": {
                 "schema": {
@@ -584,36 +1039,77 @@
       },
       "delete": {
         "tags": [
-          "ticket-controller"
+          "Ticket Management"
         ],
+        "summary": "Elimina un ticket",
+        "description": "Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket.",
         "operationId": "deleteTicket",
         "parameters": [
           {
-            "name": "id",
+            "name": "ticketId",
             "in": "path",
+            "description": "ID del ticket da eliminare",
             "required": true,
             "schema": {
               "type": "integer",
               "format": "int64"
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK"
+          "404": {
+            "description": "Ticket non trovato."
+          },
+          "401": {
+            "description": "Non autenticato."
+          },
+          "403": {
+            "description": "Non autorizzato."
+          },
+          "204": {
+            "description": "Ticket eliminato con successo."
           }
         }
       }
     },
-    "/api/v1/tickets/my": {
+    "/api/v1/tickets/my-tickets": {
       "get": {
         "tags": [
-          "ticket-controller"
+          "Ticket Management"
         ],
+        "summary": "Recupera tutti i ticket di proprietà dell'utente corrente",
+        "description": "Recupera tutti i ticket creati dall'utente autenticato, escluse le bozze.",
         "operationId": "getMyTickets",
         "responses": {
+          "404": {
+            "description": "Utente non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          },
           "200": {
-            "description": "OK",
+            "description": "Ticket recuperati con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
             "content": {
               "application/json": {
                 "schema": {
@@ -628,16 +1124,19 @@
         }
       }
     },
-    "/api/v1/tickets/my/status": {
+    "/api/v1/tickets/my-tickets/status/{status}": {
       "get": {
         "tags": [
-          "ticket-controller"
+          "Ticket Management"
         ],
+        "summary": "Recupera i ticket di proprietà dell'utente per stato",
+        "description": "Recupera i ticket creati dall'utente autenticato, filtrati per uno stato specifico.",
         "operationId": "getMyTicketsByStatus",
         "parameters": [
           {
             "name": "status",
-            "in": "query",
+            "in": "path",
+            "description": "Stato del ticket",
             "required": true,
             "schema": {
               "type": "string",
@@ -647,12 +1146,39 @@
                 "SOLVED",
                 "DRAFT"
               ]
-            }
+            },
+            "example": "OPEN"
           }
         ],
         "responses": {
+          "404": {
+            "description": "Utente non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          },
           "200": {
-            "description": "OK",
+            "description": "Ticket recuperati con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
             "content": {
               "application/json": {
                 "schema": {
@@ -667,15 +1193,17 @@
         }
       }
     },
-    "/api/v1/tickets/my/drafts": {
+    "/api/v1/tickets/my-drafts": {
       "get": {
         "tags": [
-          "ticket-controller"
+          "Ticket Management"
         ],
-        "operationId": "getDrafts",
+        "summary": "Recupera tutte le bozze dell'utente corrente",
+        "description": "Recupera tutti i ticket in stato DRAFT creati dall'utente autenticato.",
+        "operationId": "getMyDrafts",
         "responses": {
-          "200": {
-            "description": "OK",
+          "404": {
+            "description": "Utente non trovato.",
             "content": {
               "application/json": {
                 "schema": {
@@ -686,25 +1214,28 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/api/v1/tickets/helpers/available": {
-      "get": {
-        "tags": [
-          "ticket-controller"
-        ],
-        "operationId": "getAvailableHelpers",
-        "responses": {
+          },
           "200": {
-            "description": "OK",
+            "description": "Bozze recuperate con successo.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/UserDTO"
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
                   }
                 }
               }
@@ -716,12 +1247,34 @@
     "/api/v1/tickets/dashboard/counts": {
       "get": {
         "tags": [
-          "ticket-controller"
+          "Ticket Management"
         ],
-        "operationId": "getCounts",
+        "summary": "Recupera i conteggi dei ticket per la dashboard",
+        "description": "Fornisce i conteggi aggregati dei ticket (totali, aperti, risolti, bozze) in base al ruolo dell'utente.",
+        "operationId": "getDashboardCounts",
         "responses": {
+          "404": {
+            "description": "Utente non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardCountsDTO"
+                }
+              }
+            }
+          },
           "200": {
-            "description": "OK",
+            "description": "Conteggi recuperati con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardCountsDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
             "content": {
               "application/json": {
                 "schema": {
@@ -733,15 +1286,43 @@
         }
       }
     },
-    "/api/v1/tickets/assigned": {
+    "/api/v1/tickets/assigned-to-me": {
       "get": {
         "tags": [
-          "ticket-controller"
+          "Ticket Management"
         ],
+        "summary": "Recupera i ticket assegnati all'utente corrente",
+        "description": "Recupera tutti i ticket assegnati all'utente autenticato, escluse le bozze.",
         "operationId": "getAssignedTickets",
         "responses": {
+          "404": {
+            "description": "Utente non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          },
           "200": {
-            "description": "OK",
+            "description": "Ticket assegnati recuperati con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
             "content": {
               "application/json": {
                 "schema": {
@@ -756,16 +1337,19 @@
         }
       }
     },
-    "/api/v1/tickets/assigned/status": {
+    "/api/v1/tickets/assigned-to-me/status/{status}": {
       "get": {
         "tags": [
-          "ticket-controller"
+          "Ticket Management"
         ],
+        "summary": "Recupera i ticket assegnati all'utente per stato",
+        "description": "Recupera i ticket assegnati all'utente autenticato, filtrati per uno stato specifico.",
         "operationId": "getAssignedTicketsByStatus",
         "parameters": [
           {
             "name": "status",
-            "in": "query",
+            "in": "path",
+            "description": "Stato del ticket",
             "required": true,
             "schema": {
               "type": "string",
@@ -775,12 +1359,39 @@
                 "SOLVED",
                 "DRAFT"
               ]
-            }
+            },
+            "example": "ANSWERED"
           }
         ],
         "responses": {
+          "404": {
+            "description": "Utente non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          },
           "200": {
-            "description": "OK",
+            "description": "Ticket assegnati recuperati con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponseDTO"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
             "content": {
               "application/json": {
                 "schema": {
@@ -909,6 +1520,9 @@
           },
           "phoneNumber": {
             "type": "string"
+          },
+          "fullName": {
+            "type": "string"
           }
         }
       },
@@ -1008,12 +1622,6 @@
       },
       "TicketRequestDTO": {
         "required": [
-          "categoryId",
-          "description",
-          "fiscalCode",
-          "phoneNumber",
-          "priority",
-          "supportServiceId",
           "title"
         ],
         "type": "object",
@@ -1194,20 +1802,20 @@
       "PageTicketResponseDTO": {
         "type": "object",
         "properties": {
-          "totalPages": {
-            "type": "integer",
-            "format": "int32"
-          },
           "totalElements": {
             "type": "integer",
             "format": "int64"
           },
-          "numberOfElements": {
+          "totalPages": {
             "type": "integer",
             "format": "int32"
           },
           "pageable": {
             "$ref": "#/components/schemas/PageableObject"
+          },
+          "numberOfElements": {
+            "type": "integer",
+            "format": "int32"
           },
           "first": {
             "type": "boolean"

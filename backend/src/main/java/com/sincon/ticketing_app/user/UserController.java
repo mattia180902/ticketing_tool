@@ -37,8 +37,8 @@ public class UserController {
 
     @GetMapping("/helpers-and-admins")
     @PreAuthorize("hasAnyRole('ADMIN','HELPER_JUNIOR','HELPER_SENIOR','PM')")
-    public ResponseEntity<List<UserDTO>> getHelpersAndAdmins(Authentication authentication) {
-        return ResponseEntity.ok(service.getHelpersAndAdmins(authentication));
+    public ResponseEntity<List<UserDTO>> getHelpersAndAdmins() {
+        return ResponseEntity.ok(service.getHelpersAndAdmins());
     }
 
     @GetMapping("/me")

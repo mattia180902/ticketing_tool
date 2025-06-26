@@ -28,4 +28,4 @@ export function getCounts(http: HttpClient, rootUrl: string, params?: GetCounts$
   );
 }
 
-getCounts.PATH = '/api/v1/tickets/dashboard/counts';
+getCounts.PATH = '/api/v1/tickets/counts';

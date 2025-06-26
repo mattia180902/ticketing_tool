@@ -11,15 +11,15 @@ import { RequestBuilder } from '../../request-builder';
 import { TicketResponseDto } from '../../models/ticket-response-dto';
 
 export interface UpdateStatus$Params {
-  id: number;
-  status: 'OPEN' | 'ANSWERED' | 'SOLVED' | 'DRAFT';
+  ticketId: number;
+  newStatus: 'OPEN' | 'ANSWERED' | 'SOLVED' | 'DRAFT';
 }
 
 export function updateStatus(http: HttpClient, rootUrl: string, params: UpdateStatus$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
   const rb = new RequestBuilder(rootUrl, updateStatus.PATH, 'patch');
   if (params) {
-    rb.path('id', params.id, {});
-    rb.query('status', params.status, {});
+    rb.path('ticketId', params.ticketId, {});
+    rb.path('newStatus', params.newStatus, {});
   }
 
   return http.request(
@@ -32,4 +32,4 @@ export function updateStatus(http: HttpClient, rootUrl: string, params: UpdateSt
   );
 }
 
-updateStatus.PATH = '/api/v1/tickets/{id}/status';
+updateStatus.PATH = '/api/v1/tickets/{ticketId}/status/{newStatus}';

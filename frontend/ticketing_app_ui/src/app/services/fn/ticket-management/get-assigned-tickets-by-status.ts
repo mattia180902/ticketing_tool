@@ -10,12 +10,16 @@ import { RequestBuilder } from '../../request-builder';
 
 import { TicketResponseDto } from '../../models/ticket-response-dto';
 
-export interface GetMyTicketsByStatus$Params {
+export interface GetAssignedTicketsByStatus$Params {
+
+/**
+ * Stato del ticket
+ */
   status: 'OPEN' | 'ANSWERED' | 'SOLVED' | 'DRAFT';
 }
 
-export function getMyTicketsByStatus(http: HttpClient, rootUrl: string, params: GetMyTicketsByStatus$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<TicketResponseDto>>> {
-  const rb = new RequestBuilder(rootUrl, getMyTicketsByStatus.PATH, 'get');
+export function getAssignedTicketsByStatus(http: HttpClient, rootUrl: string, params: GetAssignedTicketsByStatus$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<TicketResponseDto>>> {
+  const rb = new RequestBuilder(rootUrl, getAssignedTicketsByStatus.PATH, 'get');
   if (params) {
     rb.path('status', params.status, {});
   }
@@ -30,4 +34,4 @@ export function getMyTicketsByStatus(http: HttpClient, rootUrl: string, params: 
   );
 }
 
-getMyTicketsByStatus.PATH = '/api/v1/tickets/my-tickets/status/{status}';
+getAssignedTicketsByStatus.PATH = '/api/v1/tickets/assigned-to-me/status/{status}';

@@ -14,18 +14,24 @@ public class User{
 
         @Id
         private String id; //preso da keycloak
-    
+        
+        @Column(nullable = false)
         private String firstName;
+
+        @Column(nullable = false)
         private String lastName;
+
+        @Column(unique = true, nullable = false)
         private String email;
     
         @Enumerated(EnumType.STRING)
+        @Column(nullable = false)
         private UserRole role;
     
         @Column(length = 16)
         private String fiscalCode;
     
-        @Column(length = 15)
+        @Column
         private String phoneNumber;
 
         public String getFullName() {

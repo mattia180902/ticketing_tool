@@ -11,6 +11,10 @@ import { RequestBuilder } from '../../request-builder';
 import { TicketResponseDto } from '../../models/ticket-response-dto';
 
 export interface GetMyTicketsByStatus$Params {
+
+/**
+ * Stato del ticket
+ */
   status: 'OPEN' | 'ANSWERED' | 'SOLVED' | 'DRAFT';
 }
 

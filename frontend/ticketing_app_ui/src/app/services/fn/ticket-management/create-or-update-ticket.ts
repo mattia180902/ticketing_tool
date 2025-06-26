@@ -8,14 +8,23 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
+import { TicketRequestDto } from '../../models/ticket-request-dto';
 import { TicketResponseDto } from '../../models/ticket-response-dto';
 
-export interface GetAssignedTickets$Params {
+export interface CreateOrUpdateTicket$Params {
+
+/**
+ * ID del ticket da aggiornare (solo per le bozze)
+ */
+  ticketId?: number;
+      body: TicketRequestDto
 }
 
-export function getAssignedTickets(http: HttpClient, rootUrl: string, params?: GetAssignedTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<TicketResponseDto>>> {
-  const rb = new RequestBuilder(rootUrl, getAssignedTickets.PATH, 'get');
+export function createOrUpdateTicket(http: HttpClient, rootUrl: string, params: CreateOrUpdateTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
+  const rb = new RequestBuilder(rootUrl, createOrUpdateTicket.PATH, 'post');
   if (params) {
+    rb.query('ticketId', params.ticketId, {});
+    rb.body(params.body, 'application/json');
   }
 
   return http.request(
@@ -23,9 +32,9 @@ export function getAssignedTickets(http: HttpClient, rootUrl: string, params?: G
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<TicketResponseDto>>;
+      return r as StrictHttpResponse<TicketResponseDto>;
     })
   );
 }
 
-getAssignedTickets.PATH = '/api/v1/tickets/assigned';
+createOrUpdateTicket.PATH = '/api/v1/tickets';

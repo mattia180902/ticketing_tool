@@ -8,17 +8,14 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { Pageable } from '../../models/pageable';
-import { PageResponseTicketResponseDto } from '../../models/page-response-ticket-response-dto';
+import { DashboardCountsDto } from '../../models/dashboard-counts-dto';
 
-export interface GetTickets$Params {
-  pageable: Pageable;
+export interface GetDashboardCounts$Params {
 }
 
-export function getTickets(http: HttpClient, rootUrl: string, params: GetTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<PageResponseTicketResponseDto>> {
-  const rb = new RequestBuilder(rootUrl, getTickets.PATH, 'get');
+export function getDashboardCounts(http: HttpClient, rootUrl: string, params?: GetDashboardCounts$Params, context?: HttpContext): Observable<StrictHttpResponse<DashboardCountsDto>> {
+  const rb = new RequestBuilder(rootUrl, getDashboardCounts.PATH, 'get');
   if (params) {
-    rb.query('pageable', params.pageable, {});
   }
 
   return http.request(
@@ -26,9 +23,9 @@ export function getTickets(http: HttpClient, rootUrl: string, params: GetTickets
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<PageResponseTicketResponseDto>;
+      return r as StrictHttpResponse<DashboardCountsDto>;
     })
   );
 }
 
-getTickets.PATH = '/api/v1/tickets';
+getDashboardCounts.PATH = '/api/v1/tickets/dashboard/counts';

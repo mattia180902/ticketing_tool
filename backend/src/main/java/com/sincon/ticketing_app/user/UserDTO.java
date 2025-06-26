@@ -17,4 +17,5 @@ public class UserDTO {
     private UserRole role;
     private String fiscalCode;
     private String phoneNumber;
+    private String fullName;
 }

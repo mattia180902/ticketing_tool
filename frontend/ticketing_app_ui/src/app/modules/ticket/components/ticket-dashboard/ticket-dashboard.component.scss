@@ -1,40 +1,191 @@
+/* src/app/modules/ticket/components/ticket-dashboard/ticket-dashboard.component.scss */
+
+:host {
+  display: block;
+  padding: 1.5rem;
+  background-color: var(--surface-ground); /* Sfondo leggero */
+  min-height: calc(100vh - 60px); /* Altezza minima, adattati alla tua header/footer */
+}
+
 .dashboard-grid {
-  .clickable-card {
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-align: center;
+  max-width: 1200px;
+  margin: 0 auto; /* Centra la dashboard */
+}
 
-    &:hover {
-      transform: scale(1.03);
-      box-shadow: 0 0 12px rgba(0, 0, 0, 0.2);
+.card-summary-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem; /* Spazio tra le card */
+  justify-content: center; /* Centra le card orizzontalmente */
+
+  > div {
+    flex: 1 1 calc(25% - 1.5rem); /* 4 card per riga su desktop */
+    max-width: calc(25% - 1.5rem);
+
+    @media screen and (max-width: 992px) { /* Tablet */
+      flex: 1 1 calc(50% - 1.5rem); /* 2 card per riga */
+      max-width: calc(50% - 1.5rem);
     }
 
-    &.info ::ng-deep .p-card-header {
-      border-top: 5px solid #2196f3 !important;
+    @media screen and (max-width: 576px) { /* Mobile */
+      flex: 1 1 calc(100% - 1.5rem); /* 1 card per riga */
+      max-width: calc(100% - 1.5rem);
     }
-
-    &.success ::ng-deep .p-card-header {
-      border-top: 5px solid #4caf50 !important;
-    }
-
-    &.contrast ::ng-deep .p-card-header {
-      border-top: 5px solid #607d8b !important;
-    }
-
-    &.primary ::ng-deep .p-card-header {
-      border-top: 5px solid #3f51b5 !important;
-    }
-  }
-
-  .text-center {
-    text-align: center;
-  }
-
-  .mt-4 {
-    margin-top: 2rem;
-  }
-
-  .mt-3 {
-    margin-top: 1.5rem;
   }
 }
+
+.p-card {
+  border-radius: 12px; /* Angoli arrotondati più accentuati */
+  overflow: hidden; /* Per contenere bene i bordi arrotondati */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); /* Ombra più pronunciata */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  height: 100%; /* Assicura che le card nella griglia abbiano la stessa altezza */
+
+  .p-card-header {
+    font-size: 1.25rem;
+    font-weight: 700; /* Header più spesso */
+    color: var(--surface-0); /* Colore testo chiaro */
+    background-color: var(--surface-900); /* Sfondo scuro di default per l'header */
+    padding: 1rem 1.5rem;
+  }
+  .p-card-body { /* Per lo stile del corpo della card */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    gap: 0.75rem; /* Spazio tra icona e valore */
+  }
+}
+
+.clickable-card {
+  cursor: pointer;
+  &:hover {
+    transform: translateY(-5px); /* Leggero sollevamento all'hover */
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15); /* Ombra più grande all'hover */
+    /* Per un sottile cambio di colore all'hover, possiamo usare filter */
+    filter: brightness(1.05); /* Rende la card leggermente più luminosa */
+  }
+}
+
+/* Stili specifici per le card in base alla gravità/tipo */
+
+/* Card per "Total Tickets" - Primary/Default */
+.card-primary {
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-700) 100%);
+  color: var(--primary-50-text); /* Testo chiaro */
+
+  .p-card-header {
+    background-color: var(--primary-800);
+    color: var(--primary-50-text);
+  }
+  .card-icon {
+    color: var(--primary-100);
+  }
+}
+
+/* Card per "Open" - Info */
+.card-info {
+  background: linear-gradient(135deg, var(--blue-500) 0%, var(--blue-700) 100%);
+  color: var(--blue-50-text);
+
+  .p-card-header {
+    background-color: var(--blue-800);
+    color: var(--blue-50-text);
+  }
+  .card-icon {
+    color: var(--blue-100);
+  }
+}
+
+/* Card per "Answered" - Warning */
+.card-warning {
+  background: linear-gradient(135deg, var(--orange-500) 0%, var(--orange-700) 100%);
+  color: var(--orange-50-text);
+
+  .p-card-header {
+    background-color: var(--orange-800);
+    color: var(--orange-50-text);
+  }
+  .card-icon {
+    color: var(--orange-100);
+  }
+}
+
+/* Card per "Solved" - Success */
+.card-success {
+  background: linear-gradient(135deg, var(--green-500) 0%, var(--green-700) 100%);
+  color: var(--green-50-text);
+
+  .p-card-header {
+    background-color: var(--green-800);
+    color: var(--green-50-text);
+  }
+  .card-icon {
+    color: var(--green-100);
+  }
+}
+
+/* Card per "Draft" - Contrast */
+.card-contrast {
+  background: linear-gradient(135deg, var(--surface-700) 0%, var(--surface-900) 100%);
+  color: var(--surface-0);
+
+  .p-card-header {
+    background-color: var(--surface-900);
+    color: var(--surface-0);
+  }
+  .card-icon {
+    color: var(--surface-300);
+  }
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.card-icon {
+  font-size: 3rem; /* Dimensione icona */
+  margin-bottom: 0.5rem;
+}
+
+.card-value {
+  font-size: 2.5rem; /* Dimensione numero conteggio */
+  font-weight: 700;
+  margin: 0;
+}
+
+.recent-tickets-card {
+  .p-card-header {
+    background-color: var(--surface-100);
+    color: var(--text-color);
+  }
+}
+
+/* Stili per la tabella */
+.p-datatable {
+  .p-datatable-thead > tr > th {
+    background-color: var(--surface-200); /* Sfondo header tabella */
+    color: var(--text-color-secondary);
+    font-weight: 600;
+  }
+  .p-datatable-tbody > tr > td {
+    border-top: 1px solid var(--surface-border);
+  }
+}
+
+.ticket-status-badge {
+  font-weight: 600;
+  padding: 0.4em 0.6em;
+  border-radius: 4px;
+}
+
+// Global PrimeNG overrides (if absolutely necessary and careful)
+// This is generally discouraged, but can be used for quick overrides
+// :host ::ng-deep .p-card .p-card-content {
+//   padding: 0; /* Example of using ::ng-deep */
+// }

@@ -11,15 +11,15 @@ import { RequestBuilder } from '../../request-builder';
 import { TicketResponseDto } from '../../models/ticket-response-dto';
 
 export interface AssignTicket$Params {
-  id: number;
+  ticketId: number;
   helperId: string;
 }
 
 export function assignTicket(http: HttpClient, rootUrl: string, params: AssignTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
   const rb = new RequestBuilder(rootUrl, assignTicket.PATH, 'patch');
   if (params) {
-    rb.path('id', params.id, {});
-    rb.query('helperId', params.helperId, {});
+    rb.path('ticketId', params.ticketId, {});
+    rb.path('helperId', params.helperId, {});
   }
 
   return http.request(
@@ -32,4 +32,4 @@ export function assignTicket(http: HttpClient, rootUrl: string, params: AssignTi
   );
 }
 
-assignTicket.PATH = '/api/v1/tickets/{id}/assign';
+assignTicket.PATH = '/api/v1/tickets/{ticketId}/assign/{helperId}';

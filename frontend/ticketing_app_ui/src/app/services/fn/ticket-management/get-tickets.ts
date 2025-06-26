@@ -8,14 +8,21 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { TicketResponseDto } from '../../models/ticket-response-dto';
+import { Pageable } from '../../models/pageable';
+import { PageTicketResponseDto } from '../../models/page-ticket-response-dto';
 
-export interface GetDrafts$Params {
+export interface GetTickets$Params {
+
+/**
+ * Parametri di paginazione e ordinamento
+ */
+  pageable: Pageable;
 }
 
-export function getDrafts(http: HttpClient, rootUrl: string, params?: GetDrafts$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<TicketResponseDto>>> {
-  const rb = new RequestBuilder(rootUrl, getDrafts.PATH, 'get');
+export function getTickets(http: HttpClient, rootUrl: string, params: GetTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<PageTicketResponseDto>> {
+  const rb = new RequestBuilder(rootUrl, getTickets.PATH, 'get');
   if (params) {
+    rb.query('pageable', params.pageable, {});
   }
 
   return http.request(
@@ -23,9 +30,9 @@ export function getDrafts(http: HttpClient, rootUrl: string, params?: GetDrafts$
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<TicketResponseDto>>;
+      return r as StrictHttpResponse<PageTicketResponseDto>;
     })
   );
 }
 
-getDrafts.PATH = '/api/v1/tickets/my/drafts';
+getTickets.PATH = '/api/v1/tickets';

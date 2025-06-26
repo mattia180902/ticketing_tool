@@ -9,7 +9,7 @@ import { ApiConfiguration, ApiConfigurationParams } from './api-configuration';
 import { UserService } from './services/user.service';
 import { SupportServicesService } from './services/support-services.service';
 import { CategoryService } from './services/category.service';
-import { TicketControllerService } from './services/ticket-controller.service';
+import { TicketManagementService } from './services/ticket-management.service';
 import { TicketHistoryService } from './services/ticket-history.service';
 
 /**
@@ -23,7 +23,7 @@ import { TicketHistoryService } from './services/ticket-history.service';
     UserService,
     SupportServicesService,
     CategoryService,
-    TicketControllerService,
+    TicketManagementService,
     TicketHistoryService,
     ApiConfiguration
   ],

@@ -5,5 +5,5 @@
 export { UserService } from './services/user.service';
 export { SupportServicesService } from './services/support-services.service';
 export { CategoryService } from './services/category.service';
-export { TicketControllerService } from './services/ticket-controller.service';
+export { TicketManagementService } from './services/ticket-management.service';
 export { TicketHistoryService } from './services/ticket-history.service';

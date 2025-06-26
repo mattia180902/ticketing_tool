@@ -26,6 +26,7 @@ public class Ticket extends Auditable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String title;
 
     @Column(length = 1000)
@@ -57,7 +58,7 @@ public class Ticket extends Auditable {
 
     // Utente che ha creato il ticket
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User owner;
 
     // Helper a cui è assegnato il ticket (può essere null finché non assegnato)

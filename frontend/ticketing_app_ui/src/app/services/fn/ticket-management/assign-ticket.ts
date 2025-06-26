@@ -10,14 +10,24 @@ import { RequestBuilder } from '../../request-builder';
 
 import { TicketResponseDto } from '../../models/ticket-response-dto';
 
-export interface GetMyTicketsByStatus$Params {
-  status: 'OPEN' | 'ANSWERED' | 'SOLVED' | 'DRAFT';
+export interface AssignTicket$Params {
+
+/**
+ * ID del ticket da assegnare
+ */
+  ticketId: number;
+
+/**
+ * ID dell'helper/admin a cui assegnare il ticket
+ */
+  helperId: string;
 }
 
-export function getMyTicketsByStatus(http: HttpClient, rootUrl: string, params: GetMyTicketsByStatus$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<TicketResponseDto>>> {
-  const rb = new RequestBuilder(rootUrl, getMyTicketsByStatus.PATH, 'get');
+export function assignTicket(http: HttpClient, rootUrl: string, params: AssignTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
+  const rb = new RequestBuilder(rootUrl, assignTicket.PATH, 'patch');
   if (params) {
-    rb.path('status', params.status, {});
+    rb.path('ticketId', params.ticketId, {});
+    rb.query('helperId', params.helperId, {});
   }
 
   return http.request(
@@ -25,9 +35,9 @@ export function getMyTicketsByStatus(http: HttpClient, rootUrl: string, params: 
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<TicketResponseDto>>;
+      return r as StrictHttpResponse<TicketResponseDto>;
     })
   );
 }
 
-getMyTicketsByStatus.PATH = '/api/v1/tickets/my-tickets/status/{status}';
+assignTicket.PATH = '/api/v1/tickets/{ticketId}/assign';

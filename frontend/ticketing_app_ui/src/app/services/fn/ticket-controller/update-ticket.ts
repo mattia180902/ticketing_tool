@@ -8,16 +8,19 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
+import { TicketRequestDto } from '../../models/ticket-request-dto';
 import { TicketResponseDto } from '../../models/ticket-response-dto';
 
-export interface GetMyTicketsByStatus$Params {
-  status: 'OPEN' | 'ANSWERED' | 'SOLVED' | 'DRAFT';
+export interface UpdateTicket$Params {
+  ticketId: number;
+      body: TicketRequestDto
 }
 
-export function getMyTicketsByStatus(http: HttpClient, rootUrl: string, params: GetMyTicketsByStatus$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<TicketResponseDto>>> {
-  const rb = new RequestBuilder(rootUrl, getMyTicketsByStatus.PATH, 'get');
+export function updateTicket(http: HttpClient, rootUrl: string, params: UpdateTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
+  const rb = new RequestBuilder(rootUrl, updateTicket.PATH, 'put');
   if (params) {
-    rb.path('status', params.status, {});
+    rb.path('ticketId', params.ticketId, {});
+    rb.body(params.body, 'application/json');
   }
 
   return http.request(
@@ -25,9 +28,9 @@ export function getMyTicketsByStatus(http: HttpClient, rootUrl: string, params: 
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<TicketResponseDto>>;
+      return r as StrictHttpResponse<TicketResponseDto>;
     })
   );
 }
 
-getMyTicketsByStatus.PATH = '/api/v1/tickets/my-tickets/status/{status}';
+updateTicket.PATH = '/api/v1/tickets/{ticketId}';

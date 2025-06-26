@@ -8,17 +8,20 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { Pageable } from '../../models/pageable';
-import { PageResponseTicketResponseDto } from '../../models/page-response-ticket-response-dto';
+import { TicketResponseDto } from '../../models/ticket-response-dto';
 
-export interface GetTickets$Params {
-  pageable: Pageable;
+export interface GetTicketDetails$Params {
+
+/**
+ * ID del ticket
+ */
+  ticketId: number;
 }
 
-export function getTickets(http: HttpClient, rootUrl: string, params: GetTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<PageResponseTicketResponseDto>> {
-  const rb = new RequestBuilder(rootUrl, getTickets.PATH, 'get');
+export function getTicketDetails(http: HttpClient, rootUrl: string, params: GetTicketDetails$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
+  const rb = new RequestBuilder(rootUrl, getTicketDetails.PATH, 'get');
   if (params) {
-    rb.query('pageable', params.pageable, {});
+    rb.path('ticketId', params.ticketId, {});
   }
 
   return http.request(
@@ -26,9 +29,9 @@ export function getTickets(http: HttpClient, rootUrl: string, params: GetTickets
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<PageResponseTicketResponseDto>;
+      return r as StrictHttpResponse<TicketResponseDto>;
     })
   );
 }
 
-getTickets.PATH = '/api/v1/tickets';
+getTicketDetails.PATH = '/api/v1/tickets/{ticketId}';

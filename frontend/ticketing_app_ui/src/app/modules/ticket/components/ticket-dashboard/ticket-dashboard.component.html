@@ -1,68 +1,87 @@
-<div class="dashboard-grid">
-  <!-- Riepilogo count per stato -->
-  <div class="grid">
-    <div class="col-12 md:col-3">
-      <p-card header="Total Tickets" styleClass="clickable-card primary">
-        <div class="text-center">
-          <h2>{{ counts?.totalTickets }}</h2>
+<!-- src/app/modules/ticket/components/ticket-dashboard/ticket-dashboard.component.html -->
+
+<div class="dashboard-grid p-fluid">
+  <!-- Sezione delle card di riepilogo dei conteggi -->
+  <div class="grid p-nogutter card-summary-grid">
+    <!-- Card "Total Tickets" -->
+    <div class="col-12 md:col-6 lg:col-3">
+      <p-card header="Ticket Totali" styleClass="clickable-card card-primary">
+        <div class="card-content">
+          <i class="pi pi-ticket card-icon"></i>
+          <h2 class="card-value">{{ counts?.totalTickets || 0 }}</h2>
         </div>
       </p-card>
     </div>
-    <div class="col-12 md:col-3" *ngIf="counts">
+
+    <!-- Card "Open Tickets" -->
+    <div class="col-12 md:col-6 lg:col-3">
       <p-card
-        header="Open"
-        styleClass="clickable-card info"
-        (click)="goToTickets('OPEN')"
+        header="Aperti"
+        styleClass="clickable-card card-info"
+        (click)="goToTicketsByStatus('OPEN')"
+        role="button"
       >
-        <div class="text-center">
-          <h2>{{ counts.openTickets }}</h2>
+        <div class="card-content">
+          <i class="pi pi-folder-open card-icon"></i>
+          <h2 class="card-value">{{ counts?.openTickets || 0 }}</h2>
         </div>
       </p-card>
     </div>
-    <div class="col-12 md:col-3">
+
+    <!-- Card "Answered Tickets" -->
+    <div class="col-12 md:col-6 lg:col-3">
       <p-card
-        header="Answered"
-        styleClass="clickable-card success"
-        (click)="goToTickets('ANSWERED')"
+        header="Risposti"
+        styleClass="clickable-card card-warning"
+        (click)="goToTicketsByStatus('ANSWERED')"
+        role="button"
       >
-        <div class="text-center">
-          <h2>{{ counts?.answeredTickets }}</h2>
+        <div class="card-content">
+          <i class="pi pi-comment card-icon"></i>
+          <h2 class="card-value">{{ counts?.answeredTickets || 0 }}</h2>
         </div>
       </p-card>
     </div>
-    <div class="col-12 md:col-3">
+
+    <!-- Card "Solved Tickets" -->
+    <div class="col-12 md:col-6 lg:col-3">
       <p-card
-        header="Solved"
-        styleClass="clickable-card success"
-        (click)="goToTickets('SOLVED')"
+        header="Risolti"
+        styleClass="clickable-card card-success"
+        (click)="goToTicketsByStatus('SOLVED')"
+        role="button"
       >
-        <div class="text-center">
-          <h2>{{ counts?.solvedTickets }}</h2>
+        <div class="card-content">
+          <i class="pi pi-check-circle card-icon"></i>
+          <h2 class="card-value">{{ counts?.solvedTickets || 0 }}</h2>
         </div>
       </p-card>
     </div>
-    <div class="col-12 md:col-3">
-        <p-card
-          header="Draft"
-          styleClass="clickable-card contrast"
-          role="button"
-          (click)="goToTickets('DRAFT')"
-        >
-          <div class="text-center">
-            <h2>{{ localDraftCount }}</h2>
-          </div>
-        </p-card>
-      </div>
-      
+
+    <!-- Card "Draft Tickets" (visibile se l'utente può avere bozze) -->
+    <div class="col-12 md:col-6 lg:col-3" *ngIf="hasRole('USER') || isHelperOrPm()">
+      <p-card
+        header="Bozze"
+        styleClass="clickable-card card-contrast"
+        (click)="goToTicketsByStatus('DRAFT')"
+        role="button"
+      >
+        <div class="card-content">
+          <i class="pi pi-pencil card-icon"></i>
+          <h2 class="card-value">{{ counts?.draftTickets || 0 }}</h2>
+        </div>
+      </p-card>
+    </div>
   </div>
 
-  <!-- Tabella ultimi 5 ticket -->
-  <p-card header="Ultimi ticket" class="mt-4">
+  <!-- Tabella degli ultimi 5 ticket -->
+  <p-card header="Ultimi 5 Ticket" class="mt-4 recent-tickets-card">
     <p-table
-      *ngIf="tickets.length > 0"
+      *ngIf="tickets.length > 0; else noTicketsMessage"
       [value]="tickets"
       [paginator]="false"
       [responsiveLayout]="'scroll'"
+      styleClass="p-datatable-gridlines"
     >
       <ng-template pTemplate="header">
         <tr>
@@ -70,28 +89,36 @@
           <th>Servizio</th>
           <th>Priorità</th>
           <th>Stato</th>
+          <th>Creato il</th>
         </tr>
       </ng-template>
       <ng-template pTemplate="body" let-ticket>
         <tr>
           <td>{{ ticket.title }}</td>
-          <td>{{ ticket.service.name }}</td> 
+          <td>{{ ticket.supportServiceName || 'N/A'}}</td>
           <td>{{ ticket.priority }}</td>
           <td>
             <p-badge
               [value]="ticket.status"
               [severity]="statusColor(ticket.status)"
+              styleClass="ticket-status-badge"
             ></p-badge>
           </td>
+          <td>{{ ticket.createdOn | date:'dd/MM/yyyy HH:mm' }}</td>
         </tr>
       </ng-template>
     </p-table>
 
-    <p-message
-      *ngIf="tickets.length === 0"
-      severity="info"
-      text="Nessun ticket disponibile."
-      class="mt-3"
-    ></p-message>
+    <!-- Messaggio se non ci sono ticket -->
+    <ng-template #noTicketsMessage>
+      <p-message
+        severity="info"
+        text="Nessun ticket recente disponibile."
+        class="mt-3"
+      ></p-message>
+    </ng-template>
   </p-card>
 </div>
+
+<!-- Messaggi Toast di PrimeNG -->
+<p-toast></p-toast>

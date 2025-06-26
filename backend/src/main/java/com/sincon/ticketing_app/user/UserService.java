@@ -38,19 +38,17 @@ public class UserService {
             .toList();
     }
 
-    public List<UserDTO> getHelpersAndAdmins(Authentication authentication) {
-        User currentUser = repository.findById(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("User not found with ID: " + authentication.getName()));
-
+    public List<UserDTO> getHelpersAndAdmins() {
+    
         return repository.findAll().stream()
                 .filter(u -> u.getRole() == UserRole.HELPER_JUNIOR ||
                              u.getRole() == UserRole.HELPER_SENIOR ||
                              u.getRole() == UserRole.PM ||
-                             u.getRole() == UserRole.ADMIN ||
-                             u.getId().equals(currentUser.getId())) // include admin corrente
+                             u.getRole() == UserRole.ADMIN)
                 .map(mapper::toUserDTO)
                 .toList();
     }
+    
 
     public UserDTO getMe(Authentication authentication) {
         User user = repository.findById(authentication.getName())

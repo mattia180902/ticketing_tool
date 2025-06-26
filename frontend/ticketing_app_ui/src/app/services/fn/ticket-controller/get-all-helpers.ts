@@ -8,17 +8,14 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { Pageable } from '../../models/pageable';
-import { PageResponseTicketResponseDto } from '../../models/page-response-ticket-response-dto';
+import { UserDto } from '../../models/user-dto';
 
-export interface GetTickets$Params {
-  pageable: Pageable;
+export interface GetAllHelpers$Params {
 }
 
-export function getTickets(http: HttpClient, rootUrl: string, params: GetTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<PageResponseTicketResponseDto>> {
-  const rb = new RequestBuilder(rootUrl, getTickets.PATH, 'get');
+export function getAllHelpers(http: HttpClient, rootUrl: string, params?: GetAllHelpers$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<UserDto>>> {
+  const rb = new RequestBuilder(rootUrl, getAllHelpers.PATH, 'get');
   if (params) {
-    rb.query('pageable', params.pageable, {});
   }
 
   return http.request(
@@ -26,9 +23,9 @@ export function getTickets(http: HttpClient, rootUrl: string, params: GetTickets
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<PageResponseTicketResponseDto>;
+      return r as StrictHttpResponse<Array<UserDto>>;
     })
   );
 }
 
-getTickets.PATH = '/api/v1/tickets';
+getAllHelpers.PATH = '/api/v1/tickets/helpers';

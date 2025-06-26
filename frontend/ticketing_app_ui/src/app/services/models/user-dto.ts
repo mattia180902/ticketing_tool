@@ -6,6 +6,7 @@ export interface UserDto {
   email?: string;
   firstName?: string;
   fiscalCode?: string;
+  fullName?: string;
   id?: string;
   lastName?: string;
   phoneNumber?: string;

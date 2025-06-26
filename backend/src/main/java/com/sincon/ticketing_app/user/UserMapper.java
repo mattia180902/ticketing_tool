@@ -62,6 +62,9 @@ public class UserMapper {
                 .lastName(user.getLastName())
                 .email(user.getEmail())
                 .role(user.getRole())
+                .phoneNumber(user.getPhoneNumber())
+                .fiscalCode(user.getFiscalCode())
+                .fullName(user.getFullName())
                 .build();
     }
 }

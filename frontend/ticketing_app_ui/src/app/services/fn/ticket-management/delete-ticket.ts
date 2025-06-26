@@ -8,26 +8,29 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { TicketResponseDto } from '../../models/ticket-response-dto';
 
-export interface GetTicketDetails$Params {
+export interface DeleteTicket$Params {
+
+/**
+ * ID del ticket da eliminare
+ */
   ticketId: number;
 }
 
-export function getTicketDetails(http: HttpClient, rootUrl: string, params: GetTicketDetails$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
-  const rb = new RequestBuilder(rootUrl, getTicketDetails.PATH, 'get');
+export function deleteTicket(http: HttpClient, rootUrl: string, params: DeleteTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<void>> {
+  const rb = new RequestBuilder(rootUrl, deleteTicket.PATH, 'delete');
   if (params) {
     rb.path('ticketId', params.ticketId, {});
   }
 
   return http.request(
-    rb.build({ responseType: 'json', accept: 'application/json', context })
+    rb.build({ responseType: 'text', accept: '*/*', context })
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<TicketResponseDto>;
+      return (r as HttpResponse<any>).clone({ body: undefined }) as StrictHttpResponse<void>;
     })
   );
 }
 
-getTicketDetails.PATH = '/api/v1/tickets/{ticketId}';
+deleteTicket.PATH = '/api/v1/tickets/{ticketId}';

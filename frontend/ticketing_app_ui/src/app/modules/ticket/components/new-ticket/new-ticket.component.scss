@@ -1,43 +1,91 @@
-.ticket-form-wrapper {
-    max-width: 600px;
-    margin: 0 auto;
-    padding: 2rem;
-  
-    .form-title {
-      text-align: center;
-      margin-bottom: 2rem;
-      font-size: 1.8rem;
-      font-weight: 600;
-      color: #333;
-    }
-  
-    .ticket-form {
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-  
-      input, textarea, p-dropdown {
-        width: 100%;
-      }
-  
-      .input-group {
-        display: flex;
-        gap: 1rem;
-  
-        input {
-          flex: 1;
-        }
-      }
-  
-      .actions {
-        display: flex;
-        gap: 1rem;
-        justify-content: space-between;
-  
-        button {
-          flex: 1;
-        }
-      }
+/* src/app/modules/ticket/components/new-ticket/new-ticket.component.scss */
+
+:host {
+  display: block;
+  padding: 1rem;
+}
+
+.ticket-card {
+  max-width: 900px;
+  margin: 2rem auto;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 10px; // Angoli arrotondati
+
+  // Sovrascrittura stili PrimeNG per card header
+  .p-card-header {
+    background-color: var(--primary-color); // Colore principale di PrimeNG
+    color: var(--primary-color-text); // Colore del testo per il colore principale
+    padding: 1rem 1.5rem;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+}
+
+.formgrid {
+  gap: 1rem; // Spazio tra i campi
+  .field {
+    margin-bottom: 1rem; // Spazio sotto ogni campo
+  }
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.p-inputtext,
+.p-inputtextarea,
+.p-dropdown {
+  width: 100%; // Assicura che gli input e dropdown occupino tutta la larghezza
+  border-radius: var(--border-radius); // Angoli arrotondati per gli input
+  box-shadow: none; // Rimuove eventuali ombre indesiderate
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &:focus {
+    outline: 0 none;
+    outline-offset: 0;
+    box-shadow: 0 0 0 0.2rem var(--primary-lighter-color); // Effetto focus di PrimeNG
+    border-color: var(--primary-color);
+  }
+}
+
+.p-error {
+  color: var(--red-500); // Rosso per i messaggi di errore
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap; // Permette ai pulsanti di andare a capo su schermi piccoli
+  justify-content: flex-end;
+  gap: 0.75rem; // Spazio tra i pulsanti
+  margin-top: 1.5rem;
+
+  .p-button {
+    min-width: 120px; // Assicura una larghezza minima per i pulsanti
+    font-weight: 500;
+    border-radius: var(--border-radius); // Angoli arrotondati per i pulsanti
+  }
+}
+
+// Media queries per la reattività
+@media screen and (max-width: 768px) {
+  .ticket-card {
+    margin: 1rem; // Riduci il margine sui dispositivi più piccoli
+    padding: 0.5rem;
+  }
+
+  .form-actions {
+    justify-content: center; // Centra i pulsanti su schermi piccoli
+    .p-button {
+      width: 100%; // I pulsanti occupano l'intera larghezza
     }
   }
-  
+}
+

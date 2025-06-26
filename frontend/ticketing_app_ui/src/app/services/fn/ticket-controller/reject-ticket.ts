@@ -8,14 +8,18 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { UserDto } from '../../models/user-dto';
+import { TicketResponseDto } from '../../models/ticket-response-dto';
 
-export interface GetAvailableHelpers$Params {
+export interface RejectTicket$Params {
+  ticketId: number;
+  newAssignedToId: string;
 }
 
-export function getAvailableHelpers(http: HttpClient, rootUrl: string, params?: GetAvailableHelpers$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<UserDto>>> {
-  const rb = new RequestBuilder(rootUrl, getAvailableHelpers.PATH, 'get');
+export function rejectTicket(http: HttpClient, rootUrl: string, params: RejectTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
+  const rb = new RequestBuilder(rootUrl, rejectTicket.PATH, 'patch');
   if (params) {
+    rb.path('ticketId', params.ticketId, {});
+    rb.query('newAssignedToId', params.newAssignedToId, {});
   }
 
   return http.request(
@@ -23,9 +27,9 @@ export function getAvailableHelpers(http: HttpClient, rootUrl: string, params?: 
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<UserDto>>;
+      return r as StrictHttpResponse<TicketResponseDto>;
     })
   );
 }
 
-getAvailableHelpers.PATH = '/api/v1/tickets/helpers/available';
+rejectTicket.PATH = '/api/v1/tickets/{ticketId}/reject';

@@ -10,13 +10,13 @@ import { RequestBuilder } from '../../request-builder';
 
 
 export interface DeleteTicket$Params {
-  id: number;
+  ticketId: number;
 }
 
 export function deleteTicket(http: HttpClient, rootUrl: string, params: DeleteTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<void>> {
   const rb = new RequestBuilder(rootUrl, deleteTicket.PATH, 'delete');
   if (params) {
-    rb.path('id', params.id, {});
+    rb.path('ticketId', params.ticketId, {});
   }
 
   return http.request(
@@ -29,4 +29,4 @@ export function deleteTicket(http: HttpClient, rootUrl: string, params: DeleteTi
   );
 }
 
-deleteTicket.PATH = '/api/v1/tickets/{id}';
+deleteTicket.PATH = '/api/v1/tickets/{ticketId}';
