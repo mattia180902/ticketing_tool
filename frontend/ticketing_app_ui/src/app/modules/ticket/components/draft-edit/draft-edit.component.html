@@ -1,10 +1,12 @@
 <!-- eslint-disable @angular-eslint/template/elements-content -->
+<!-- src/app/modules/ticket/components/draft-edit/draft-edit.component.html -->
+
 <p-toast></p-toast>
 <p-confirmDialog></p-confirmDialog>
 
-<div class="new-ticket-container">
-  <p-card [header]="isEditMode ? (isDraft ? 'Modifica Bozza' : 'Dettagli Ticket') : 'Crea Nuovo Ticket'">
-    <form [formGroup]="ticketForm" (ngSubmit)="finalizeTicket()">
+<div class="draft-edit-container">
+  <p-card>
+    <form [formGroup]="ticketForm" (ngSubmit)="finalizeDraft()">
       <div class="p-fluid grid">
         <!-- Titolo -->
         <div class="field col-12">
@@ -90,7 +92,7 @@
           >
         </div>
 
-        <!-- Email (visibile per Admin/Helper/PM, disabilitato per USER) -->
+        <!-- Email (disabilitato per l'utente che modifica la propria bozza) -->
         <div class="field col-12 md:col-6">
           <label for="email">Email</label>
           <input id="email" type="email" pInputText formControlName="email" />
@@ -123,7 +125,8 @@
           />
         </div>
 
-        <!-- Assegnato a (visibile solo per Helper, PM, Admin) -->
+        <!-- Assegnato a (visibile solo per Helper, PM, Admin - ma non rilevante per le bozze) -->
+        <!-- Puoi decidere se mostrarlo o meno per coerenza di form, ma il valore non sarà usato per le bozze -->
         <div class="field col-12 md:col-6" *ngIf="isHelperOrPmRole || isAdminRole">
           <label for="assignedTo">Assegnato a</label>
           <p-dropdown
@@ -136,7 +139,7 @@
             [filter]="true"
             filterBy="fullName"
             [showClear]="true"
-            [disabled]="isReadOnly"
+            [disabled]="true" 
           ></p-dropdown>
           <small
             *ngIf="ticketForm.get('assignedToId')?.invalid && ticketForm.get('assignedToId')?.touched"
@@ -146,48 +149,24 @@
       </div>
 
       <div class="flex justify-content-end gap-2 mt-4">
-        <!-- Pulsante "Carica Bozza" - visibile solo per USER quando non in modifica e non in sola lettura -->
+        <!-- Pulsante "Elimina Bozza" -->
         <button
           pButton
           type="button"
-          label="Carica Bozza"
-          icon="pi pi-folder-open"
-          class="p-button-secondary load-draft-button"
-          (click)="openDraftSelectionModal()"
-          *ngIf="isUserRole && !isEditMode && !isReadOnly"
+          label="Elimina Bozza"
+          icon="pi pi-trash"
+          class="p-button-danger"
+          (click)="deleteDraft()"
         ></button>
 
-        <!-- Pulsante "Nuovo Ticket" - Sempre visibile, ma la logica cambia se è una modale -->
-        <button
-          pButton
-          type="button"
-          label="Nuovo Ticket"
-          icon="pi pi-plus"
-          class="p-button-secondary"
-          (click)="onNewTicket()"
-          *ngIf="!ref" 
-        ></button>
-
-        <!-- Pulsante "Crea Ticket" / "Salva Modifiche" -->
+        <!-- Pulsante "Finalizza Bozza" -->
         <button
           pButton
           type="submit"
-          [label]="isDraft ? 'Crea Ticket' : (isEditMode ? 'Salva Modifiche' : 'Crea Ticket')"
-          [icon]="isDraft ? 'pi pi-check' : (isEditMode ? 'pi pi-save' : 'pi pi-plus')"
-          [disabled]="ticketForm.invalid || isReadOnly"
-          [class]="isEditMode && !isDraft ? 'p-button-primary' : 'p-button-success'"
-          *ngIf="!isReadOnly"
-        ></button>
-
-        <!-- Pulsante "Chiudi" (solo se in modalità modale) -->
-        <button
-          pButton
-          type="button"
-          label="Chiudi"
-          icon="pi pi-times"
-          class="p-button-text p-button-secondary"
-          (click)="ref.close()"
-          *ngIf="ref"
+          label="Finalizza Bozza"
+          icon="pi pi-check"
+          class="p-button-success"
+          [disabled]="ticketForm.invalid"
         ></button>
       </div>
     </form>

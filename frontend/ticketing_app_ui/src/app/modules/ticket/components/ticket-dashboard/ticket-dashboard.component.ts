@@ -16,13 +16,13 @@ import { takeUntil, catchError } from 'rxjs/operators';
 
 import { AuthService } from '../../service/auth.service';
 
-import { NewTicketComponent } from '../new-ticket/new-ticket.component';
 import { TicketDetailsModalComponent } from '../ticket-details-modal/ticket-details-modal.component'; 
 import { DashboardCountsDto, PageTicketResponseDto, TicketResponseDto } from '../../../../services/models';
 import { UserRole } from '../../../../shared/enums/UserRole';
 import { TicketStatus } from '../../../../shared/enums/TicketStatus';
 import { TicketManagementService } from '../../../../services/services';
 import { TicketListComponent } from '../ticket-list/ticket-list.component';
+import { DraftEditComponent } from '../draft-edit/draft-edit.component';
 
 
 type BadgeSeverity = 'success' | 'info' | 'warning' | 'danger' | 'help' | 'primary' | 'secondary' | 'contrast';
@@ -111,6 +111,7 @@ export class TicketDashboardComponent implements OnInit, OnDestroy {
 
     let apiCall: Observable<PageTicketResponseDto>;
 
+    // Utilizza hasAnyRole per una verifica più robusta dei ruoli
     if (this.authService.isUser() && !this.authService.hasRole([UserRole.HELPER_JUNIOR, UserRole.HELPER_SENIOR, UserRole.PM, UserRole.ADMIN])) {
         apiCall = this.ticketService.getMyTicketsAndAssociatedByEmail(params);
     } else {
@@ -185,17 +186,19 @@ export class TicketDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  openNewTicketEditModal(ticketId: number | null, isDraft: boolean, isReadOnly: boolean): void {
-    this.ref = this.dialogService.open(NewTicketComponent, {
-      header: isDraft ? 'Modifica Bozza' : 'Dettagli Ticket / Modifica',
+  /**
+   * Apre la modale per modificare una bozza esistente usando DraftEditComponent.
+   * @param ticketId L'ID della bozza da modificare.
+   */
+  openDraftEditModal(ticketId: number): void { 
+    this.ref = this.dialogService.open(DraftEditComponent, {
+      header: 'Modifica Bozza',
       width: '90%',
       height: '90%',
       contentStyle: { "max-height": "calc(100vh - 100px)", "overflow": "auto" },
       baseZIndex: 10000,
       data: {
-        ticketId: ticketId,
-        isDraft: isDraft,
-        isReadOnly: isReadOnly
+        ticketId: ticketId // Passa l'ID della bozza
       }
     });
 
@@ -239,12 +242,16 @@ export class TicketDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-
+  /**
+   * Gestisce il click sul pulsante "Dettagli" nella tabella dei ticket recenti.
+   * Decide se aprire DraftEditComponent (per bozze dell'utente) o TicketDetailsModalComponent.
+   * @param ticket Il ticket su cui è stato cliccato.
+   */
   handleRecentTicketDetails(ticket: TicketResponseDto): void {
     const isOwner = ticket.userId === this.authService.getUserId();
     
     if (this.authService.isUser() && ticket.status === TicketStatus.DRAFT && isOwner) {
-      this.openNewTicketEditModal(ticket.id!, true, false);
+      this.openDraftEditModal(ticket.id!); // Usa il nuovo metodo per aprire la modale di modifica bozza
     } else {
       this.openTicketDetailsModal(ticket);
     }

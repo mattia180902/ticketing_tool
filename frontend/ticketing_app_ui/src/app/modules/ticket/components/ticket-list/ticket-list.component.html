@@ -61,71 +61,85 @@
         <td>{{ ticket.createdOn | date:'dd/MM/yyyy HH:mm' }}</td>
         <td>
           <div class="flex flex-wrap gap-2">
-            <!-- Pulsante Dettagli/Modifica -->
+            <!-- Pulsante "Carica" (solo in modalità selezione bozza) -->
             <button
               pButton
               type="button"
-              [label]="ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId() ? 'Modifica' : 'Dettagli'"
-              [icon]="ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId() ? 'pi pi-pencil' : 'pi pi-eye'"
-              [class]="ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId() ? 'p-button-primary' : 'p-button-info'"
-              class="p-button-sm"
-              (click)="handleRowDetails(ticket)"
-            ></button>
-
-            <!-- Pulsante Accetta (solo per Helper/PM/Admin su ticket OPEN assegnati o per Admin/PM su qualsiasi OPEN) -->
-            <button
-              pButton
-              type="button"
-              label="Accetta"
-              icon="pi pi-check"
+              label="Carica"
+              icon="pi pi-download"
               class="p-button-success p-button-sm"
-              (click)="acceptTicket(ticket)"
-              *ngIf="showAcceptButton(ticket)"
+              (click)="handleRowDetails(ticket)"
+              *ngIf="isModalSelectionMode && ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId()"
             ></button>
 
-            <!-- Pulsante Rifiuta (solo per Helper/PM/Admin su ticket OPEN assegnati o per Admin/PM su qualsiasi OPEN) -->
-            <button
-              pButton
-              type="button"
-              label="Rifiuta"
-              icon="pi pi-times"
-              class="p-button-warning p-button-sm"
-              (click)="showRejectDialog(ticket)"
-              *ngIf="showRejectButton(ticket)"
-            ></button>
+            <!-- Pulsanti standard (non in modalità selezione bozza) -->
+            <ng-container *ngIf="!isModalSelectionMode">
+              <!-- Pulsante Dettagli/Modifica (ora apre DraftEditComponent per bozze) -->
+              <button
+                pButton
+                type="button"
+                [label]="ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId() ? 'Modifica' : 'Dettagli'"
+                [icon]="ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId() ? 'pi pi-pencil' : 'pi pi-eye'"
+                [class]="ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId() ? 'p-button-primary' : 'p-button-info'"
+                class="p-button-sm"
+                (click)="handleRowDetails(ticket)"
+              ></button>
 
-            <!-- Pulsante Escala (solo per Helper/PM/Admin su ticket ANSWERED assegnati o per Admin/PM su qualsiasi ANSWERED) -->
-            <button
-              pButton
-              type="button"
-              label="Escala"
-              icon="pi pi-arrow-up"
-              class="p-button-danger p-button-sm"
-              (click)="showEscalateDialog(ticket)"
-              *ngIf="showEscalateButton(ticket)"
-            ></button>
+              <!-- Pulsante Accetta -->
+              <button
+                pButton
+                type="button"
+                label="Accetta"
+                icon="pi pi-check"
+                class="p-button-success p-button-sm"
+                (click)="acceptTicket(ticket)"
+                *ngIf="showAcceptButton(ticket)"
+              ></button>
 
-            <!-- Pulsante Risolvi (solo per Helper/PM/Admin su ticket ANSWERED assegnati o per Admin/PM su qualsiasi ANSWERED) -->
-            <button
-              pButton
-              type="button"
-              label="Risolvi"
-              icon="pi pi-check-square"
-              class="p-button-info p-button-sm"
-              (click)="updateTicketStatus(ticket, TicketStatus.SOLVED)"
-              *ngIf="showSolveButton(ticket)"
-            ></button>
+              <!-- Pulsante Rifiuta -->
+              <button
+                pButton
+                type="button"
+                label="Rifiuta"
+                icon="pi pi-times"
+                class="p-button-warning p-button-sm"
+                (click)="showRejectDialog(ticket)"
+                *ngIf="showRejectButton(ticket)"
+              ></button>
 
-            <!-- Pulsante Elimina (ora usa showDeleteButton) -->
-            <button
-              pButton
-              type="button"
-              label="Elimina"
-              icon="pi pi-trash"
-              class="p-button-danger p-button-sm"
-              (click)="deleteTicket(ticket)"
-              *ngIf="showDeleteButton(ticket)"
-            ></button>
+              <!-- Pulsante Escala -->
+              <button
+                pButton
+                type="button"
+                label="Escala"
+                icon="pi pi-arrow-up"
+                class="p-button-danger p-button-sm"
+                (click)="showEscalateDialog(ticket)"
+                *ngIf="showEscalateButton(ticket)"
+              ></button>
+
+              <!-- Pulsante Risolvi -->
+              <button
+                pButton
+                type="button"
+                label="Risolvi"
+                icon="pi pi-check-square"
+                class="p-button-info p-button-sm"
+                (click)="updateTicketStatus(ticket, TicketStatus.SOLVED)"
+                *ngIf="showSolveButton(ticket)"
+              ></button>
+
+              <!-- Pulsante Elimina -->
+              <button
+                pButton
+                type="button"
+                label="Elimina"
+                icon="pi pi-trash"
+                class="p-button-danger p-button-sm"
+                (click)="deleteTicket(ticket)"
+                *ngIf="showDeleteButton(ticket)"
+              ></button>
+            </ng-container>
           </div>
         </td>
       </tr>

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, Optional } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, Optional, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { Table, TableModule } from 'primeng/table';
@@ -19,7 +19,6 @@ import { CardModule } from 'primeng/card';
 
 import { Subject, Observable, of, combineLatest } from 'rxjs';
 import { takeUntil, catchError, debounceTime, distinctUntilChanged, take, filter } from 'rxjs/operators';
-import { FormControl } from '@angular/forms';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 // Importa i servizi e i modelli generati da ng-openapi-gen
@@ -39,6 +38,7 @@ import { NewTicketComponent } from '../new-ticket/new-ticket.component'; // Per 
 import { DialogModule } from 'primeng/dialog'; // Per la modale di assegnazione/rifiuto/escalation
 import { TicketDetailsModalComponent } from '../ticket-details-modal/ticket-details-modal.component';
 import { TicketFilterParams, TicketFilterComponent } from '../ticket-filter/ticket-filter.component';
+import { DraftEditComponent } from '../draft-edit/draft-edit.component';
 
 type BadgeSeverity = 'success' | 'info' | 'warning' | 'danger' | 'help' | 'primary' | 'secondary' | 'contrast';
 
@@ -78,18 +78,17 @@ export class TicketListComponent implements OnInit, OnDestroy {
   sortField = 'createdDate';
   sortOrder = 'desc';
 
-  // Variabili per i filtri (ora gestite dal TicketFilterComponent, ma mantenute per il loadTickets)
   selectedStatusFilter: 'ALL' | TicketStatus = 'ALL';
   selectedPriorityFilter: 'ALL' | TicketPriority = 'ALL';
   searchTerm = '';
 
-  // Nuovo input per il componente filtro
   initialFilterStatusForChild: 'ALL' | TicketStatus = 'ALL';
   initialFilterPriorityForChild: 'ALL' | TicketPriority = 'ALL';
   initialSearchTermForChild = '';
-  disableStatusFilterInChild = false; // Nuovo flag per disabilitare il filtro stato nel componente figlio
+  disableStatusFilterInChild = false;
 
-  // Variabili per le modali di azione (assegna, rifiuta, escala)
+  isModalSelectionMode = false;
+
   displayActionDialog = false;
   actionType: 'assign' | 'reject' | 'escalate' | null = null;
   selectedTicketForAction: TicketResponseDto | null = null;
@@ -98,7 +97,14 @@ export class TicketListComponent implements OnInit, OnDestroy {
   actionDialogHeader = '';
   actionDialogMessage = '';
 
-  ref: DynamicDialogRef | undefined;
+  ref: DynamicDialogRef | undefined; // Questo è per le modali APERTE DA questo componente
+
+  // NUOVO: Riferimento alla propria modale (se questo componente è una modale)
+  public selfRef: DynamicDialogRef | undefined | null = inject(DynamicDialogRef, { optional: true });
+
+  // NUOVO: Flag per gestire il primo lazy load della tabella
+  private firstLazyLoadFromTable = true;
+
 
   public UserRole = UserRole;
   public TicketStatus = TicketStatus;
@@ -117,12 +123,11 @@ export class TicketListComponent implements OnInit, OnDestroy {
     private confirmationService: ConfirmationService,
     public dialogService: DialogService,
     @Optional() public dialogConfig: DynamicDialogConfig
-  ) {} // Inizializzazione opzioni filtri spostata nel TicketFilterComponent
+  ) {}
 
   ngOnInit(): void {
     this.loadUsersForAssignment();
 
-    // Centralizza la logica di caricamento iniziale
     combineLatest([
       this.route.queryParams.pipe(take(1)),
       of(this.dialogConfig)
@@ -132,18 +137,19 @@ export class TicketListComponent implements OnInit, OnDestroy {
     ).subscribe(([queryParams, dialogConfig]) => {
       this.initialLoadCompleted = true;
 
-      // Logica per determinare i filtri iniziali e la disabilitazione del filtro stato
+      // Determina se siamo in modalità selezione bozza
+      if (dialogConfig && dialogConfig.data && dialogConfig.data.isModalSelection) {
+        this.isModalSelectionMode = true;
+      }
+
       if (dialogConfig && dialogConfig.data) {
-        // Se è una modale
         if (dialogConfig.data.filterStatus && dialogConfig.data.filterStatus !== 'ALL') {
           this.initialFilterStatusForChild = dialogConfig.data.filterStatus;
-          this.disableStatusFilterInChild = true; // Disabilita il filtro stato
+          this.disableStatusFilterInChild = true;
         } else {
-          // Se la modale è stata aperta con 'ALL' (es. "Tutti i ticket")
           this.initialFilterStatusForChild = 'ALL';
-          this.disableStatusFilterInChild = false; // Abilita il filtro stato
+          this.disableStatusFilterInChild = false;
         }
-        // Applica anche altri filtri se passati dalla dashboard
         if (dialogConfig.data.filterPriority) {
           this.initialFilterPriorityForChild = dialogConfig.data.filterPriority;
         }
@@ -151,8 +157,7 @@ export class TicketListComponent implements OnInit, OnDestroy {
           this.initialSearchTermForChild = dialogConfig.data.searchTerm;
         }
       } else {
-        // Se è una navigazione diretta (non modale)
-        this.disableStatusFilterInChild = false; // Abilita sempre il filtro stato
+        this.disableStatusFilterInChild = false;
         const statusFromUrl = queryParams['status'] as TicketStatus | 'ALL';
         if (statusFromUrl && (Object.values(TicketStatus).includes(statusFromUrl as TicketStatus) || statusFromUrl === 'ALL')) {
           this.initialFilterStatusForChild = statusFromUrl;
@@ -167,52 +172,57 @@ export class TicketListComponent implements OnInit, OnDestroy {
         }
       }
 
-      // Sincronizza i filtri locali con quelli iniziali per il loadTickets
       this.selectedStatusFilter = this.initialFilterStatusForChild;
       this.selectedPriorityFilter = this.initialFilterPriorityForChild;
       this.searchTerm = this.initialSearchTermForChild;
 
-      this.loadTickets(); // Innesca il caricamento iniziale con i filtri impostati
+      // Chiamata esplicita per il caricamento iniziale, bypassando il controllo del lazy load della tabella
+      this.loadTickets(null, true);
     });
   }
 
   ngOnDestroy(): void {
+    // Rimosso this.selfRef.close() qui. La modale viene chiusa da handleRowDetails
+    // o dal sistema di dialoghi di PrimeNG quando viene distrutta.
     if (this.ref) {
-      this.ref.close();
+      this.ref.close(); // Chiudi le modali aperte da questo componente
     }
     this.destroy$.next();
     this.destroy$.complete();
   }
 
-  /**
-   * Riceve i filtri aggiornati dal TicketFilterComponent.
-   * @param params I parametri di filtro aggiornati.
-   */
   onFiltersChanged(params: TicketFilterParams): void {
     this.selectedStatusFilter = params.status;
     this.selectedPriorityFilter = params.priority;
     this.searchTerm = params.search;
-    this.first = 0; // Reset paginazione
+    this.first = 0;
     this.loadTickets();
   }
 
-  /**
-   * Riceve l'evento di reset filtri dal TicketFilterComponent.
-   */
   onClearFilters(): void {
     // I filtri sono già stati resettati nel componente figlio e onFiltersChanged è già stato chiamato.
-    // Questo è un evento aggiuntivo se il componente padre ha bisogno di logica extra sul reset completo.
-    // In questo caso, loadTickets() è già stato chiamato da onFiltersChanged.
   }
 
-  loadTickets(event?: any): void {
+  /**
+   * Carica i ticket dalla API in base ai filtri e alla paginazione correnti.
+   * @param event L'evento del paginatore (opzionale).
+   * @param isInitialLoadFromNgOnInit Indica se questa è la chiamata iniziale da ngOnInit.
+   */
+  loadTickets(event?: any, isInitialLoadFromNgOnInit = false): void {
+    // Se è il primo lazy load della tabella (event non nullo) E non è la chiamata iniziale da ngOnInit,
+    // allora salta questa esecuzione. La chiamata da ngOnInit è quella che vogliamo.
+    if (event && this.firstLazyLoadFromTable && !isInitialLoadFromNgOnInit) {
+        this.firstLazyLoadFromTable = false; // Marca che il primo lazy load della tabella è stato gestito
+        return; // Salta questa chiamata API duplicata
+    }
+
     this.loading = true;
 
     if (event) {
       this.first = event.first;
       this.rows = event.rows;
       this.sortField = event.sortField || 'createdDate';
-      this.sortOrder = event.sortOrder === 1 ? 'asc' : 'desc'; 
+      this.sortOrder = (event.sortOrder === 1 ? 'asc' : 'desc'); 
     }
 
     const page = this.first / this.rows;
@@ -233,7 +243,10 @@ export class TicketListComponent implements OnInit, OnDestroy {
 
     let apiCall: Observable<PageTicketResponseDto>;
 
-    if (this.authService.isUser() && !this.authService.hasRole([UserRole.HELPER_JUNIOR, UserRole.HELPER_SENIOR, UserRole.PM, UserRole.ADMIN])) {
+    if (this.isModalSelectionMode) {
+      params.status = TicketStatus.DRAFT;
+      apiCall = this.ticketService.getMyTicketsAndAssociatedByEmail(params);
+    } else if (this.authService.isUser() && !this.authService.hasRole([UserRole.HELPER_JUNIOR, UserRole.HELPER_SENIOR, UserRole.PM, UserRole.ADMIN])) {
         apiCall = this.ticketService.getMyTicketsAndAssociatedByEmail(params);
     } else {
         apiCall = this.ticketService.getTickets(params);
@@ -252,6 +265,8 @@ export class TicketListComponent implements OnInit, OnDestroy {
         this.tickets = res.content ?? [];
         this.totalRecords = res.totalElements ?? 0;
         this.loading = false;
+        // Una volta che i dati sono stati caricati con successo, le successive chiamate lazy load sono permesse
+        this.firstLazyLoadFromTable = false; 
       },
     });
   }
@@ -281,14 +296,32 @@ export class TicketListComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Gestisce il click sulla riga del ticket.
+   * Se in modalità selezione bozza, chiude la modale con l'ID della bozza.
+   * Altrimenti, apre la modale di dettaglio/modifica.
+   * @param ticket Il ticket selezionato.
+   */
   handleRowDetails(ticket: TicketResponseDto): void {
-    const isOwner = ticket.userId === this.authService.getUserId();
-    const isDraft = ticket.status === TicketStatus.DRAFT;
-
-    if (isDraft && isOwner && this.authService.isUser()) {
-      this.openNewTicketEditModal(ticket.id!, true, false);
+    if (this.isModalSelectionMode) {
+      // In modalità selezione bozza, solo le bozze dell'utente corrente possono essere "caricate"
+      if (ticket.status === TicketStatus.DRAFT && this.authService.isUser() && ticket.userId === this.authService.getUserId()) {
+        this.selfRef?.close(ticket.id); // USA selfRef per chiudere la propria modale e passare il valore
+      } else {
+        this.messageService.add({ severity: 'warn', summary: 'Selezione Non Valida', detail: 'Puoi selezionare solo le tue bozze.' });
+      }
     } else {
-      this.openTicketDetailsModal(ticket);
+      // Logica esistente per aprire dettagli/modifica
+      const isOwner = ticket.userId === this.authService.getUserId();
+      const isDraft = ticket.status === TicketStatus.DRAFT;
+
+      if (isDraft && isOwner && this.authService.isUser()) {
+        // Apri DraftEditComponent per la modifica di una bozza
+        this.openDraftEditModal(ticket.id!);
+      } else {
+        // Apri TicketDetailsModalComponent per tutti gli altri casi
+        this.openTicketDetailsModal(ticket);
+      }
     }
   }
 
@@ -317,22 +350,29 @@ export class TicketListComponent implements OnInit, OnDestroy {
     });
   }
 
-  openNewTicketEditModal(ticketId: number | null, isDraft: boolean, isReadOnly: boolean): void {
-    this.ref = this.dialogService.open(NewTicketComponent, {
-      header: isDraft ? 'Modifica Bozza' : 'Dettagli Ticket / Modifica',
+  /**
+   * Apre la modale per modificare una bozza esistente usando DraftEditComponent.
+   * @param ticketId L'ID della bozza da modificare.
+   */
+  openDraftEditModal(ticketId: number): void {
+    this.ref = this.dialogService.open(DraftEditComponent, {
+      header: 'Modifica Bozza',
       width: '90%',
       height: '90%',
       contentStyle: { "max-height": "calc(100vh - 100px)", "overflow": "auto" },
       baseZIndex: 10000,
       data: {
-        ticketId: ticketId,
-        isDraft: isDraft,
-        isReadOnly: isReadOnly
+        ticketId: ticketId // Passa l'ID della bozza
       }
     });
 
-    this.ref.onClose.pipe(takeUntil(this.destroy$)).subscribe(() => {
-      this.loadTickets();
+    this.ref.onClose.pipe(takeUntil(this.destroy$)).subscribe(result => {
+      if (result === 'Deleted') {
+        this.messageService.add({ severity: 'success', summary: 'Successo', detail: 'Bozza eliminata con successo!' });
+      } else if (result === true) { // Bozza finalizzata
+        this.messageService.add({ severity: 'success', summary: 'Successo', detail: 'Bozza finalizzata come ticket!' });
+      }
+      this.loadTickets(); // Ricarica la lista dopo modifica/eliminazione/finalizzazione
     });
   }
 
@@ -532,12 +572,12 @@ export class TicketListComponent implements OnInit, OnDestroy {
 
   showAcceptButton(ticket: TicketResponseDto): boolean {
     const isAssignedToMe = ticket.assignedToId === this.authService.getUserId();
-    return ticket.status === TicketStatus.OPEN && (isAssignedToMe || this.authService.isAdminOrPm());
+    return ticket.status === TicketStatus.OPEN && (isAssignedToMe);
   }
 
   showRejectButton(ticket: TicketResponseDto): boolean {
     const isAssignedToMe = ticket.assignedToId === this.authService.getUserId();
-    return ticket.status === TicketStatus.OPEN && (isAssignedToMe || this.authService.isAdminOrPm());
+    return ticket.status === TicketStatus.OPEN && (isAssignedToMe);
   }
 
   showEscalateButton(ticket: TicketResponseDto): boolean {
@@ -559,9 +599,9 @@ export class TicketListComponent implements OnInit, OnDestroy {
   }
 
   navigateToCategorySelection(): void {
-    if (this.ref) {
-      this.ref.close('OpenNewTicket');
-    } else {
+    if (this.selfRef) { // Se è una modale, chiudila
+      this.selfRef.close('OpenNewTicket');
+    } else { // Altrimenti, naviga
       this.router.navigate(['/categories']);
     }
   }

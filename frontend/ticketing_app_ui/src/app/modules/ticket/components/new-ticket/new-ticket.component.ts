@@ -68,16 +68,17 @@ export class NewTicketComponent implements OnInit, OnDestroy {
   priorities: TicketPriority[] = Object.values(TicketPriority);
   
   ticketId: number | null = null;
-  isEditMode = false;
-  isDraft = false;
-  isReadOnly = false;
-  currentTicket: TicketResponseDto | null = null;
+  isEditMode = false; // Questo componente è ora principalmente per la creazione
+  isDraft = false; // Questo componente è per la creazione, non per la modifica diretta di bozze
+  isReadOnly = false; // Non dovrebbe essere in sola lettura per la creazione
+  currentTicket: TicketResponseDto | null = null; // Mantenuto per coerenza se si carica una bozza
   
-  assignableUsers: UserDto[] = []; // Lista di utenti assegnabili (Helper, PM, Admin)
+  assignableUsers: UserDto[] = [];
 
   private destroy$ = new Subject<void>();
   private currentUserId = '';
-  
+  private formSubscription: Subscription | undefined;
+
   public isUserRole = false;
   public isHelperOrPmRole = false;
   public isAdminRole = false;
@@ -86,9 +87,8 @@ export class NewTicketComponent implements OnInit, OnDestroy {
   public TicketStatus = TicketStatus;
   public TicketPriority = TicketPriority;
 
-  refDraftSelection: DynamicDialogRef | undefined; 
-  private formSubscription: Subscription | undefined;
-
+  refDraftSelection: DynamicDialogRef | undefined; // Per la modale di selezione bozze
+  
   public ref: DynamicDialogRef | null = inject(DynamicDialogRef, { optional: true });
   public config: DynamicDialogConfig | null = inject(DynamicDialogConfig, { optional: true });
 
@@ -103,7 +103,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
     private router: Router,
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
-    public dialogService: DialogService,
+    public dialogService: DialogService, // Mantenuto per aprire modali
   ) {
     this.ticketForm = this.fb.group({
       title: ['', Validators.required],
@@ -114,15 +114,40 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       email: ['', [Validators.required, Validators.email]], 
       fiscalCode: [''],
       phoneNumber: [''],
-      assignedToId: [null] // Nuovo campo per l'assegnazione
+      assignedToId: [null]
     });
 
+    // Logica per determinare se è una modale di creazione o se deve caricare una bozza
+    // Se è aperta come modale, controlla se è una bozza da caricare
     if (this.config && this.config.data) {
-      this.ticketId = this.config.data.ticketId || null;
-      this.isDraft = this.config.data.isDraft || false;
-      this.isReadOnly = this.config.data.isReadOnly || false;
-      this.isEditMode = this.ticketId !== null;
-      console.log('NewTicketComponent: Constructor - Opened as modal with config:', this.config.data);
+      // Se viene passato un ticketId e non è per la modifica diretta di una bozza (che ora va in DraftEditComponent)
+      // Allora significa che è un ticket da visualizzare/modificare (non bozza) o un nuovo ticket.
+      // La logica di modifica bozza è stata spostata.
+      // Questo componente ora gestisce solo la creazione di un nuovo ticket o il caricamento di una bozza
+      // dalla modale di selezione.
+      if (this.config.data.ticketId && this.config.data.isDraft) {
+        // Se si tenta di aprire una bozza direttamente qui, reindirizza o gestisci l'errore.
+        // Idealmente, le bozze verranno aperte tramite DraftEditComponent.
+        console.warn('NewTicketComponent: Tentativo di aprire una bozza direttamente. Utilizzare DraftEditComponent.');
+        // Potresti voler caricare la bozza qui se non vuoi una modale separata per la modifica.
+        // Per ora, seguo la tua richiesta di spostare la modifica bozza.
+        this.ticketId = this.config.data.ticketId;
+        this.isDraft = true;
+        this.isEditMode = true; // È una modifica, ma di una bozza caricata qui
+        if (this.ticketId !== null) {
+          this.loadTicketDetails(this.ticketId); //todo Carica la bozza nel form attuale
+        }
+      } else if (this.config.data.ticketId) {
+        // Se è un ticket esistente (non bozza) da visualizzare/modificare
+        this.ticketId = this.config.data.ticketId;
+        this.isEditMode = true;
+        this.isReadOnly = this.config.data.isReadOnly || false;
+        if (this.ticketId !== null) {
+          this.loadTicketDetails(this.ticketId);  //todo da verificare
+        }
+      } else {
+        this.initializeNewTicketForm();
+      }
     }
   }
 
@@ -134,40 +159,36 @@ export class NewTicketComponent implements OnInit, OnDestroy {
 
     this.loadCategories();
     this.loadAllSupportServices();
-    this.loadAssignableUsers(); // Carica gli utenti assegnabili
+    this.loadAssignableUsers();
 
-    let idToLoad: number | null = null;
-    let initialCategoryId: number | null = null;
-    let initialSupportServiceId: number | null = null;
-
-    if (this.config && this.config.data && this.config.data.ticketId) {
-      idToLoad = this.config.data.ticketId;
-    } else {
+    // Se non è stata aperta come modale con un ticketId specifico, controlla i queryParams
+    if (!this.ticketId && !this.config?.data?.ticketId) {
       const routeSnapshot = this.route.snapshot;
-      idToLoad = routeSnapshot.queryParams['ticketId'] ? +routeSnapshot.queryParams['ticketId'] : null;
-      initialCategoryId = routeSnapshot.queryParams['categoryId'] ? +routeSnapshot.queryParams['categoryId'] : null;
-      initialSupportServiceId = routeSnapshot.queryParams['supportServiceId'] ? +routeSnapshot.queryParams['supportServiceId'] : (routeSnapshot.queryParams['serviceId'] ? +routeSnapshot.queryParams['serviceId'] : null);
-    }
+      const idFromQueryParams = routeSnapshot.queryParams['ticketId'] ? +routeSnapshot.queryParams['ticketId'] : null;
+      const initialCategoryId = routeSnapshot.queryParams['categoryId'] ? +routeSnapshot.queryParams['categoryId'] : null;
+      const initialSupportServiceId = routeSnapshot.queryParams['supportServiceId'] ? +routeSnapshot.queryParams['supportServiceId'] : (routeSnapshot.queryParams['serviceId'] ? +routeSnapshot.queryParams['serviceId'] : null);
 
-    if (idToLoad !== null) {
-      this.ticketId = idToLoad;
-      this.isEditMode = true;
-      this.loadTicketDetails(this.ticketId);
-    } else {
-      this.initializeNewTicketForm();
-      if (initialCategoryId) {
-        this.ticketForm.get('categoryId')?.setValue(initialCategoryId);
-        this.supportServiceService.getByCategory({ categoryId: initialCategoryId }).pipe(
-          takeUntil(this.destroy$)
-        ).subscribe(services => {
-          this.filteredSupportServices = services;
-          if (initialSupportServiceId && services.some(s => s.id === initialSupportServiceId)) {
-            this.ticketForm.get('supportServiceId')?.setValue(initialSupportServiceId);
-          }
-        });
+      if (idFromQueryParams !== null) {
+        this.ticketId = idFromQueryParams;
+        this.isEditMode = true;
+        this.loadTicketDetails(this.ticketId);
+      } else {
+        this.initializeNewTicketForm();
+        if (initialCategoryId) {
+          this.ticketForm.get('categoryId')?.setValue(initialCategoryId);
+          this.supportServiceService.getByCategory({ categoryId: initialCategoryId }).pipe(
+            takeUntil(this.destroy$)
+          ).subscribe(services => {
+            this.filteredSupportServices = services;
+            if (initialSupportServiceId && services.some(s => s.id === initialSupportServiceId)) {
+              this.ticketForm.get('supportServiceId')?.setValue(initialSupportServiceId);
+            }
+          });
+        }
       }
     }
 
+    // L'auto-salvataggio è solo per USER che stanno creando/modificando bozze in questo componente
     if (this.isUserRole && !this.isReadOnly) {
       this.setupAutoSave();
     }
@@ -227,12 +248,12 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       this.ticketForm.get('email')?.enable();
     }
     this.ticketForm.get('priority')?.setValue(TicketPriority.MEDIUM);
-    this.ticketForm.get('assignedToId')?.setValue(null); // Resetta l'assegnatario per un nuovo ticket
+    this.ticketForm.get('assignedToId')?.setValue(null);
     this.filteredSupportServices = [];
   }
 
   /**
-   * Carica i dettagli di un ticket esistente.
+   * Carica i dettagli di un ticket esistente (può essere una bozza caricata da selezione, o un ticket non bozza).
    * @param id L'ID del ticket da caricare.
    */
   loadTicketDetails(id: number): void {
@@ -252,9 +273,11 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       next: (ticket) => {
         if (ticket) {
           this.currentTicket = ticket;
-          this.isDraft = ticket.status === TicketStatus.DRAFT;
-          this.isEditMode = true;
+          this.isDraft = ticket.status === TicketStatus.DRAFT; // Aggiorna lo stato di bozza
+          this.isEditMode = true; // È sempre una modifica se si carica un ticket esistente
 
+          // Se è una bozza e l'utente non è l'owner, o se non è una bozza e l'utente è USER,
+          // o se è un ticket risolto per Helper/PM/Admin, allora è read-only.
           this.isReadOnly = this.determineReadOnlyStatus(ticket);
           if (this.isReadOnly) {
             this.ticketForm.disable();
@@ -270,13 +293,14 @@ export class NewTicketComponent implements OnInit, OnDestroy {
             email: ticket.userEmail,
             fiscalCode: ticket.userFiscalCode,
             phoneNumber: ticket.userPhoneNumber,
-            assignedToId: ticket.assignedToId // Pre-popola l'assegnatario esistente
+            assignedToId: ticket.assignedToId
           });
 
           this.onCategoryChange(ticket.categoryId!, () => {
             this.ticketForm.get('supportServiceId')?.setValue(ticket.supportServiceId);
           });
 
+          // L'email viene disabilitata solo per l'utente USER che è owner del ticket
           if (this.isUserRole && (ticket.userId === this.currentUserId || ticket.userEmail === this.authService.getUserEmail())) {
             this.ticketForm.get('email')?.disable();
           } else {
@@ -297,9 +321,10 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       return ticket.status === TicketStatus.SOLVED;
     } else if (this.isUserRole) {
       const isOwner = ticket.userId === this.currentUserId;
+      // Per USER, è read-only se non è una bozza O se è una bozza ma non è l'owner
       return !(ticket.status === TicketStatus.DRAFT && isOwner);
     }
-    return true;
+    return true; // Default: sola lettura
   }
 
   /**
@@ -315,7 +340,8 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)),
       takeUntil(this.destroy$)
     ).subscribe(() => {
-      if (this.isUserRole && !this.isReadOnly) {
+      // L'auto-salvataggio avviene solo se il ticket è una bozza o è un nuovo ticket che diventerà bozza
+      if (this.isUserRole && !this.isReadOnly) { // Solo USER può auto-salvare bozze
         this.autoSaveDraft();
       }
     });
@@ -356,9 +382,9 @@ export class NewTicketComponent implements OnInit, OnDestroy {
           this.messageService.add({ severity: 'success', summary: 'Bozza Salvata', detail: 'Il ticket è stato salvato automaticamente come bozza.' });
           this.ticketId = ticket.id!; 
           this.isEditMode = true;
-          this.isDraft = true;
+          this.isDraft = true; // Conferma che ora è una bozza
           this.currentTicket = ticket;
-          if (!this.ref) {
+          if (!this.ref) { // Se non è una modale, aggiorna l'URL
             this.router.navigate([], { queryParams: { ticketId: ticket.id }, queryParamsHandling: 'merge' });
           }
           this.ticketForm.markAsPristine();
@@ -405,7 +431,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
    * Solo per Helper, PM, Admin.
    */
   loadAssignableUsers(): void {
-    if (this.authService.isHelperOrPm() || this.authService.isAdmin()) {
+    if (this.isHelperOrPmRole || this.isAdminRole) {
       this.userService.getHelpersAndAdmins().pipe(
         takeUntil(this.destroy$),
         catchError(err => {
@@ -463,7 +489,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       fiscalCode: formValue.fiscalCode,
       phoneNumber: formValue.phoneNumber,
       status: status,
-      assignedToId: formValue.assignedToId // Includi l'assegnatario
+      assignedToId: formValue.assignedToId
     };
   }
 
@@ -472,7 +498,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
    * @returns True se il form è valido, false altrimenti.
    */
   isFormValidForFinalization(): boolean {
-    // Aggiungi validazione per assignedToId se il ruolo non è USER e non è una bozza
+    // L'assegnatario è obbligatorio solo se non è un USER e non è una bozza
     if (!this.isUserRole && !this.isDraft && !this.ticketForm.get('assignedToId')?.value) {
       this.ticketForm.get('assignedToId')?.setErrors({ required: true });
     } else {
@@ -538,11 +564,11 @@ export class NewTicketComponent implements OnInit, OnDestroy {
    */
   onNewTicket(): void {
     if (this.ref) {
-      this.ref.close();
+      this.ref.close(); // Chiudi la modale corrente
       return; 
     }
-    this.router.navigate(['/new-ticket']); 
-    this.initializeNewTicketForm();
+    this.router.navigate(['/new-ticket']); // Naviga alla pagina di creazione di un nuovo ticket
+    this.initializeNewTicketForm(); // Inizializza il form per un nuovo ticket
   }
 
   /**
@@ -557,15 +583,13 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       baseZIndex: 10000,
       data: {
         filterStatus: TicketStatus.DRAFT, 
-        showEditButton: true, 
-        isModalSelection: true, 
-        showDeleteButton: false 
+        isModalSelection: true // Indica che la modale è per la selezione di una bozza
       }
     });
 
     this.refDraftSelection.onClose.pipe(takeUntil(this.destroy$)).subscribe((ticketId: number | undefined) => {
       if (ticketId) {
-        this.loadTicketDetails(ticketId); 
+        this.loadTicketDetails(ticketId); // Carica la bozza selezionata nel form attuale
         this.messageService.add({ severity: 'success', summary: 'Bozza Caricata', detail: 'Bozza caricata con successo nel form.' });
       } else {
         this.messageService.add({ severity: 'info', summary: 'Nessuna Bozza Selezionata', detail: 'Nessuna bozza è stata caricata.' });
