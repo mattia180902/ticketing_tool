@@ -3,7 +3,7 @@ package com.sincon.ticketing_app.interceptor;
 import java.io.IOException;
 
 import org.springframework.lang.NonNull;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
@@ -26,14 +26,14 @@ public class UserSynchronizerFilter extends OncePerRequestFilter{
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
-                                    @NonNull FilterChain filterChain)
-            throws ServletException, IOException {
-        
-        if (! (SecurityContextHolder.getContext().getAuthentication() instanceof AnonymousAuthenticationToken)) {
-            JwtAuthenticationToken token = (JwtAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
-
+                                    @NonNull FilterChain filterChain) throws ServletException, IOException {
+    
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    
+        if (auth instanceof JwtAuthenticationToken token && auth.isAuthenticated()) {
             userSynchronizer.synchronizeWithIdp(token.getToken());
         }
+    
         filterChain.doFilter(request, response);
     }
 }

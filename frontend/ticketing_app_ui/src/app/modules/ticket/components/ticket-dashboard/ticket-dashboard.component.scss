@@ -1,191 +1,147 @@
 /* src/app/modules/ticket/components/ticket-dashboard/ticket-dashboard.component.scss */
 
-:host {
-  display: block;
-  padding: 1.5rem;
-  background-color: var(--surface-ground); /* Sfondo leggero */
-  min-height: calc(100vh - 60px); /* Altezza minima, adattati alla tua header/footer */
-}
-
 .dashboard-grid {
-  max-width: 1200px;
-  margin: 0 auto; /* Centra la dashboard */
+  padding: 1rem;
+  font-family: 'Inter', sans-serif;
+  position: relative;
+  z-index: 1; // Z-index base per il contenuto della dashboard
+  // Aggiungi un padding-top qui per spingere il contenuto sotto l'header fisso.
+  // Assicurati che questo valore sia almeno l'altezza del tuo header.
+  // Il tuo header (p-toolbar) sembra essere alto circa 60-70px, quindi 80px dovrebbe bastare.
+  padding-top: 40px; // <--- Regola questo valore in base all'altezza effettiva del tuo header
 }
 
-.card-summary-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem; /* Spazio tra le card */
-  justify-content: center; /* Centra le card orizzontalmente */
-
-  > div {
-    flex: 1 1 calc(25% - 1.5rem); /* 4 card per riga su desktop */
-    max-width: calc(25% - 1.5rem);
-
-    @media screen and (max-width: 992px) { /* Tablet */
-      flex: 1 1 calc(50% - 1.5rem); /* 2 card per riga */
-      max-width: calc(50% - 1.5rem);
-    }
-
-    @media screen and (max-width: 576px) { /* Mobile */
-      flex: 1 1 calc(100% - 1.5rem); /* 1 card per riga */
-      max-width: calc(100% - 1.5rem);
-    }
-  }
-}
-
-.p-card {
-  border-radius: 12px; /* Angoli arrotondati più accentuati */
-  overflow: hidden; /* Per contenere bene i bordi arrotondati */
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); /* Ombra più pronunciata */
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  height: 100%; /* Assicura che le card nella griglia abbiano la stessa altezza */
-
-  .p-card-header {
-    font-size: 1.25rem;
-    font-weight: 700; /* Header più spesso */
-    color: var(--surface-0); /* Colore testo chiaro */
-    background-color: var(--surface-900); /* Sfondo scuro di default per l'header */
-    padding: 1rem 1.5rem;
-  }
-  .p-card-body { /* Per lo stile del corpo della card */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-    gap: 0.75rem; /* Spazio tra icona e valore */
-  }
-}
-
-.clickable-card {
+.dashboard-card {
   cursor: pointer;
-  &:hover {
-    transform: translateY(-5px); /* Leggero sollevamento all'hover */
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15); /* Ombra più grande all'hover */
-    /* Per un sottile cambio di colore all'hover, possiamo usare filter */
-    filter: brightness(1.05); /* Rende la card leggermente più luminosa */
-  }
-}
-
-/* Stili specifici per le card in base alla gravità/tipo */
-
-/* Card per "Total Tickets" - Primary/Default */
-.card-primary {
-  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-700) 100%);
-  color: var(--primary-50-text); /* Testo chiaro */
-
-  .p-card-header {
-    background-color: var(--primary-800);
-    color: var(--primary-50-text);
-  }
-  .card-icon {
-    color: var(--primary-100);
-  }
-}
-
-/* Card per "Open" - Info */
-.card-info {
-  background: linear-gradient(135deg, var(--blue-500) 0%, var(--blue-700) 100%);
-  color: var(--blue-50-text);
-
-  .p-card-header {
-    background-color: var(--blue-800);
-    color: var(--blue-50-text);
-  }
-  .card-icon {
-    color: var(--blue-100);
-  }
-}
-
-/* Card per "Answered" - Warning */
-.card-warning {
-  background: linear-gradient(135deg, var(--orange-500) 0%, var(--orange-700) 100%);
-  color: var(--orange-50-text);
-
-  .p-card-header {
-    background-color: var(--orange-800);
-    color: var(--orange-50-text);
-  }
-  .card-icon {
-    color: var(--orange-100);
-  }
-}
-
-/* Card per "Solved" - Success */
-.card-success {
-  background: linear-gradient(135deg, var(--green-500) 0%, var(--green-700) 100%);
-  color: var(--green-50-text);
-
-  .p-card-header {
-    background-color: var(--green-800);
-    color: var(--green-50-text);
-  }
-  .card-icon {
-    color: var(--green-100);
-  }
-}
-
-/* Card per "Draft" - Contrast */
-.card-contrast {
-  background: linear-gradient(135deg, var(--surface-700) 0%, var(--surface-900) 100%);
-  color: var(--surface-0);
-
-  .p-card-header {
-    background-color: var(--surface-900);
-    color: var(--surface-0);
-  }
-  .card-icon {
-    color: var(--surface-300);
-  }
-}
-
-.card-content {
+  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+  border-radius: 0.75rem;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1rem 0;
+  padding: 1.5rem;
+  min-height: 180px;
+  text-align: center;
+  color: white;
+  position: relative;
+  z-index: 1; // Z-index base per le card
+
+  &:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.2), 0 6px 10px -3px rgba(0, 0, 0, 0.1);
+    // Rimuovi completamente lo z-index dall'hover.
+    // L'header con z-index 999999 dovrebbe sempre essere sopra.
+  }
+
+  .card-header {
+    font-size: 1.25rem;
+    font-weight: bold;
+    margin-bottom: 0.75rem;
+  }
+
+  .card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+  }
+
+  .card-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .card-value {
+    font-size: 3.5rem;
+    font-weight: bold;
+  }
 }
 
-.card-icon {
-  font-size: 3rem; /* Dimensione icona */
-  margin-bottom: 0.5rem;
-}
+.create-ticket-button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  border-radius: 9999px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease-in-out;
 
-.card-value {
-  font-size: 2.5rem; /* Dimensione numero conteggio */
-  font-weight: 700;
-  margin: 0;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 10px -1px rgba(0, 0, 0, 0.15), 0 3px 6px -1px rgba(0, 0, 0, 0.08);
+  }
 }
 
 .recent-tickets-card {
-  .p-card-header {
-    background-color: var(--surface-100);
-    color: var(--text-color);
+  .p-card-content {
+    padding: 1.5rem !important;
   }
-}
-
-/* Stili per la tabella */
-.p-datatable {
-  .p-datatable-thead > tr > th {
-    background-color: var(--surface-200); /* Sfondo header tabella */
-    color: var(--text-color-secondary);
-    font-weight: 600;
-  }
-  .p-datatable-tbody > tr > td {
-    border-top: 1px solid var(--surface-border);
+  .p-datatable {
+    .p-datatable-thead > tr > th {
+      background-color: #f8f9fa;
+      color: #495057;
+      font-weight: bold;
+      padding: 1rem;
+    }
+    .p-datatable-tbody > tr > td {
+      padding: 1rem;
+    }
   }
 }
 
 .ticket-status-badge {
-  font-weight: 600;
+  min-width: 6rem;
+  text-align: center;
   padding: 0.4em 0.6em;
-  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  border-radius: 0.5rem;
 }
 
-// Global PrimeNG overrides (if absolutely necessary and careful)
-// This is generally discouraged, but can be used for quick overrides
-// :host ::ng-deep .p-card .p-card-content {
-//   padding: 0; /* Example of using ::ng-deep */
-// }
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+::ng-deep {
+  .p-card {
+    .p-card-body {
+      padding: 0 !important;
+    }
+    .p-card-content {
+      padding: 0 !important;
+    }
+  }
+
+  .card-primary {
+    background: linear-gradient(to bottom right, #3b82f6, #1d4ed8);
+  }
+
+  .card-info {
+    background: linear-gradient(to bottom right, #34d399, #059669);
+  }
+
+  .card-warning {
+    background: linear-gradient(to bottom right, #facc15, #eab308);
+  }
+
+  .card-success {
+    background: linear-gradient(to bottom right, #a78bfa, #8b5cf6);
+  }
+
+  .card-contrast {
+    background: linear-gradient(to bottom right, #9ca3af, #4b5563);
+  }
+
+  // Il tuo header (p-toolbar) ha z-[999999] in HTML, che è un valore altissimo.
+  // Questo è corretto e dovrebbe essere sufficiente per farlo rimanere sopra tutto.
+  // La sidebar ha z-[1000000], che è corretto perché deve apparire sopra l'header.
+}

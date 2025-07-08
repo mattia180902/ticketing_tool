@@ -3,6 +3,7 @@ package com.sincon.ticketing_app;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 import io.github.cdimascio.dotenv.Dotenv;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.security.SecurityScheme;
 
 @SpringBootApplication
 @EnableJpaAuditing(auditorAwareRef = "auditorAware")
+@EnableAsync
 @SecurityScheme(
     name = "keycloak", 
     type = SecuritySchemeType.OAUTH2, 
@@ -28,7 +30,6 @@ public class TicketingAppApplication {
 	public static void main(String[] args) {
 		Dotenv dotenv = null;
         try {
-            // SPECIFICA LA DIRECTORY "backend" dove si trova ini.env
             dotenv = Dotenv.configure()
                            .directory("backend") // Il file ini.env è qui, rispetto alla working directory
                            .filename("ini.env")
@@ -41,7 +42,7 @@ public class TicketingAppApplication {
             System.exit(1);
         }
 
-		// Se vuoi rendere le variabili disponibili come proprietà di sistema
+		// Se si vuole rendere le variabili disponibili come proprietà di sistema
 		dotenv.entries().forEach(entry -> System.setProperty(entry.getKey(), entry.getValue()));
 		SpringApplication.run(TicketingAppApplication.class, args);
 	}

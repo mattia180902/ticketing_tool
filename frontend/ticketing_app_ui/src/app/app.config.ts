@@ -4,7 +4,9 @@ import { routes } from './app.routes';
 import { HttpClientModule, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { KeycloakService } from './utils/keycloak/keycloak.service';
 import { keycloakHttpInterceptor } from './utils/http/keycloak-http.interceptor';
-import { provideAnimations } from '@angular/platform-browser/animations';
+import { BrowserAnimationsModule, provideAnimations } from '@angular/platform-browser/animations';
+import { DialogService, DynamicDialogModule } from 'primeng/dynamicdialog';
+import { ConfirmationService, MessageService } from 'primeng/api';
 
 
 
@@ -21,7 +23,10 @@ export const appConfig: ApplicationConfig = {
       deps: [KeycloakService],
       multi: true
     },
-    importProvidersFrom(HttpClientModule),
-    provideAnimations()
+    importProvidersFrom(HttpClientModule, BrowserAnimationsModule, DynamicDialogModule),
+    provideAnimations(),
+    MessageService,
+    ConfirmationService,
+    DialogService
   ],
 };

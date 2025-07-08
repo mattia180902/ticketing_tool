@@ -6,7 +6,7 @@ import { NgModule, ModuleWithProviders, SkipSelf, Optional } from '@angular/core
 import { HttpClient } from '@angular/common/http';
 import { ApiConfiguration, ApiConfigurationParams } from './api-configuration';
 
-import { UserService } from './services/user.service';
+import { UserManagementService } from './services/user-management.service';
 import { SupportServicesService } from './services/support-services.service';
 import { CategoryService } from './services/category.service';
 import { TicketManagementService } from './services/ticket-management.service';
@@ -20,7 +20,7 @@ import { TicketHistoryService } from './services/ticket-history.service';
   exports: [],
   declarations: [],
   providers: [
-    UserService,
+    UserManagementService,
     SupportServicesService,
     CategoryService,
     TicketManagementService,

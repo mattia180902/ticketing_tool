@@ -8,12 +8,12 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { CategoryDto } from '../../models/category-dto';
+import { CategoryRequest } from '../../models/category-request';
 import { CategoryResponse } from '../../models/category-response';
 
 export interface Update1$Params {
   id: number;
-      body: CategoryDto
+      body: CategoryRequest
 }
 
 export function update1(http: HttpClient, rootUrl: string, params: Update1$Params, context?: HttpContext): Observable<StrictHttpResponse<CategoryResponse>> {

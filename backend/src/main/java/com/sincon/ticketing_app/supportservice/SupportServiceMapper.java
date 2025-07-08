@@ -7,7 +7,6 @@ import com.sincon.ticketing_app.category.Category;
 import com.sincon.ticketing_app.category.CategoryRepository;
 import com.sincon.ticketing_app.exception.ResourceNotFoundException;
 
-
 @Component
 @RequiredArgsConstructor
 public class SupportServiceMapper {
@@ -16,7 +15,7 @@ public class SupportServiceMapper {
 
     public SupportService toEntity(SupportServiceCreateRequest dto) {
         Category category = categoryRepository.findById(dto.getCategoryId())
-            .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + dto.getCategoryId()));
         return SupportService.builder()
                 .title(dto.getTitle())
                 .description(dto.getDescription())
@@ -34,6 +33,7 @@ public class SupportServiceMapper {
                 .id(service.getId())
                 .title(service.getTitle())
                 .description(service.getDescription())
+                .categoryId(service.getCategory().getId())
                 .categoryName(service.getCategory().getName())
                 .build();
     }

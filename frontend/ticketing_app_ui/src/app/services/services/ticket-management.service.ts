@@ -22,18 +22,12 @@ import { deleteTicket } from '../fn/ticket-management/delete-ticket';
 import { DeleteTicket$Params } from '../fn/ticket-management/delete-ticket';
 import { escalateTicket } from '../fn/ticket-management/escalate-ticket';
 import { EscalateTicket$Params } from '../fn/ticket-management/escalate-ticket';
-import { getAssignedTickets } from '../fn/ticket-management/get-assigned-tickets';
-import { GetAssignedTickets$Params } from '../fn/ticket-management/get-assigned-tickets';
-import { getAssignedTicketsByStatus } from '../fn/ticket-management/get-assigned-tickets-by-status';
-import { GetAssignedTicketsByStatus$Params } from '../fn/ticket-management/get-assigned-tickets-by-status';
 import { getDashboardCounts } from '../fn/ticket-management/get-dashboard-counts';
 import { GetDashboardCounts$Params } from '../fn/ticket-management/get-dashboard-counts';
 import { getMyDrafts } from '../fn/ticket-management/get-my-drafts';
 import { GetMyDrafts$Params } from '../fn/ticket-management/get-my-drafts';
-import { getMyTickets } from '../fn/ticket-management/get-my-tickets';
-import { GetMyTickets$Params } from '../fn/ticket-management/get-my-tickets';
-import { getMyTicketsByStatus } from '../fn/ticket-management/get-my-tickets-by-status';
-import { GetMyTicketsByStatus$Params } from '../fn/ticket-management/get-my-tickets-by-status';
+import { getMyTicketsAndAssociatedByEmail } from '../fn/ticket-management/get-my-tickets-and-associated-by-email';
+import { GetMyTicketsAndAssociatedByEmail$Params } from '../fn/ticket-management/get-my-tickets-and-associated-by-email';
 import { getTicketDetails } from '../fn/ticket-management/get-ticket-details';
 import { GetTicketDetails$Params } from '../fn/ticket-management/get-ticket-details';
 import { getTickets } from '../fn/ticket-management/get-tickets';
@@ -61,28 +55,28 @@ export class TicketManagementService extends BaseService {
   /**
    * Recupera tutti i ticket (paginati e filtrati per ruolo).
    *
-   * Recupera una lista paginata di ticket in base al ruolo dell'utente autenticato.
+   * Recupera una lista paginata di ticket in base al ruolo dell'utente autenticato, con opzioni di filtro.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `getTickets()` instead.
    *
    * This method doesn't expect any request body.
    */
-  getTickets$Response(params: GetTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<PageTicketResponseDto>> {
+  getTickets$Response(params?: GetTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<PageTicketResponseDto>> {
     return getTickets(this.http, this.rootUrl, params, context);
   }
 
   /**
    * Recupera tutti i ticket (paginati e filtrati per ruolo).
    *
-   * Recupera una lista paginata di ticket in base al ruolo dell'utente autenticato.
+   * Recupera una lista paginata di ticket in base al ruolo dell'utente autenticato, con opzioni di filtro.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `getTickets$Response()` instead.
    *
    * This method doesn't expect any request body.
    */
-  getTickets(params: GetTickets$Params, context?: HttpContext): Observable<PageTicketResponseDto> {
+  getTickets(params?: GetTickets$Params, context?: HttpContext): Observable<PageTicketResponseDto> {
     return this.getTickets$Response(params, context).pipe(
       map((r: StrictHttpResponse<PageTicketResponseDto>): PageTicketResponseDto => r.body)
     );
@@ -325,7 +319,7 @@ export class TicketManagementService extends BaseService {
   /**
    * Elimina un ticket.
    *
-   * Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket.
+   * Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket. Helper/PM possono eliminare ticket assegnati e non risolti.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `deleteTicket()` instead.
@@ -339,7 +333,7 @@ export class TicketManagementService extends BaseService {
   /**
    * Elimina un ticket.
    *
-   * Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket.
+   * Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket. Helper/PM possono eliminare ticket assegnati e non risolti.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `deleteTicket$Response()` instead.
@@ -352,69 +346,36 @@ export class TicketManagementService extends BaseService {
     );
   }
 
-  /** Path part for operation `getMyTickets()` */
-  static readonly GetMyTicketsPath = '/api/v1/tickets/my-tickets';
+  /** Path part for operation `getMyTicketsAndAssociatedByEmail()` */
+  static readonly GetMyTicketsAndAssociatedByEmailPath = '/api/v1/tickets/my-tickets-and-associated';
 
   /**
-   * Recupera tutti i ticket di proprietà dell'utente corrente.
+   * Recupera i ticket dell'utente e quelli associati via email (paginati).
    *
-   * Recupera tutti i ticket creati dall'utente autenticato, escluse le bozze.
+   * Recupera una lista paginata di ticket dove l'utente è il creatore o la sua email corrisponde all'email del ticket, con opzioni di filtro.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `getMyTickets()` instead.
+   * To access only the response body, use `getMyTicketsAndAssociatedByEmail()` instead.
    *
    * This method doesn't expect any request body.
    */
-  getMyTickets$Response(params?: GetMyTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<TicketResponseDto>>> {
-    return getMyTickets(this.http, this.rootUrl, params, context);
+  getMyTicketsAndAssociatedByEmail$Response(params?: GetMyTicketsAndAssociatedByEmail$Params, context?: HttpContext): Observable<StrictHttpResponse<PageTicketResponseDto>> {
+    return getMyTicketsAndAssociatedByEmail(this.http, this.rootUrl, params, context);
   }
 
   /**
-   * Recupera tutti i ticket di proprietà dell'utente corrente.
+   * Recupera i ticket dell'utente e quelli associati via email (paginati).
    *
-   * Recupera tutti i ticket creati dall'utente autenticato, escluse le bozze.
+   * Recupera una lista paginata di ticket dove l'utente è il creatore o la sua email corrisponde all'email del ticket, con opzioni di filtro.
    *
    * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `getMyTickets$Response()` instead.
+   * To access the full response (for headers, for example), `getMyTicketsAndAssociatedByEmail$Response()` instead.
    *
    * This method doesn't expect any request body.
    */
-  getMyTickets(params?: GetMyTickets$Params, context?: HttpContext): Observable<Array<TicketResponseDto>> {
-    return this.getMyTickets$Response(params, context).pipe(
-      map((r: StrictHttpResponse<Array<TicketResponseDto>>): Array<TicketResponseDto> => r.body)
-    );
-  }
-
-  /** Path part for operation `getMyTicketsByStatus()` */
-  static readonly GetMyTicketsByStatusPath = '/api/v1/tickets/my-tickets/status/{status}';
-
-  /**
-   * Recupera i ticket di proprietà dell'utente per stato.
-   *
-   * Recupera i ticket creati dall'utente autenticato, filtrati per uno stato specifico.
-   *
-   * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `getMyTicketsByStatus()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  getMyTicketsByStatus$Response(params: GetMyTicketsByStatus$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<TicketResponseDto>>> {
-    return getMyTicketsByStatus(this.http, this.rootUrl, params, context);
-  }
-
-  /**
-   * Recupera i ticket di proprietà dell'utente per stato.
-   *
-   * Recupera i ticket creati dall'utente autenticato, filtrati per uno stato specifico.
-   *
-   * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `getMyTicketsByStatus$Response()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  getMyTicketsByStatus(params: GetMyTicketsByStatus$Params, context?: HttpContext): Observable<Array<TicketResponseDto>> {
-    return this.getMyTicketsByStatus$Response(params, context).pipe(
-      map((r: StrictHttpResponse<Array<TicketResponseDto>>): Array<TicketResponseDto> => r.body)
+  getMyTicketsAndAssociatedByEmail(params?: GetMyTicketsAndAssociatedByEmail$Params, context?: HttpContext): Observable<PageTicketResponseDto> {
+    return this.getMyTicketsAndAssociatedByEmail$Response(params, context).pipe(
+      map((r: StrictHttpResponse<PageTicketResponseDto>): PageTicketResponseDto => r.body)
     );
   }
 
@@ -481,72 +442,6 @@ export class TicketManagementService extends BaseService {
   getDashboardCounts(params?: GetDashboardCounts$Params, context?: HttpContext): Observable<DashboardCountsDto> {
     return this.getDashboardCounts$Response(params, context).pipe(
       map((r: StrictHttpResponse<DashboardCountsDto>): DashboardCountsDto => r.body)
-    );
-  }
-
-  /** Path part for operation `getAssignedTickets()` */
-  static readonly GetAssignedTicketsPath = '/api/v1/tickets/assigned-to-me';
-
-  /**
-   * Recupera i ticket assegnati all'utente corrente.
-   *
-   * Recupera tutti i ticket assegnati all'utente autenticato, escluse le bozze.
-   *
-   * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `getAssignedTickets()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  getAssignedTickets$Response(params?: GetAssignedTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<TicketResponseDto>>> {
-    return getAssignedTickets(this.http, this.rootUrl, params, context);
-  }
-
-  /**
-   * Recupera i ticket assegnati all'utente corrente.
-   *
-   * Recupera tutti i ticket assegnati all'utente autenticato, escluse le bozze.
-   *
-   * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `getAssignedTickets$Response()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  getAssignedTickets(params?: GetAssignedTickets$Params, context?: HttpContext): Observable<Array<TicketResponseDto>> {
-    return this.getAssignedTickets$Response(params, context).pipe(
-      map((r: StrictHttpResponse<Array<TicketResponseDto>>): Array<TicketResponseDto> => r.body)
-    );
-  }
-
-  /** Path part for operation `getAssignedTicketsByStatus()` */
-  static readonly GetAssignedTicketsByStatusPath = '/api/v1/tickets/assigned-to-me/status/{status}';
-
-  /**
-   * Recupera i ticket assegnati all'utente per stato.
-   *
-   * Recupera i ticket assegnati all'utente autenticato, filtrati per uno stato specifico.
-   *
-   * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `getAssignedTicketsByStatus()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  getAssignedTicketsByStatus$Response(params: GetAssignedTicketsByStatus$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<TicketResponseDto>>> {
-    return getAssignedTicketsByStatus(this.http, this.rootUrl, params, context);
-  }
-
-  /**
-   * Recupera i ticket assegnati all'utente per stato.
-   *
-   * Recupera i ticket assegnati all'utente autenticato, filtrati per uno stato specifico.
-   *
-   * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `getAssignedTicketsByStatus$Response()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  getAssignedTicketsByStatus(params: GetAssignedTicketsByStatus$Params, context?: HttpContext): Observable<Array<TicketResponseDto>> {
-    return this.getAssignedTicketsByStatus$Response(params, context).pipe(
-      map((r: StrictHttpResponse<Array<TicketResponseDto>>): Array<TicketResponseDto> => r.body)
     );
   }
 

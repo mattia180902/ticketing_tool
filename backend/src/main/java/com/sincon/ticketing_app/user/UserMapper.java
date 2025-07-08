@@ -13,49 +13,30 @@ public class UserMapper {
 
     public User fromTokenAttributes(Map<String, Object> attributes) {
         User user = new User();
-
-        if (attributes.containsKey("sub")) {
-            user.setId(attributes.get("sub").toString());
-        }
-
-        if (attributes.containsKey("given_name")) {
-            user.setFirstName(attributes.get("given_name").toString());
-        } else if (attributes.containsKey("nickname")) {
-            user.setFirstName(attributes.get("nickname").toString());
-        }
-
-        if (attributes.containsKey("family_name")) {
-            user.setLastName(attributes.get("family_name").toString());
-        }
-
-        if (attributes.containsKey("email")) {
-            user.setEmail(attributes.get("email").toString());
-        }
-
-        // Recupero ruolo da realm_access
-        if (attributes.containsKey("realm_access")) {
-            Map<String, Object> realmAccess = (Map<String, Object>) attributes.get("realm_access");
-            List<String> roles = (List<String>) realmAccess.get("roles");
-
-            if (roles.contains("ADMIN")) {
-                user.setRole(UserRole.ADMIN);
-            } else if (roles.contains("HELPER_JUNIOR")) {
-                user.setRole(UserRole.HELPER_JUNIOR);
-            } else if (roles.contains("HELPER_SENIOR")) {
-                user.setRole(UserRole.HELPER_SENIOR);
-            } else if (roles.contains("PM")) {
-                user.setRole(UserRole.PM);
-            } else {
-                user.setRole(UserRole.USER);
-            }
-        } else {
-            user.setRole(UserRole.USER); // fallback di sicurezza
-        }
-
+        user.setId((String) attributes.getOrDefault("sub", null));
+        user.setFirstName((String) attributes.getOrDefault("given_name", attributes.get("nickname")));
+        user.setLastName((String) attributes.getOrDefault("family_name", null));
+        user.setEmail((String) attributes.getOrDefault("email", null));
+        user.setRole(resolveUserRole(attributes));
         return user;
     }
 
+    private UserRole resolveUserRole(Map<String, Object> attributes) {
+        if (attributes.containsKey("realm_access")) {
+            Map<String, Object> realmAccess = (Map<String, Object>) attributes.get("realm_access");
+            List<String> roles = (List<String>) realmAccess.get("roles");
+            if (roles.contains("ADMIN")) return UserRole.ADMIN;
+            if (roles.contains("HELPER_JUNIOR")) return UserRole.HELPER_JUNIOR;
+            if (roles.contains("HELPER_SENIOR")) return UserRole.HELPER_SENIOR;
+            if (roles.contains("PM")) return UserRole.PM;
+        }
+        return UserRole.USER;
+    }
+
     public UserDTO toUserDTO(User user) {
+        if (user == null) {
+            return null;
+        }
         return UserDTO.builder()
                 .id(user.getId())
                 .firstName(user.getFirstName())
@@ -68,5 +49,4 @@ public class UserMapper {
                 .build();
     }
 }
-
 

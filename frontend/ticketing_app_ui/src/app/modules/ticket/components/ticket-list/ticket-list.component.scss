@@ -1,0 +1,96 @@
+/* src/app/modules/ticket/components/ticket-list/ticket-list.component.scss */
+
+.ticket-list-container {
+  padding: 1rem;
+  font-family: 'Inter', sans-serif;
+}
+
+.filter-card {
+  margin-bottom: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+// Stili per la tabella PrimeNG
+::ng-deep {
+  .p-datatable {
+    border-radius: 0.75rem;
+    overflow: hidden; // Assicura che i bordi arrotondati funzionino
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+    .p-datatable-thead > tr > th {
+      background-color: #f8f9fa; // Sfondo chiaro per l'header
+      color: #495057; // Colore testo scuro
+      font-weight: bold;
+      padding: 1rem;
+      text-align: left;
+    }
+
+    .p-datatable-tbody > tr > td {
+      padding: 1rem;
+      vertical-align: middle; // Allinea verticalmente il contenuto delle celle
+    }
+
+    .p-datatable-tfoot > tr > td {
+      padding: 1rem;
+    }
+
+    .p-paginator {
+      background-color: #ffffff;
+      border-top: 1px solid #dee2e6;
+      padding: 0.75rem 1rem;
+      border-radius: 0 0 0.75rem 0.75rem; // Bordi arrotondati solo in basso
+    }
+  }
+
+  // Stili per i badge di stato
+  .ticket-status-badge {
+    min-width: 6rem;
+    text-align: center;
+    padding: 0.4em 0.6em;
+    font-size: 0.8rem;
+    font-weight: bold;
+    border-radius: 0.5rem;
+  }
+
+  // Stili per i pulsanti di azione nella tabella
+  .p-button.p-button-sm {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  // Stili per la modale di azione
+  .p-dialog {
+    .p-dialog-header {
+      background-color: #f8f9fa;
+      color: #343a40;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #dee2e6;
+      border-top-left-radius: 0.75rem;
+      border-top-right-radius: 0.75rem;
+    }
+    .p-dialog-content {
+      padding: 1.5rem;
+    }
+    .p-dialog-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid #dee2e6;
+      background-color: #f8f9fa;
+      border-bottom-left-radius: 0.75rem;
+      border-bottom-right-radius: 0.75rem;
+    }
+  }
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+  .ticket-list-container {
+    padding: 0.5rem;
+  }
+  .filter-card .grid > div {
+    margin-bottom: 1rem;
+  }
+  .filter-card .flex-wrap {
+    justify-content: center;
+  }
+}

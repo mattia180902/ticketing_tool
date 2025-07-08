@@ -5,27 +5,28 @@
 @import 'primeflex/primeflex.scss';
 
 
-/* ... il tuo CSS custom ... */
-.login-container {
-  width: 800px !important;
-  margin-top: 15%;
+body {
+  padding-top: 200px;
 }
 
 .cursor-pointer {
   cursor: pointer;
 }
 
-body {
-  padding-top: 200px;
-}
-
-.card {
-    background: var(--surface-card);
-    padding: 2rem;
-    border-radius: 10px;
-    margin-bottom: 1rem;
-}
-
 html {
-    font-size: 14px;
+  font-size: 14px;
 }
+
+.login-container {
+  width: 800px !important;
+  margin-top: 15%;
+}
+
+/*
+.card {
+  background: var(--surface-card);
+  padding: 2rem;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+ */

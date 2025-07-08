@@ -1,32 +1,32 @@
-// src/app/modules/ticket/components/ticket-dashboard/ticket-dashboard.component.ts
-
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
-import { DashboardCountsDto, TicketResponseDto } from '../../../../services/models';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ButtonModule } from 'primeng/button';
 import { BadgeModule } from 'primeng/badge';
-import { ToastModule } from 'primeng/toast';
 import { MessageModule } from 'primeng/message';
+import { ToastModule } from 'primeng/toast';
+import { DialogService, DynamicDialogRef } from 'primeng/dynamicdialog';
+import { MessageService } from 'primeng/api';
+
+import { Subject, Observable, of } from 'rxjs';
+import { takeUntil, catchError } from 'rxjs/operators';
+
+// Importa il tuo AuthService personalizzato
 import { AuthService } from '../../service/auth.service';
 
-// Per la modale
-import { DialogService, DynamicDialogRef } from 'primeng/dynamicdialog';
+// Importa le componenti che verranno aperte in modale
+import { NewTicketComponent } from '../new-ticket/new-ticket.component';
+import { TicketDetailsModalComponent } from '../ticket-details-modal/ticket-details-modal.component'; // Importa la modale dei dettagli
+import { DashboardCountsDto, PageTicketResponseDto, TicketResponseDto } from '../../../../services/models';
+import { UserRole } from '../../../../shared/enums/UserRole';
+import { TicketStatus } from '../../../../shared/enums/TicketStatus';
+import { TicketManagementService } from '../../../../services/services';
 import { TicketListComponent } from '../ticket-list/ticket-list.component';
 
-// Import per RxJS
-import { Subject } from 'rxjs';
-import { takeUntil, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
 
-// Importa MessageService di PrimeNG
-import { MessageService } from 'primeng/api';
-import { TicketManagementService } from '../../../../services/services';
-
-// Definizione del tipo per la gravità del badge
 type BadgeSeverity = 'success' | 'info' | 'warning' | 'danger' | 'help' | 'primary' | 'secondary' | 'contrast';
 
 @Component({
@@ -38,37 +38,45 @@ type BadgeSeverity = 'success' | 'info' | 'warning' | 'danger' | 'help' | 'prima
     CardModule,
     TagModule,
     ButtonModule,
-    MessageModule,
     BadgeModule,
-    ToastModule
+    MessageModule,
+    ToastModule,
+    DatePipe
   ],
   templateUrl: './ticket-dashboard.component.html',
   styleUrl: './ticket-dashboard.component.scss',
-  providers: [DialogService, MessageService]
+  providers: [DialogService, MessageService] 
 })
 export class TicketDashboardComponent implements OnInit, OnDestroy {
   counts: DashboardCountsDto | null = null;
   tickets: TicketResponseDto[] = [];
-  roles: string[] = [];
+  roles: UserRole[] = [];
   page = 0;
   size = 5;
 
   ref: DynamicDialogRef | undefined;
 
+  public UserRole = UserRole;
+  public TicketStatus = TicketStatus;
+
   private destroy$ = new Subject<void>();
 
   constructor(
     private ticketService: TicketManagementService,
-    private authService: AuthService,
+    public authService: AuthService,
     private router: Router,
-    public dialogService: DialogService,
+    public dialogService: DialogService, 
     private messageService: MessageService
   ) {}
 
   ngOnInit(): void {
-    this.roles = this.authService.keycloak.getUserRoles();
-    this.loadCounts();
-    this.loadRecentTickets();
+    this.authService.currentUserRoles$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(roles => {
+        this.roles = roles;
+        this.loadDashboardCounts();
+        this.loadRecentTickets();
+      });
   }
 
   ngOnDestroy(): void {
@@ -79,10 +87,7 @@ export class TicketDashboardComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  /**
-   * Carica i conteggi dei ticket per la dashboard in base al ruolo dell'utente.
-   */
-  loadCounts(): void {
+  loadDashboardCounts(): void {
     this.ticketService.getDashboardCounts().pipe(
       takeUntil(this.destroy$),
       catchError(err => {
@@ -99,115 +104,161 @@ export class TicketDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Carica gli ultimi 5 ticket recenti.
-   * La paginazione è fissa a page 0, size 5, ordinamento per data di creazione discendente.
-   */
   loadRecentTickets(): void {
-    const pageableParams = { 
-      page: this.page, 
-      size: this.size, 
-      // MODIFICA QUI: Invia solo il nome della proprietà, senza la direzione.
-      // Questo dovrebbe evitare il problema di codifica della virgola.
-      // Se il backend supporta solo l'ordinamento ascendente per default senza direzione esplicita.
-      // O se la direzione va passata in un altro modo.
-      sort: ['createdBy'] 
+    const params = {
+      page: this.page,
+      size: this.size,
+      sort: ['createdDate','desc'] 
     };
-    
-    this.ticketService.getTickets({ pageable: pageableParams }).pipe(
+
+    let apiCall: Observable<PageTicketResponseDto>;
+
+    if (this.authService.isUser()) {
+      apiCall = this.ticketService.getMyTicketsAndAssociatedByEmail(params);
+    } else {
+      apiCall = this.ticketService.getTickets(params);
+    }
+
+    apiCall.pipe(
       takeUntil(this.destroy$),
       catchError(err => {
         console.error('Errore nel caricamento dei ticket recenti:', err);
         this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare i ticket recenti.' });
-        return of({ content: [] });
+        return of({ content: [], totalElements: 0 } as PageTicketResponseDto);
       })
     ).subscribe({
-      next: (res) => this.tickets = res.content ?? [],
+      next: (res) => {
+        this.tickets = res.content ?? [];
+      },
     });
   }
 
-  /**
-   * Reindirizza l'utente o apre una modale in base allo stato del ticket cliccato.
-   * Se lo stato è 'DRAFT', cerca la prima bozza e reindirizza al form di creazione/modifica.
-   * Altrimenti, apre una modale con la lista dei ticket filtrati per lo stato.
-   * @param status Lo stato del ticket su cui filtrare (es. 'OPEN', 'ANSWERED', 'DRAFT').
-   */
-  goToTicketsByStatus(status: string): void {
-    if (status === 'DRAFT') {
-      this.ticketService.getMyDrafts().pipe(
-        takeUntil(this.destroy$),
-        catchError(err => {
-          console.error("Errore nel recupero delle bozze:", err);
-          this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile recuperare le bozze.' });
-          this.router.navigate(['/new-ticket']);
-          return of([]);
-        })
-      ).subscribe({
-        next: (drafts: TicketResponseDto[]) => {
-          if (drafts && drafts.length > 0) {
-            this.router.navigate(['/new-ticket'], { queryParams: { ticketId: drafts[0].id } });
-          } else {
-            this.messageService.add({ severity: 'info', summary: 'Nessuna Bozza', detail: 'Nessuna bozza trovata. Inizia la creazione di un' + ' nuovo ticket.' });
-            this.router.navigate(['/new-ticket']);
-          }
-        }
-      });
-    } else {
-      this.openFilteredTicketListModal(status);
-    }
-  }
+  openTicketListModal(status: 'ALL' | TicketStatus): void {
+    let headerText = '';
+    const filterStatus: TicketStatus | 'ALL' = status;
 
-  /**
-   * Apre una modale con la lista dei ticket filtrati per uno stato specifico.
-   * @param status Lo stato dei ticket da visualizzare nella modale.
-   */
-  openFilteredTicketListModal(status: string): void {
+    switch (status) {
+      case 'ALL':
+        headerText = 'Tutti i Ticket';
+        if (this.authService.isUser()) {
+          headerText = 'Tutti i miei Ticket e Associati';
+        }
+        break;
+      case TicketStatus.OPEN:
+        headerText = 'Ticket Aperti';
+        break;
+      case TicketStatus.ANSWERED:
+        headerText = 'Ticket In Risposta';
+        break;
+        case TicketStatus.SOLVED:
+        headerText = 'Ticket Risolti';
+        break;
+      case TicketStatus.DRAFT:
+        headerText = 'Bozze';
+        break;
+      default:
+        headerText = 'Lista Ticket';
+        break;
+    }
+
     this.ref = this.dialogService.open(TicketListComponent, {
-      header: `Ticket ${status.toUpperCase()}`,
+      header: headerText,
       width: '90%',
       height: '90%',
-      contentStyle: { "max-height": "500px", "overflow": "auto" },
+      contentStyle: { "max-height": "calc(100vh - 100px)", "overflow": "auto" },
       baseZIndex: 10000,
       data: {
-        filterStatus: status,
-        isModalSelection: false
+        filterStatus: filterStatus,
+        isModalSelection: false 
       }
     });
 
     this.ref.onClose.pipe(takeUntil(this.destroy$)).subscribe(() => {
-      this.loadCounts();
+      this.loadDashboardCounts(); 
+      this.loadRecentTickets(); 
+    });
+  }
+
+  openNewTicketEditModal(ticketId: number | null, isDraft: boolean, isReadOnly: boolean): void {
+    this.ref = this.dialogService.open(NewTicketComponent, {
+      header: isDraft ? 'Modifica Bozza' : 'Dettagli Ticket / Modifica',
+      width: '90%',
+      height: '90%',
+      contentStyle: { "max-height": "calc(100vh - 100px)", "overflow": "auto" },
+      baseZIndex: 10000,
+      data: {
+        ticketId: ticketId,
+        isDraft: isDraft,
+        isReadOnly: isReadOnly
+      }
+    });
+
+    this.ref.onClose.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.loadDashboardCounts();
       this.loadRecentTickets();
     });
   }
 
   /**
-   * Controlla se l'utente ha un ruolo specifico.
-   * @param role Il ruolo da controllare.
-   * @returns True se l'utente ha il ruolo, false altrimenti.
+   * Apre la modale dei dettagli del ticket usando TicketDetailsModalComponent.
+   * Modificato per forzare la larghezza.
+   * @param ticket Il ticket da visualizzare.
    */
-  hasRole(role: string): boolean {
+  openTicketDetailsModal(ticket: TicketResponseDto): void {
+    this.ref = this.dialogService.open(TicketDetailsModalComponent, {
+      header: 'Dettagli Ticket',
+      width: '90vw', // <--- Imposta la larghezza desiderata qui
+      height: 'auto', // Lascia l'altezza automatica o imposta un max-height
+      contentStyle: { "max-height": "calc(100vh - 100px)", "overflow": "auto" },
+      baseZIndex: 10000,
+      data: {
+        ticket: ticket
+      }
+    });
+
+    this.ref.onClose.pipe(takeUntil(this.destroy$)).subscribe(result => {
+      if (result === 'Deleted') {
+        this.messageService.add({ severity: 'success', summary: 'Successo', detail: 'Ticket eliminato con successo!' });
+        this.loadDashboardCounts();
+        this.loadRecentTickets();
+      } else if (result === 'OpenNewTicket') {
+        this.navigateToCategorySelection();
+      } else if (result === 'StatusUpdated') {
+        this.messageService.add({ severity: 'success', summary: 'Successo', detail: 'Stato ticket aggiornato con successo!' });
+        this.loadDashboardCounts();
+        this.loadRecentTickets();
+      } else {
+        this.loadDashboardCounts();
+        this.loadRecentTickets();
+      }
+    });
+  }
+
+
+  handleRecentTicketDetails(ticket: TicketResponseDto): void {
+    const isOwner = ticket.userId === this.authService.getUserId();
+    
+    if (this.authService.isUser() && ticket.status === TicketStatus.DRAFT && isOwner) {
+      this.openNewTicketEditModal(ticket.id!, true, false);
+    } else {
+      this.openTicketDetailsModal(ticket);
+    }
+  }
+
+  hasRole(role: UserRole): boolean {
     return this.authService.hasRole(role);
   }
 
-  /**
-   * Controlla se l'utente è un helper o un project manager.
-   * @returns True se l'utente è HELPER_JUNIOR, HELPER_SENIOR o PM, false altrimenti.
-   */
-  isHelperOrPm(): boolean {
-    return this.authService.isHelperOrPm();
+  navigateToCategorySelection(): void {
+    this.router.navigate(['/categories']);
   }
 
-  /**
-   * Restituisce la gravità del badge di PrimeNG in base allo stato del ticket.
-   * @param status Lo stato del ticket.
-   * @returns Una stringa che rappresenta la gravità del badge.
-   */
-  statusColor(status: string | undefined): BadgeSeverity {
+  statusColor(status: TicketStatus | undefined): BadgeSeverity {
     switch (status) {
-      case 'OPEN': return 'info';
-      case 'ANSWERED': return 'warning';
-      case 'SOLVED': return 'success';
-      case 'DRAFT': return 'contrast';
+      case TicketStatus.OPEN: return 'info';
+      case TicketStatus.ANSWERED: return 'warning';
+      case TicketStatus.SOLVED: return 'success';
+      case TicketStatus.DRAFT: return 'contrast';
       default: return 'danger';
     }
   }

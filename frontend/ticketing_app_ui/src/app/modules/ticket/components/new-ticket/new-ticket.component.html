@@ -1,256 +1,195 @@
 <!-- eslint-disable @angular-eslint/template/elements-content -->
-<!-- src/app/modules/ticket/components/new-ticket/new-ticket.component.html -->
-
-<p-card [header]="isEditMode ? 'Modifica Ticket/Bozza' : 'Crea nuovo ticket'" class="ticket-card">
-  <form [formGroup]="ticketForm" (ngSubmit)="submitTicket()">
-    <div class="p-fluid grid formgrid">
-      <!-- Campo Oggetto -->
-      <div class="field col-12 md:col-6">
-        <label for="title">Oggetto</label>
-        <input
-          id="title"
-          pInputText
-          formControlName="title"
-          placeholder="Oggetto del ticket"
-          aria-describedby="title-help"
-        />
-        <small
-          id="title-help"
-          *ngIf="
-            ticketForm.get('title')?.invalid && ticketForm.get('title')?.touched
-          "
-          class="p-error"
-          >Campo obbligatorio</small
-        >
-      </div>
-
-      <!-- Campo Email -->
-      <div class="field col-12 md:col-6">
-        <label for="email">Email</label>
-        <input
-          id="email"
-          pInputText
-          formControlName="email"
-          placeholder="Email"
-          aria-describedby="email-help"
-        />
-        <small
-          id="email-help"
-          *ngIf="
-            ticketForm.get('email')?.invalid && ticketForm.get('email')?.touched
-          "
-          class="p-error"
-          >Inserisci un'email valida</small
-        >
-      </div>
-
-      <!-- Campo Descrizione -->
-      <div class="field col-12">
-        <label for="description">Descrizione</label>
-        <textarea
-          id="description"
-          pInputTextarea
-          formControlName="description"
-          rows="4"
-          placeholder="Descrizione dettagliata del problema o della richiesta"
-          aria-describedby="description-help"
-          class="w-full"
-        ></textarea>
-        <small
-          id="description-help"
-          *ngIf="
-            ticketForm.get('description')?.invalid &&
-            ticketForm.get('description')?.touched
-          "
-          class="p-error"
-          >La descrizione deve contenere almeno 5 caratteri</small
-        >
-      </div>
-
-      <!-- Campo Telefono -->
-      <div class="field col-12 md:col-4">
-        <label for="phoneNumber">Telefono</label>
-        <input
-          id="phoneNumber"
-          pInputText
-          formControlName="phoneNumber"
-          placeholder="Es. +393331234567"
-          aria-describedby="phoneNumber-help"
-        />
-        <small
-          id="phoneNumber-help"
-          *ngIf="
-            ticketForm.get('phoneNumber')?.invalid &&
-            ticketForm.get('phoneNumber')?.touched
-          "
-          class="p-error"
-          >Formato telefono non valido (min. 7, max. 15 cifre, con + opzionale)</small
-        >
-      </div>
-
-      <!-- Campo Codice Fiscale -->
-      <div class="field col-12 md:col-4">
-        <label for="fiscalCode">Codice Fiscale</label>
-        <input
-          id="fiscalCode"
-          pInputText
-          formControlName="fiscalCode"
-          placeholder="Es. ABCDEF01G23H456I"
-          aria-describedby="fiscalCode-help"
-        />
-        <small
-          id="fiscalCode-help"
-          *ngIf="
-            ticketForm.get('fiscalCode')?.invalid &&
-            ticketForm.get('fiscalCode')?.touched
-          "
-          class="p-error"
-          >Formato codice fiscale non valido (es. ABCDEF01G23H456I)</small
-        >
-      </div>
-
-      <!-- Campo Priorità -->
-      <div class="field col-12 md:col-4">
-        <label for="priority">Priorità</label>
-        <p-dropdown
-          id="priority"
-          [options]="['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']"
-          formControlName="priority"
-          placeholder="Seleziona Priorità"
-          aria-describedby="priority-help"
-        ></p-dropdown>
-        <small
-          id="priority-help"
-          *ngIf="ticketForm.get('priority')?.invalid && ticketForm.get('priority')?.touched"
-          class="p-error"
-          >Campo obbligatorio</small
-        >
-      </div>
-
-      <!-- Campo Categoria -->
-      <div class="field col-12 md:col-6">
-        <label for="categoryId">Categoria</label>
-        <p-dropdown
-          id="categoryId"
-          formControlName="categoryId"
-          [options]="categories"
-          optionLabel="name"
-          optionValue="id"
-          placeholder="Seleziona Categoria"
-          [showClear]="true"
-          [filter]="true"
-          aria-describedby="categoryId-help"
-        ></p-dropdown>
-        <small
-          id="categoryId-help"
-          *ngIf="ticketForm.get('categoryId')?.invalid && ticketForm.get('categoryId')?.touched"
-          class="p-error"
-          >Campo obbligatorio</small
-        >
-      </div>
-
-      <!-- Campo Servizio di Supporto -->
-      <div class="field col-12 md:col-6">
-        <label for="supportServiceId">Servizio di Supporto</label>
-        <p-dropdown
-          id="supportServiceId"
-          formControlName="supportServiceId"
-          [options]="services"
-          optionLabel="title"
-          optionValue="id"
-          placeholder="Seleziona Servizio"
-          [showClear]="true"
-          [filter]="true"
-          [disabled]="!ticketForm.get('categoryId')?.value"
-          aria-describedby="supportServiceId-help"
-        ></p-dropdown>
-        <small
-          id="supportServiceId-help"
-          *ngIf="ticketForm.get('supportServiceId')?.invalid && ticketForm.get('supportServiceId')?.touched"
-          class="p-error"
-          >Campo obbligatorio</small
-        >
-      </div>
-
-      <!-- Campo Assegna a (visibile solo per ruoli non USER) -->
-      <div class="field col-12" *ngIf="!isUserRole">
-        <label for="assignedToId">Assegna a</label>
-        <p-dropdown
-          id="assignedToId"
-          formControlName="assignedToId"
-          [options]="helpers"
-          optionLabel="fullName"
-          optionValue="id"
-          placeholder="Seleziona un assegnatario"
-          [showClear]="true"
-          [filter]="true"
-          aria-describedby="assignedToId-help"
-        >
-        </p-dropdown>
-        <small
-          id="assignedToId-help"
-          *ngIf="
-            ticketForm.get('assignedToId')?.invalid &&
-            ticketForm.get('assignedToId')?.touched
-          "
-          class="p-error"
-          >Campo obbligatorio</small
-        >
-      </div>
-    </div>
-
-    <!-- Azioni del form -->
-    <div class="form-actions flex justify-content-end gap-2 mt-3">
-      <button
-        pButton
-        type="button"
-        label="Nuovo Ticket"
-        icon="pi pi-plus"
-        class="p-button-secondary"
-        (click)="startNewTicket()"
-        [disabled]="!isEditMode && ticketForm.pristine && !currentTicketId"
-      ></button>
-
-      <button
-        pButton
-        type="button"
-        label="Carica Bozza"
-        icon="pi pi-folder-open"
-        class="p-button-info"
-        (click)="openDraftsModal()"
-      ></button>
-
-      <button
-        pButton
-        type="button"
-        label="Salva Bozza"
-        icon="pi pi-save"
-        class="p-button-secondary"
-        (click)="saveDraftToDb(true)"
-        [disabled]="ticketForm.pristine && !currentTicketId"
-      ></button>
-
-      <button
-        pButton
-        type="button"
-        [label]="currentTicketId ? 'Elimina Bozza' : 'Pulisci Form'"
-        [icon]="currentTicketId ? 'pi pi-trash' : 'pi pi-times'"
-        class="p-button-danger"
-        (click)="clearForm()"
-      ></button>
-
-      <button
-        pButton
-        type="submit"
-        [label]="isEditMode ? 'Aggiorna Ticket' : 'Crea Ticket'"
-        icon="pi pi-check"
-        [disabled]="ticketForm.invalid"
-      ></button>
-    </div>
-  </form>
-</p-card>
-
-<!-- Messaggi Toast di PrimeNG -->
 <p-toast></p-toast>
-<!-- Dialogo di conferma per l'eliminazione della bozza -->
 <p-confirmDialog></p-confirmDialog>
+
+<div class="new-ticket-container">
+  <p-card [header]="isEditMode ? (isDraft ? 'Modifica Bozza' : 'Dettagli Ticket') : 'Crea Nuovo Ticket'">
+    <form [formGroup]="ticketForm" (ngSubmit)="finalizeTicket()">
+      <div class="p-fluid grid">
+        <!-- Titolo -->
+        <div class="field col-12">
+          <label for="title">Oggetto</label>
+          <input id="title" type="text" pInputText formControlName="title" />
+          <small
+            *ngIf="ticketForm.get('title')?.invalid && ticketForm.get('title')?.touched"
+            class="p-error"
+            >L'oggetto è obbligatorio.</small
+          >
+        </div>
+
+        <!-- Descrizione -->
+        <div class="field col-12">
+          <label for="description">Descrizione</label>
+          <textarea
+            id="description"
+            rows="5"
+            pInputTextarea
+            formControlName="description"
+          ></textarea>
+          <small
+            *ngIf="ticketForm.get('description')?.invalid && ticketForm.get('description')?.touched"
+            class="p-error"
+            >La descrizione è obbligatoria.</small
+          >
+        </div>
+
+        <!-- Categoria -->
+        <div class="field col-12 md:col-6">
+          <label for="category">Categoria</label>
+          <p-dropdown
+            id="category"
+            [options]="categories"
+            formControlName="categoryId"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Seleziona una categoria"
+            [filter]="true"
+            filterBy="name"
+          ></p-dropdown>
+          <small
+            *ngIf="ticketForm.get('categoryId')?.invalid && ticketForm.get('categoryId')?.touched"
+            class="p-error"
+            >La categoria è obbligatoria.</small
+          >
+        </div>
+
+        <!-- Servizio di Supporto -->
+        <div class="field col-12 md:col-6">
+          <label for="supportService">Servizio di Supporto</label>
+          <p-dropdown
+            id="supportService"
+            [options]="filteredSupportServices"
+            formControlName="supportServiceId"
+            optionLabel="title"
+            optionValue="id"
+            placeholder="Seleziona un servizio"
+            [filter]="true"
+            filterBy="title"
+            [disabled]="!ticketForm.get('categoryId')?.value"
+          ></p-dropdown>
+          <small
+            *ngIf="ticketForm.get('supportServiceId')?.invalid && ticketForm.get('supportServiceId')?.touched"
+            class="p-error"
+            >Il servizio di supporto è obbligatorio.</small
+          >
+        </div>
+
+        <!-- Priorità -->
+        <div class="field col-12 md:col-6">
+          <label for="priority">Priorità</label>
+          <p-dropdown
+            id="priority"
+            [options]="priorities"
+            formControlName="priority"
+            placeholder="Seleziona priorità"
+          ></p-dropdown>
+          <small
+            *ngIf="ticketForm.get('priority')?.invalid && ticketForm.get('priority')?.touched"
+            class="p-error"
+            >La priorità è obbligatoria.</small
+          >
+        </div>
+
+        <!-- Email (visibile per Admin/Helper/PM, disabilitato per USER) -->
+        <div class="field col-12 md:col-6">
+          <label for="email">Email</label>
+          <input id="email" type="email" pInputText formControlName="email" />
+          <small
+            *ngIf="ticketForm.get('email')?.invalid && ticketForm.get('email')?.touched"
+            class="p-error"
+            >Inserisci un'email valida.</small
+          >
+        </div>
+
+        <!-- Codice Fiscale -->
+        <div class="field col-12 md:col-6">
+          <label for="fiscalCode">Codice Fiscale</label>
+          <input
+            id="fiscalCode"
+            type="text"
+            pInputText
+            formControlName="fiscalCode"
+          />
+        </div>
+
+        <!-- Numero di Telefono -->
+        <div class="field col-12 md:col-6">
+          <label for="phoneNumber">Numero di Telefono</label>
+          <input
+            id="phoneNumber"
+            type="text"
+            pInputText
+            formControlName="phoneNumber"
+          />
+        </div>
+
+        <!-- Assegnato a (visibile solo per Helper, PM, Admin) -->
+        <div class="field col-12 md:col-6" *ngIf="isHelperOrPmRole || isAdminRole">
+          <label for="assignedTo">Assegnato a</label>
+          <p-dropdown
+            id="assignedTo"
+            [options]="assignableUsers"
+            formControlName="assignedToId"
+            optionLabel="fullName"
+            optionValue="id"
+            placeholder="Seleziona un assegnatario"
+            [filter]="true"
+            filterBy="fullName"
+            [showClear]="true"
+          ></p-dropdown>
+          <small
+            *ngIf="ticketForm.get('assignedToId')?.invalid && ticketForm.get('assignedToId')?.touched"
+            class="p-error"
+            >L'assegnatario è obbligatorio per i ticket non bozza.</small
+          >
+        </div>
+      </div>
+
+      <div class="flex justify-content-end gap-2 mt-4">
+        <!-- Pulsante "Carica Bozza" - visibile solo per USER quando non in modifica di una bozza e non in sola lettura -->
+        <button
+          pButton
+          type="button"
+          label="Carica Bozza"
+          icon="pi pi-folder-open"
+          class="p-button-secondary load-draft-button"
+          (click)="openDraftSelectionModal()"
+          *ngIf="isUserRole && !isEditMode && !isReadOnly"
+        ></button>
+
+        <!-- Pulsante "Nuovo Ticket" - Sempre visibile, ma la logica cambia se è una modale -->
+        <button
+          pButton
+          type="button"
+          label="Nuovo Ticket"
+          icon="pi pi-plus"
+          class="p-button-secondary"
+          (click)="onNewTicket()"
+        ></button>
+
+        <!-- Pulsante "Crea Ticket" / "Salva Modifiche" -->
+        <button
+          pButton
+          type="submit"
+          [label]="isDraft ? 'Crea Ticket' : (isEditMode ? 'Salva Modifiche' : 'Crea Ticket')"
+          [icon]="isDraft ? 'pi pi-check' : (isEditMode ? 'pi pi-save' : 'pi pi-plus')"
+          [disabled]="ticketForm.invalid || isReadOnly"
+          [class]="isEditMode && !isDraft ? 'p-button-primary' : 'p-button-success'"
+          *ngIf="!isReadOnly"
+        ></button>
+
+        <!-- Pulsante "Chiudi" (solo se in modalità modale) -->
+        <button
+          pButton
+          type="button"
+          label="Chiudi"
+          icon="pi pi-times"
+          class="p-button-text p-button-secondary"
+          (click)="ref.close()"
+          *ngIf="ref"
+        ></button>
+      </div>
+    </form>
+  </p-card>
+</div>
+

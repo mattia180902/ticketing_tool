@@ -12,7 +12,6 @@ import { AvatarModule } from 'primeng/avatar';
 import { ToolbarModule } from 'primeng/toolbar'; // Per la p-toolbar
 import { InputTextModule } from 'primeng/inputtext'; // Per pInputText
 import { StyleClassModule } from 'primeng/styleclass';
-import { HttpClientModule } from '@angular/common/http';
 
 @Component({
   selector: 'app-menu',
@@ -28,7 +27,6 @@ import { HttpClientModule } from '@angular/common/http';
     ToolbarModule,
     InputTextModule,
     StyleClassModule,
-    HttpClientModule
   ],
   templateUrl: './menu.component.html',
   styleUrl: './menu.component.scss',
@@ -47,7 +45,7 @@ export class MenuComponent implements OnInit {
 
   ngOnInit() {
     this.roles = this.keycloakService.getUserRoles();
-    console.log('Ruoli utente:', this.roles);
+    //console.log('Ruoli utente:', this.roles);
   }
 
   openSidebar(): void {

@@ -1,4 +1,8 @@
 
+p-toolbar {
+  z-index: 999;
+  position: relative;
+}
 // Assicurati che i link occupino tutta la larghezza per facilitare il clic
 .sidebar-link {
   display: flex;

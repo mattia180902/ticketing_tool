@@ -40,4 +40,3 @@ public abstract class Auditable {
     @Column(insertable = false)
     private Date lastModifiedDate;
 }
-

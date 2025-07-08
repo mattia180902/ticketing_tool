@@ -4,7 +4,6 @@ import { MainComponent } from './modules/ticket/pages/main/main.component';
 import { TicketListComponent } from './modules/ticket/components/ticket-list/ticket-list.component';
 import { NewTicketComponent } from './modules/ticket/components/new-ticket/new-ticket.component';
 import { CategoryListComponent } from './modules/ticket/components/category-list/category-list.component';
-import { CreateCategoryComponent } from './modules/ticket/components/create-category/create-category.component';
 import { ServiceListComponent } from './modules/ticket/components/service-list/service-list.component';
 import { TicketDashboardComponent } from './modules/ticket/components/ticket-dashboard/ticket-dashboard.component';
 
@@ -33,11 +32,6 @@ export const routes: Routes = [
       {
         path: 'new-ticket',
         component: NewTicketComponent,
-        canActivate: [authGuard],
-      },
-      {
-        path: 'create-category',
-        component: CreateCategoryComponent,
         canActivate: [authGuard],
       },
       {

@@ -8,21 +8,50 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { Pageable } from '../../models/pageable';
 import { PageTicketResponseDto } from '../../models/page-ticket-response-dto';
 
 export interface GetTickets$Params {
 
 /**
- * Parametri di paginazione e ordinamento
+ * Zero-based page index (0..N)
  */
-  pageable: Pageable;
+  page?: number;
+
+/**
+ * The size of the page to be returned
+ */
+  size?: number;
+
+/**
+ * Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.
+ */
+  sort?: Array<string>;
+
+/**
+ * Filtra per stato del ticket
+ */
+  status?: 'OPEN' | 'ANSWERED' | 'SOLVED' | 'DRAFT';
+
+/**
+ * Filtra per priorità del ticket
+ */
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+/**
+ * Cerca per titolo, descrizione, nome categoria o nome servizio
+ */
+  search?: string;
 }
 
-export function getTickets(http: HttpClient, rootUrl: string, params: GetTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<PageTicketResponseDto>> {
+export function getTickets(http: HttpClient, rootUrl: string, params?: GetTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<PageTicketResponseDto>> {
   const rb = new RequestBuilder(rootUrl, getTickets.PATH, 'get');
   if (params) {
-    rb.query('pageable', params.pageable, {});
+    rb.query('page', params.page, {});
+    rb.query('size', params.size, {});
+    rb.query('sort', params.sort, {});
+    rb.query('status', params.status, {});
+    rb.query('priority', params.priority, {});
+    rb.query('search', params.search, {});
   }
 
   return http.request(

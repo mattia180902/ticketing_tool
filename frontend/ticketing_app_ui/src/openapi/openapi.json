@@ -14,14 +14,20 @@
     {
       "name": "Ticket Management",
       "description": "API per la gestione dei ticket"
+    },
+    {
+      "name": "User Management",
+      "description": "API per la gestione degli utenti"
     }
   ],
   "paths": {
-    "/api/v1/users/contact-info": {
+    "/api/v1/users/me/contact-info": {
       "put": {
         "tags": [
-          "User"
+          "User Management"
         ],
+        "summary": "Aggiorna le informazioni di contatto dell'utente corrente",
+        "description": "Permette all'utente di aggiornare il proprio numero di telefono e codice fiscale.",
         "operationId": "updateContactInfo",
         "requestBody": {
           "content": {
@@ -34,8 +40,38 @@
           "required": true
         },
         "responses": {
+          "404": {
+            "description": "Utente non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTO"
+                }
+              }
+            }
+          },
           "200": {
-            "description": "OK",
+            "description": "Informazioni di contatto aggiornate con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dati di input non validi.",
             "content": {
               "application/json": {
                 "schema": {
@@ -160,7 +196,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CategoryDTO"
+                "$ref": "#/components/schemas/CategoryRequest"
               }
             }
           },
@@ -208,17 +244,84 @@
           "Ticket Management"
         ],
         "summary": "Recupera tutti i ticket (paginati e filtrati per ruolo)",
-        "description": "Recupera una lista paginata di ticket in base al ruolo dell'utente autenticato.",
+        "description": "Recupera una lista paginata di ticket in base al ruolo dell'utente autenticato, con opzioni di filtro.",
         "operationId": "getTickets",
         "parameters": [
           {
-            "name": "pageable",
+            "name": "page",
             "in": "query",
-            "description": "Parametri di paginazione e ordinamento",
-            "required": true,
+            "description": "Zero-based page index (0..N)",
+            "required": false,
             "schema": {
-              "$ref": "#/components/schemas/Pageable"
+              "minimum": 0,
+              "type": "integer",
+              "default": 0
             }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "The size of the page to be returned",
+            "required": false,
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filtra per stato del ticket",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "ANSWERED",
+                "SOLVED",
+                "DRAFT"
+              ]
+            },
+            "example": "OPEN"
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "description": "Filtra per priorità del ticket",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LOW",
+                "MEDIUM",
+                "HIGH",
+                "CRITICAL"
+              ]
+            },
+            "example": "HIGH"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Cerca per titolo, descrizione, nome categoria o nome servizio",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "problema"
           }
         ],
         "responses": {
@@ -420,7 +523,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CategoryDTO"
+                "$ref": "#/components/schemas/CategoryRequest"
               }
             }
           },
@@ -433,6 +536,97 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CategoryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{userId}/role": {
+      "patch": {
+        "tags": [
+          "User Management"
+        ],
+        "summary": "Aggiorna il ruolo di un utente",
+        "description": "Permette agli ADMIN di modificare il ruolo di un utente esistente. Non è possibile modificare il ruolo di altri ADMIN.",
+        "operationId": "updateUserRole",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "ID dell'utente da aggiornare",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "uuid-user-1"
+          },
+          {
+            "name": "newRole",
+            "in": "query",
+            "description": "Il nuovo ruolo da assegnare",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ADMIN",
+                "HELPER_JUNIOR",
+                "HELPER_SENIOR",
+                "PM",
+                "USER"
+              ]
+            },
+            "example": "HELPER_JUNIOR"
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Utente non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dati di input non validi (es. ruolo già presente).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato (solo ADMIN o tentativo di modificare un altro ADMIN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTO"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Ruolo utente aggiornato con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTO"
                 }
               }
             }
@@ -864,12 +1058,40 @@
     "/api/v1/users": {
       "get": {
         "tags": [
-          "User"
+          "User Management"
         ],
+        "summary": "Recupera tutti gli utenti (tranne se stessi)",
+        "description": "Permette agli ADMIN di visualizzare tutti gli utenti registrati nel sistema, escluso il proprio account.",
         "operationId": "getAllUsers",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Lista utenti recuperata con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDTO"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDTO"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato (solo ADMIN).",
             "content": {
               "application/json": {
                 "schema": {
@@ -887,12 +1109,34 @@
     "/api/v1/users/me": {
       "get": {
         "tags": [
-          "User"
+          "User Management"
         ],
+        "summary": "Recupera i dettagli dell'utente corrente",
+        "description": "Recupera le informazioni del profilo dell'utente autenticato.",
         "operationId": "getMe",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Dettagli utente recuperati con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Utente non trovato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
             "content": {
               "application/json": {
                 "schema": {
@@ -907,12 +1151,40 @@
     "/api/v1/users/helpers": {
       "get": {
         "tags": [
-          "User"
+          "User Management"
         ],
+        "summary": "Recupera tutti gli Helper (Junior, Senior) e PM",
+        "description": "Permette agli ADMIN di visualizzare tutti gli utenti con ruolo Helper_Junior, Helper_Senior o PM.",
         "operationId": "getHelpers",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Lista Helper/PM recuperata con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDTO"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDTO"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato (solo ADMIN).",
             "content": {
               "application/json": {
                 "schema": {
@@ -930,12 +1202,40 @@
     "/api/v1/users/helpers-junior": {
       "get": {
         "tags": [
-          "User"
+          "User Management"
         ],
+        "summary": "Recupera tutti gli Helper Junior",
+        "description": "Permette agli ADMIN di visualizzare tutti gli utenti con ruolo Helper_Junior.",
         "operationId": "getHelpersJunior",
         "responses": {
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDTO"
+                  }
+                }
+              }
+            }
+          },
           "200": {
-            "description": "OK",
+            "description": "Lista Helper Junior recuperata con successo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDTO"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato (solo ADMIN).",
             "content": {
               "application/json": {
                 "schema": {
@@ -953,12 +1253,40 @@
     "/api/v1/users/helpers-and-admins": {
       "get": {
         "tags": [
-          "User"
+          "User Management"
         ],
+        "summary": "Recupera tutti gli Helper, PM e Admin",
+        "description": "Permette a Helper, PM e Admin di visualizzare tutti gli utenti con ruolo Helper, PM o Admin.",
         "operationId": "getHelpersAndAdmins",
         "responses": {
+          "401": {
+            "description": "Non autenticato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDTO"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDTO"
+                  }
+                }
+              }
+            }
+          },
           "200": {
-            "description": "OK",
+            "description": "Lista Helper/PM/Admin recuperata con successo.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1042,7 +1370,7 @@
           "Ticket Management"
         ],
         "summary": "Elimina un ticket",
-        "description": "Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket.",
+        "description": "Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket. Helper/PM possono eliminare ticket assegnati e non risolti.",
         "operationId": "deleteTicket",
         "parameters": [
           {
@@ -1073,71 +1401,54 @@
         }
       }
     },
-    "/api/v1/tickets/my-tickets": {
+    "/api/v1/tickets/my-tickets-and-associated": {
       "get": {
         "tags": [
           "Ticket Management"
         ],
-        "summary": "Recupera tutti i ticket di proprietà dell'utente corrente",
-        "description": "Recupera tutti i ticket creati dall'utente autenticato, escluse le bozze.",
-        "operationId": "getMyTickets",
-        "responses": {
-          "404": {
-            "description": "Utente non trovato.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketResponseDTO"
-                  }
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Ticket recuperati con successo.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketResponseDTO"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Non autenticato.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketResponseDTO"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/tickets/my-tickets/status/{status}": {
-      "get": {
-        "tags": [
-          "Ticket Management"
-        ],
-        "summary": "Recupera i ticket di proprietà dell'utente per stato",
-        "description": "Recupera i ticket creati dall'utente autenticato, filtrati per uno stato specifico.",
-        "operationId": "getMyTicketsByStatus",
+        "summary": "Recupera i ticket dell'utente e quelli associati via email (paginati)",
+        "description": "Recupera una lista paginata di ticket dove l'utente è il creatore o la sua email corrisponde all'email del ticket, con opzioni di filtro.",
+        "operationId": "getMyTicketsAndAssociatedByEmail",
         "parameters": [
           {
+            "name": "page",
+            "in": "query",
+            "description": "Zero-based page index (0..N)",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "The size of the page to be returned",
+            "required": false,
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
             "name": "status",
-            "in": "path",
-            "description": "Stato del ticket",
-            "required": true,
+            "in": "query",
+            "description": "Filtra per stato del ticket",
+            "required": false,
             "schema": {
               "type": "string",
               "enum": [
@@ -1148,31 +1459,41 @@
               ]
             },
             "example": "OPEN"
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "description": "Filtra per priorità del ticket",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LOW",
+                "MEDIUM",
+                "HIGH",
+                "CRITICAL"
+              ]
+            },
+            "example": "HIGH"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Cerca per titolo, descrizione, nome categoria o nome servizio",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "problema"
           }
         ],
         "responses": {
-          "404": {
-            "description": "Utente non trovato.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketResponseDTO"
-                  }
-                }
-              }
-            }
-          },
           "200": {
-            "description": "Ticket recuperati con successo.",
+            "description": "Lista di ticket recuperata con successo.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketResponseDTO"
-                  }
+                  "$ref": "#/components/schemas/PageTicketResponseDTO"
                 }
               }
             }
@@ -1182,10 +1503,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketResponseDTO"
-                  }
+                  "$ref": "#/components/schemas/PageTicketResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non autorizzato.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageTicketResponseDTO"
                 }
               }
             }
@@ -1286,126 +1614,6 @@
         }
       }
     },
-    "/api/v1/tickets/assigned-to-me": {
-      "get": {
-        "tags": [
-          "Ticket Management"
-        ],
-        "summary": "Recupera i ticket assegnati all'utente corrente",
-        "description": "Recupera tutti i ticket assegnati all'utente autenticato, escluse le bozze.",
-        "operationId": "getAssignedTickets",
-        "responses": {
-          "404": {
-            "description": "Utente non trovato.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketResponseDTO"
-                  }
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Ticket assegnati recuperati con successo.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketResponseDTO"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Non autenticato.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketResponseDTO"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/tickets/assigned-to-me/status/{status}": {
-      "get": {
-        "tags": [
-          "Ticket Management"
-        ],
-        "summary": "Recupera i ticket assegnati all'utente per stato",
-        "description": "Recupera i ticket assegnati all'utente autenticato, filtrati per uno stato specifico.",
-        "operationId": "getAssignedTicketsByStatus",
-        "parameters": [
-          {
-            "name": "status",
-            "in": "path",
-            "description": "Stato del ticket",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "OPEN",
-                "ANSWERED",
-                "SOLVED",
-                "DRAFT"
-              ]
-            },
-            "example": "ANSWERED"
-          }
-        ],
-        "responses": {
-          "404": {
-            "description": "Utente non trovato.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketResponseDTO"
-                  }
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Ticket assegnati recuperati con successo.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketResponseDTO"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Non autenticato.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketResponseDTO"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/ticket-history/{ticketId}": {
       "get": {
         "tags": [
@@ -1470,6 +1678,42 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{userId}": {
+      "delete": {
+        "tags": [
+          "User Management"
+        ],
+        "summary": "Elimina un account utente",
+        "description": "Permette agli ADMIN di eliminare un account utente e tutti i ticket associati. Non è possibile eliminare altri ADMIN.",
+        "operationId": "deleteUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "ID dell'utente da eliminare",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "uuid-user-1"
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Utente non trovato."
+          },
+          "204": {
+            "description": "Account utente eliminato con successo."
+          },
+          "401": {
+            "description": "Non autenticato."
+          },
+          "403": {
+            "description": "Non autorizzato (solo ADMIN o tentativo di eliminare un altro ADMIN)."
           }
         }
       }
@@ -1566,7 +1810,7 @@
           }
         }
       },
-      "CategoryDTO": {
+      "CategoryRequest": {
         "required": [
           "name"
         ],
@@ -1778,27 +2022,6 @@
           }
         }
       },
-      "Pageable": {
-        "type": "object",
-        "properties": {
-          "page": {
-            "minimum": 0,
-            "type": "integer",
-            "format": "int32"
-          },
-          "size": {
-            "minimum": 1,
-            "type": "integer",
-            "format": "int32"
-          },
-          "sort": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
       "PageTicketResponseDTO": {
         "type": "object",
         "properties": {
@@ -1851,6 +2074,12 @@
       "PageableObject": {
         "type": "object",
         "properties": {
+          "paged": {
+            "type": "boolean"
+          },
+          "unpaged": {
+            "type": "boolean"
+          },
           "pageNumber": {
             "type": "integer",
             "format": "int32"
@@ -1858,12 +2087,6 @@
           "pageSize": {
             "type": "integer",
             "format": "int32"
-          },
-          "paged": {
-            "type": "boolean"
-          },
-          "unpaged": {
-            "type": "boolean"
           },
           "offset": {
             "type": "integer",

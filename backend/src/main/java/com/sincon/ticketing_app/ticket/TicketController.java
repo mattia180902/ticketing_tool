@@ -1,5 +1,6 @@
 package com.sincon.ticketing_app.ticket;
 
+import com.sincon.ticketing_app.enums.TicketPriority;
 import com.sincon.ticketing_app.enums.TicketStatus;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -9,9 +10,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/tickets")
 @RequiredArgsConstructor
 @Tag(name = "Ticket Management", description = "API per la gestione dei ticket")
+@Slf4j
 public class TicketController {
 
     private final TicketService ticketService;
@@ -54,7 +58,6 @@ public class TicketController {
             Authentication auth,
             @RequestParam(required = false) @Parameter(description = "ID del ticket da aggiornare (solo per le bozze)", example = "1") Long ticketId) {
         TicketResponseDTO response = ticketService.createOrUpdateTicket(dto, auth, ticketId);
-        // Se è una creazione, restituisci HttpStatus.CREATED
         return ticketId == null ? new ResponseEntity<>(response, HttpStatus.CREATED) : ResponseEntity.ok(response);
     }
 
@@ -201,25 +204,67 @@ public class TicketController {
      * Recupera tutti i ticket con paginazione, filtrati per ruolo utente.
      * ADMIN vede tutti i ticket.
      * HELPER/PM vedono i ticket a loro assegnati o da loro creati (non bozze).
-     * USER vede solo i propri ticket (non bozze).
+     * USER vede tutti i propri ticket (incluse bozze o associati via email).
      *
      * @param pageable Oggetto per la paginazione e ordinamento.
      * @param auth Dettagli dell'utente autenticato.
+     * @param status Filtro per stato del ticket (opzionale).
+     * @param priority Filtro per priorità del ticket (opzionale).
+     * @param search Termine di ricerca per titolo/descrizione/categoria/servizio (opzionale).
      * @return Una pagina di ticket.
      */
     @GetMapping
     @PreAuthorize("hasAnyAuthority('USER', 'HELPER_JUNIOR', 'HELPER_SENIOR', 'PM', 'ADMIN')")
     @Operation(summary = "Recupera tutti i ticket (paginati e filtrati per ruolo)",
-               description = "Recupera una lista paginata di ticket in base al ruolo dell'utente autenticato.")
+               description = "Recupera una lista paginata di ticket in base al ruolo dell'utente autenticato, con opzioni di filtro.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Lista di ticket recuperata con successo."),
         @ApiResponse(responseCode = "401", description = "Non autenticato."),
         @ApiResponse(responseCode = "403", description = "Non autorizzato (ruolo non supportato).")
     })
     public ResponseEntity<Page<TicketResponseDTO>> getTickets(
-            @Parameter(description = "Parametri di paginazione e ordinamento") Pageable pageable,
-            Authentication auth) {
-        Page<TicketResponseDTO> tickets = ticketService.getTickets(pageable, auth);
+            @ParameterObject Pageable pageable,
+            Authentication auth,
+            @RequestParam(required = false) @Parameter(description = "Filtra per stato del ticket", example = "OPEN") TicketStatus status,
+            @RequestParam(required = false) @Parameter(description = "Filtra per priorità del ticket", example = "HIGH") TicketPriority priority,
+            @RequestParam(required = false) @Parameter(description = "Cerca per titolo, descrizione, nome categoria o nome servizio", example = "problema") String search
+    ) {
+        log.info("Received request to get all tickets with pageable: {}, status: {}, priority: {}, search: {}",
+                 pageable, status, priority, search);
+        Page<TicketResponseDTO> tickets = ticketService.getTickets(pageable, auth, status, priority, search);
+        return ResponseEntity.ok(tickets);
+    }
+
+    /**
+     * Recupera tutti i ticket dove l'utente è l'owner O la sua email corrisponde all'email del ticket.
+     * Questo endpoint è pensato per i ruoli USER che devono vedere ticket creati da altri ma a loro associati via email.
+     *
+     * @param pageable Oggetto per la paginazione e ordinamento.
+     * @param auth Dettagli dell'utente autenticato.
+     * @param status Filtro per stato del ticket (opzionale).
+     * @param priority Filtro per priorità del ticket (opzionale).
+     * @param search Termine di ricerca per titolo/descrizione/categoria/servizio (opzionale).
+     * @return Una pagina di ticket.
+     */
+    @GetMapping("/my-tickets-and-associated")
+    @PreAuthorize("hasAnyAuthority('USER', 'HELPER_JUNIOR', 'HELPER_SENIOR', 'PM', 'ADMIN')")
+    @Operation(summary = "Recupera i ticket dell'utente e quelli associati via email (paginati)",
+               description = "Recupera una lista paginata di ticket dove l'utente è il creatore o la sua email corrisponde all'email del ticket, con opzioni di filtro.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Lista di ticket recuperata con successo."),
+        @ApiResponse(responseCode = "401", description = "Non autenticato."),
+        @ApiResponse(responseCode = "403", description = "Non autorizzato.")
+    })
+    public ResponseEntity<Page<TicketResponseDTO>> getMyTicketsAndAssociatedByEmail(
+            @ParameterObject Pageable pageable,
+            Authentication auth,
+            @RequestParam(required = false) @Parameter(description = "Filtra per stato del ticket", example = "OPEN") TicketStatus status,
+            @RequestParam(required = false) @Parameter(description = "Filtra per priorità del ticket", example = "HIGH") TicketPriority priority,
+            @RequestParam(required = false) @Parameter(description = "Cerca per titolo, descrizione, nome categoria o nome servizio", example = "problema") String search
+    ) {
+        log.info("Received request to get my tickets and associated with pageable: {}, status: {}, priority: {}, search: {}",
+                 pageable, status, priority, search);
+        Page<TicketResponseDTO> tickets = ticketService.getMyTicketsAndAssociatedByEmail(pageable, auth, status, priority, search);
         return ResponseEntity.ok(tickets);
     }
 
@@ -227,6 +272,7 @@ public class TicketController {
      * Recupera i dettagli di un singolo ticket.
      *
      * @param ticketId ID del ticket.
+     * @param auth Dettagli dell'utente autenticato.
      * @return Dettagli del ticket.
      */
     @GetMapping("/{ticketId}")
@@ -240,8 +286,9 @@ public class TicketController {
         @ApiResponse(responseCode = "404", description = "Ticket non trovato.")
     })
     public ResponseEntity<TicketResponseDTO> getTicketDetails(
-            @PathVariable @Parameter(description = "ID del ticket", example = "1") Long ticketId) {
-        TicketResponseDTO ticket = ticketService.getTicketDetails(ticketId);
+            @PathVariable @Parameter(description = "ID del ticket", example = "1") Long ticketId,
+            Authentication auth) {
+        TicketResponseDTO ticket = ticketService.getTicketDetails(ticketId, auth);
         return ResponseEntity.ok(ticket);
     }
 
@@ -266,122 +313,10 @@ public class TicketController {
     }
 
     /**
-     * Recupera tutti i ticket di proprietà dell'utente corrente, escluse le bozze (solo per USER, HELPER, PM, ADMIN).
-     *
-     * @param auth Dettagli dell'utente autenticato.
-     * @return Lista dei propri ticket.
-     */
-    @GetMapping("/my-tickets")
-    @PreAuthorize("hasAnyAuthority('USER', 'HELPER_JUNIOR', 'HELPER_SENIOR', 'PM', 'ADMIN')")
-    @Operation(summary = "Recupera tutti i ticket di proprietà dell'utente corrente",
-               description = "Recupera tutti i ticket creati dall'utente autenticato, escluse le bozze.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Ticket recuperati con successo."),
-        @ApiResponse(responseCode = "401", description = "Non autenticato."),
-        @ApiResponse(responseCode = "404", description = "Utente non trovato.")
-    })
-    public ResponseEntity<List<TicketResponseDTO>> getMyTickets(Authentication auth) {
-        List<TicketResponseDTO> tickets = ticketService.getMyTickets(auth);
-        return ResponseEntity.ok(tickets);
-    }
-
-    /**
-     * Recupera i ticket di proprietà dell'utente corrente in base a uno stato specifico (solo per USER, HELPER, PM, ADMIN).
-     *
-     * @param status Lo stato dei ticket da filtrare.
-     * @param auth Dettagli dell'utente autenticato.
-     * @return Lista dei propri ticket filtrati per stato.
-     */
-    @GetMapping("/my-tickets/status/{status}")
-    @PreAuthorize("hasAnyAuthority('USER', 'HELPER_JUNIOR', 'HELPER_SENIOR', 'PM', 'ADMIN')")
-    @Operation(summary = "Recupera i ticket di proprietà dell'utente per stato",
-               description = "Recupera i ticket creati dall'utente autenticato, filtrati per uno stato specifico.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Ticket recuperati con successo."),
-        @ApiResponse(responseCode = "401", description = "Non autenticato."),
-        @ApiResponse(responseCode = "404", description = "Utente non trovato.")
-    })
-    public ResponseEntity<List<TicketResponseDTO>> getMyTicketsByStatus(
-            @PathVariable @Parameter(description = "Stato del ticket", example = "OPEN") TicketStatus status,
-            Authentication auth) {
-        List<TicketResponseDTO> tickets = ticketService.getMyTicketsByStatus(status, auth);
-        return ResponseEntity.ok(tickets);
-    }
-
-    /**
-     * Recupera tutti i ticket assegnati all'utente corrente, escluse le bozze (solo per HELPER, PM, ADMIN).
-     *
-     * @param auth Dettagli dell'utente autenticato.
-     * @return Lista dei ticket assegnati.
-     */
-    @GetMapping("/assigned-to-me")
-    @PreAuthorize("hasAnyAuthority('HELPER_JUNIOR', 'HELPER_SENIOR', 'PM', 'ADMIN')")
-    @Operation(summary = "Recupera i ticket assegnati all'utente corrente",
-               description = "Recupera tutti i ticket assegnati all'utente autenticato, escluse le bozze.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Ticket assegnati recuperati con successo."),
-        @ApiResponse(responseCode = "401", description = "Non autenticato."),
-        @ApiResponse(responseCode = "404", description = "Utente non trovato.")
-    })
-    public ResponseEntity<List<TicketResponseDTO>> getAssignedTickets(Authentication auth) {
-        List<TicketResponseDTO> tickets = ticketService.getAssignedTickets(auth);
-        return ResponseEntity.ok(tickets);
-    }
-
-    /**
-     * Recupera i ticket assegnati all'utente corrente in base a uno stato specifico (solo per HELPER, PM, ADMIN).
-     *
-     * @param status Lo stato dei ticket da filtrare.
-     * @param auth Dettagli dell'utente autenticato.
-     * @return Lista dei ticket assegnati filtrati per stato.
-     */
-    @GetMapping("/assigned-to-me/status/{status}")
-    @PreAuthorize("hasAnyAuthority('HELPER_JUNIOR', 'HELPER_SENIOR', 'PM', 'ADMIN')")
-    @Operation(summary = "Recupera i ticket assegnati all'utente per stato",
-               description = "Recupera i ticket assegnati all'utente autenticato, filtrati per uno stato specifico.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Ticket assegnati recuperati con successo."),
-        @ApiResponse(responseCode = "401", description = "Non autenticato."),
-        @ApiResponse(responseCode = "404", description = "Utente non trovato.")
-    })
-    public ResponseEntity<List<TicketResponseDTO>> getAssignedTicketsByStatus(
-            @PathVariable @Parameter(description = "Stato del ticket", example = "ANSWERED") TicketStatus status,
-            Authentication auth) {
-        List<TicketResponseDTO> tickets = ticketService.getAssignedTicketsByStatus(auth, status);
-        return ResponseEntity.ok(tickets);
-    }
-
-
-    /**
-     * Elimina un ticket. Solo l'owner di una bozza o un ADMIN possono eliminare.
-     *
-     * @param ticketId ID del ticket da eliminare.
-     * @param auth Dettagli dell'utente autenticato.
-     * @return Risposta di successo.
-     */
-    @DeleteMapping("/{ticketId}")
-    @PreAuthorize("hasAnyAuthority('USER', 'HELPER_JUNIOR', 'HELPER_SENIOR', 'PM', 'ADMIN')")
-    @Operation(summary = "Elimina un ticket",
-               description = "Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "204", description = "Ticket eliminato con successo."),
-        @ApiResponse(responseCode = "401", description = "Non autenticato."),
-        @ApiResponse(responseCode = "403", description = "Non autorizzato."),
-        @ApiResponse(responseCode = "404", description = "Ticket non trovato.")
-    })
-    public ResponseEntity<Void> deleteTicket(
-            @PathVariable @Parameter(description = "ID del ticket da eliminare", example = "1") Long ticketId,
-            Authentication auth) {
-        ticketService.deleteTicket(ticketId, auth);
-        return ResponseEntity.noContent().build();
-    }
-
-    /**
      * Recupera i conteggi dei ticket per la dashboard.
-     * I conteggi sono filtrati in base al ruolo dell'utente autenticato.
      *
      * @param auth Dettagli dell'utente autenticato.
-     * @return DTO con i conteggi.
+     * @return Conteggi aggregati dei ticket.
      */
     @GetMapping("/dashboard/counts")
     @PreAuthorize("hasAnyAuthority('USER', 'HELPER_JUNIOR', 'HELPER_SENIOR', 'PM', 'ADMIN')")
@@ -393,7 +328,24 @@ public class TicketController {
         @ApiResponse(responseCode = "404", description = "Utente non trovato.")
     })
     public ResponseEntity<DashboardCountsDTO> getDashboardCounts(Authentication auth) {
-        DashboardCountsDTO counts = ticketService.getCounts(auth);
+        DashboardCountsDTO counts = ticketService.getDashboardCounts(auth);
         return ResponseEntity.ok(counts);
+    }
+
+    @DeleteMapping("/{ticketId}")
+    @PreAuthorize("hasAnyAuthority('USER', 'HELPER_JUNIOR', 'HELPER_SENIOR', 'PM', 'ADMIN')")
+    @Operation(summary = "Elimina un ticket",
+               description = "Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket. Helper/PM possono eliminare ticket assegnati e non risolti.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Ticket eliminato con successo."),
+        @ApiResponse(responseCode = "401", description = "Non autenticato."),
+        @ApiResponse(responseCode = "403", description = "Non autorizzato."),
+        @ApiResponse(responseCode = "404", description = "Ticket non trovato.")
+    })
+    public ResponseEntity<Void> deleteTicket(
+            @PathVariable @Parameter(description = "ID del ticket da eliminare", example = "1") Long ticketId,
+            Authentication auth) {
+        ticketService.deleteTicket(ticketId, auth);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -29,10 +29,9 @@ public class Category extends Auditable {
     @Column(length = 500)
     private String description;
 
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
     private final List<SupportService> services = new ArrayList<>();
 
-    //per tenere traccia di quanti ticket sono in una categoria
     @Transient
     private Long ticketCount;
 }

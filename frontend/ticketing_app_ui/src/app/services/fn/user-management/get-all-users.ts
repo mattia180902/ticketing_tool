@@ -8,13 +8,13 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { TicketResponseDto } from '../../models/ticket-response-dto';
+import { UserDto } from '../../models/user-dto';
 
-export interface GetAssignedTickets$Params {
+export interface GetAllUsers$Params {
 }
 
-export function getAssignedTickets(http: HttpClient, rootUrl: string, params?: GetAssignedTickets$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<TicketResponseDto>>> {
-  const rb = new RequestBuilder(rootUrl, getAssignedTickets.PATH, 'get');
+export function getAllUsers(http: HttpClient, rootUrl: string, params?: GetAllUsers$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<UserDto>>> {
+  const rb = new RequestBuilder(rootUrl, getAllUsers.PATH, 'get');
   if (params) {
   }
 
@@ -23,9 +23,9 @@ export function getAssignedTickets(http: HttpClient, rootUrl: string, params?: G
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<TicketResponseDto>>;
+      return r as StrictHttpResponse<Array<UserDto>>;
     })
   );
 }
 
-getAssignedTickets.PATH = '/api/v1/tickets/assigned-to-me';
+getAllUsers.PATH = '/api/v1/users';

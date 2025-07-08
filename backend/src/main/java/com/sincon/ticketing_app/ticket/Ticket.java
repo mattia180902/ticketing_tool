@@ -10,6 +10,7 @@ import com.sincon.ticketing_app.user.User;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -19,6 +20,7 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
+@ToString
 @Table(name = "tickets")
 public class Ticket extends Auditable {
 
@@ -40,6 +42,9 @@ public class Ticket extends Auditable {
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date solveDate;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date assignedDate;
 
     // Contatti utente richiesti al momento della creazione del ticket
     private String email;
@@ -67,5 +72,6 @@ public class Ticket extends Auditable {
     private User assignedTo;
 
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<TicketHistory> history;
+    @Builder.Default
+    private List<TicketHistory> history = new ArrayList<>();
 }

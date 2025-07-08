@@ -21,10 +21,11 @@ public class CategoryMapper {
                 .services(category.getServices().stream()
                         .map(supportServiceMapper::toResponse)
                         .toList())
+                .ticketCount(category.getTicketCount())
                 .build();
     }
 
-    public Category fromDTO(CategoryDTO dto) {
+    public Category fromDTO(CategoryRequest dto) {
         return Category.builder()
                 .id(dto.getId())
                 .name(dto.getName())
@@ -32,8 +33,8 @@ public class CategoryMapper {
                 .build();
     }
 
-    public CategoryDTO toDTO(Category category) {
-        return CategoryDTO.builder()
+    public CategoryRequest toDTO(Category category) {
+        return CategoryRequest.builder()
                 .id(category.getId())
                 .name(category.getName())
                 .description(category.getDescription())

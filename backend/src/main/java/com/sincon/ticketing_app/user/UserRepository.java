@@ -14,12 +14,9 @@ public interface UserRepository extends JpaRepository<User, String> {
 
     List<User> findByRole(UserRole role);
 
+    List<User> findByRoleIn(List<UserRole> roles);
+
     Optional<User> findByEmail(String email);
 
-    //@Query("SELECT u FROM User u WHERE u.role IN :roles")
-    //List<User> findByRoleIn(@Param("roles") List<UserRole> roles);
-
-    List<User> findByRoleIn(List<UserRole> roles); // Per getAllHelpers
-
-    Optional<User> findTopByRole(UserRole role); // Metodo per trovare il primo utente con un dato ruolo
+    Optional<User> findTopByRole(UserRole role);
 }

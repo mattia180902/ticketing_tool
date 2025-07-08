@@ -1,29 +1,37 @@
 package com.sincon.ticketing_app.ticket;
 
 import com.sincon.ticketing_app.category.Category;
-import com.sincon.ticketing_app.category.CategoryRepository;
+import com.sincon.ticketing_app.category.CategoryService;
+import com.sincon.ticketing_app.enums.TicketPriority;
 import com.sincon.ticketing_app.enums.TicketStatus;
 import com.sincon.ticketing_app.enums.UserRole;
-import com.sincon.ticketing_app.exception.ResourceNotFoundException;
-import com.sincon.ticketing_app.exception.ValidationException;
-import com.sincon.ticketing_app.notification.NotificationService;
+import com.sincon.ticketing_app.exception.*;
+import com.sincon.ticketing_app.notification.EmailService;
 import com.sincon.ticketing_app.supportservice.SupportService;
-import com.sincon.ticketing_app.supportservice.SupportServiceRepository;
-import com.sincon.ticketing_app.ticketHistory.TicketHistoryService;
+import com.sincon.ticketing_app.supportservice.SupportServiceService;
 import com.sincon.ticketing_app.user.User;
-import com.sincon.ticketing_app.user.UserRepository;
+import com.sincon.ticketing_app.user.UserService;
+import static com.sincon.ticketing_app.ticket.TicketSpecifications.*;
+
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.access.AccessDeniedException;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
+import org.springframework.data.jpa.domain.Specification;
 
+import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
-import java.util.regex.Pattern;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,663 +40,865 @@ public class TicketService {
 
     private final TicketRepository ticketRepository;
     private final TicketMapper ticketMapper;
-    private final UserRepository userRepository;
-    private final CategoryRepository categoryRepository;
-    private final SupportServiceRepository supportServiceRepository;
-    private final NotificationService notificationService;
-    private final TicketHistoryService ticketHistoryService;
+    private final UserService userService;
+    private final CategoryService categoryService;
+    private final SupportServiceService supportServicesService;
+    private final EmailService emailService;
 
-    // Pattern per la validazione dell'email
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$");
+   // --- Metodi di Utilità per l'Autenticazione ---
 
-    /**
-     * Valida il formato di un'email.
-     * @param email L'email da validare.
-     * @return true se il formato è valido, false altrimenti.
-     */
-    private boolean isValidEmailFormat(String email) {
-        return email != null && EMAIL_PATTERN.matcher(email).matches();
+   private String getCurrentUserId(Authentication auth) {
+    if (auth instanceof JwtAuthenticationToken jwtAuth) {
+        String subject = jwtAuth.getToken().getSubject();
+        log.debug("getCurrentUserId: JWT Subject (ID): {}", subject);
+        return subject;
+    }
+    log.warn("getCurrentUserId: Authentication is not JwtAuthenticationToken. Using auth.getName() as user ID. Type: {}",
+            auth.getClass().getName());
+    return auth.getName();
+}
+
+private String getCurrentUserEmail(Authentication auth) {
+    if (auth instanceof JwtAuthenticationToken jwtAuth) {
+        String email = jwtAuth.getToken().getClaimAsString("email");
+        log.debug("getCurrentUserEmail: JWT Email Claim: {}", email);
+        if (email != null) {
+            return email;
+        }
+        log.warn("getCurrentUserEmail: JWT token does not contain 'email' claim for user ID: {}", jwtAuth.getToken().getSubject());
+    }
+    log.warn(
+            "getCurrentUserEmail: Authentication is not JwtAuthenticationToken or email claim not found. Using auth.getName() as user email. Type: {}",
+            auth.getName());
+    return auth.getName();
+}
+
+/**
+ * Verifica se l'utente autenticato ha un determinato ruolo, leggendo i ruoli dai claim del JWT.
+ * @param auth Dettagli dell'utente autenticato.
+ * @param role Il ruolo da verificare (es. "ADMIN", "HELPER_JUNIOR").
+ * @return true se l'utente ha il ruolo, false altrimenti.
+ */
+private boolean hasRole(Authentication auth, String role) {
+    log.debug("hasRole: Checking role '{}'", role);
+
+    if (!(auth instanceof JwtAuthenticationToken jwtAuth)) {
+        log.warn("hasRole: Authentication is not JwtAuthenticationToken. Cannot extract roles from JWT claims for role '{}'. Falling back to GrantedAuthorities.", role);
+        // Fallback per autenticazioni non JWT, meno affidabile per ruoli Keycloak
+        Set<String> authorities = auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .map(a -> a.startsWith("ROLE_") ? a.substring(5) : a)
+                .collect(Collectors.toSet());
+        log.debug("hasRole: Processed GrantedAuthorities: {}", authorities);
+        return authorities.contains(role);
     }
 
-    /**
-     * Recupera l'utente corrente autenticato.
-     * @param auth Oggetto Authentication contenente i dettagli dell'utente.
-     * @return L'entità User dell'utente corrente.
-     * @throws ResourceNotFoundException se l'utente non viene trovato.
-     */
-    private User getCurrentUser(Authentication auth) {
-        return userRepository.findById(auth.getName())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + auth.getName()));
+    Set<String> allRoles = new HashSet<>();
+
+    // 1. Estrai ruoli da realm_access (ruoli a livello di realm)
+    Map<String, Object> realmAccess = jwtAuth.getToken().getClaimAsMap("realm_access");
+    if (realmAccess != null && realmAccess.containsKey("roles")) {
+        List<String> realmRoles = (List<String>) realmAccess.get("roles");
+        allRoles.addAll(realmRoles);
+        log.debug("hasRole: Realm Roles from JWT: {}", realmRoles);
     }
 
-    /**
-     * Crea o aggiorna un ticket. Gestisce la logica per le bozze, l'assegnazione automatica e le validazioni basate sul ruolo.
-     * @param dto DTO di richiesta contenente i dati del ticket.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @param ticketId ID del ticket da aggiornare (null per la creazione).
-     * @return DTO di risposta del ticket creato o aggiornato.
-     * @throws ResourceNotFoundException se il ticket, categoria, servizio o utente non vengono trovati.
-     * @throws AccessDeniedException se l'utente non è autorizzato ad aggiornare il ticket.
-     * @throws ValidationException se i dati forniti non sono validi.
-     */
-    @Transactional
-    public TicketResponseDTO createOrUpdateTicket(TicketRequestDTO dto, Authentication auth, Long ticketId) {
-        User creator = getCurrentUser(auth);
-        Ticket existingTicket = null;
-        TicketStatus oldStatus = null; // Inizializza oldStatus
+    // 2. Estrai ruoli da resource_access (ruoli a livello di client)
+    // Sostituisci "ticketing_tool" con l'ID effettivo del tuo client in Keycloak
+    Map<String, Object> resourceAccess = jwtAuth.getToken().getClaimAsMap("resource_access");
+    if (resourceAccess != null && resourceAccess.containsKey("ticketing_tool")) { // <--- VERIFICA QUESTO ID CLIENT!
+        Map<String, Object> clientAccess = (Map<String, Object>) resourceAccess.get("ticketing_tool");
+        if (clientAccess != null && clientAccess.containsKey("roles")) {
+            List<String> clientRoles = (List<String>) clientAccess.get("roles");
+            allRoles.addAll(clientRoles);
+            log.debug("hasRole: Client Roles ('ticketing_tool') from JWT: {}", clientRoles);
+        }
+    }
+    
+    log.debug("hasRole: All extracted roles from JWT: {}", allRoles);
+    boolean result = allRoles.contains(role);
+    log.debug("hasRole: User has role '{}': {}", role, result);
+    return result;
+}
 
-        // Logica per l'aggiornamento di un ticket esistente
-        if (ticketId != null) {
-            existingTicket = ticketRepository.findById(ticketId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with ID: " + ticketId));
-            oldStatus = existingTicket.getStatus(); // Salva lo stato precedente per la history
+// --- Metodi del Servizio Ticket ---
 
-            // Permetti l'aggiornamento delle bozze solo al creatore o a un ADMIN
-            if (existingTicket.getStatus() == TicketStatus.DRAFT && !existingTicket.getOwner().getId().equals(creator.getId()) && creator.getRole() != UserRole.ADMIN) {
-                throw new AccessDeniedException("You are not authorized to update this draft ticket.");
+/**
+ * Crea un nuovo ticket o aggiorna una bozza esistente.
+ * La logica di creazione/aggiornamento varia in base al ruolo dell'utente e allo stato del ticket.
+ *
+ * @param dto DTO con i dati del ticket.
+ * @param auth Dettagli dell'utente autenticato.
+ * @param ticketId ID del ticket da aggiornare (opzionale, per le bozze o modifiche).
+ * @return Il ticket creato o aggiornato.
+ */
+@Transactional
+public TicketResponseDTO createOrUpdateTicket(TicketRequestDTO dto, Authentication auth, Long ticketId) {
+    String currentUserId = getCurrentUserId(auth);
+    String currentUserEmail = getCurrentUserEmail(auth);
+    User currentUser = userService.findUserById(currentUserId)
+            .orElseThrow(() -> new UserProfileNotFoundException("Utente autenticato non trovato: " + currentUserId));
+
+    log.info("createOrUpdateTicket: Current User ID: {}, Email: {}", currentUserId, currentUserEmail);
+    log.info("createOrUpdateTicket called. TicketId: {}", ticketId);
+    log.info("createOrUpdateTicket: DTO Status received: {}", dto.getStatus());
+
+    Ticket ticket;
+    User ownerUser;
+    User oldAssignee = null;
+
+    boolean isNewTicketRequest = (ticketId == null);
+    boolean isUserOnlyRole = hasRole(auth, UserRole.USER.name()) && !hasRole(auth, UserRole.HELPER_JUNIOR.name()) &&
+                             !hasRole(auth, UserRole.HELPER_SENIOR.name()) && !hasRole(auth, UserRole.PM.name()) &&
+                             !hasRole(auth, UserRole.ADMIN.name());
+    boolean isAdmin = hasRole(auth, UserRole.ADMIN.name());
+    boolean isPm = hasRole(auth, UserRole.PM.name());
+    boolean isHelper = hasRole(auth, UserRole.HELPER_JUNIOR.name()) || hasRole(auth, UserRole.HELPER_SENIOR.name());
+    boolean isAdminOrPm = isAdmin || isPm;
+    boolean isHelperOrPmOrAdmin = isAdminOrPm || isHelper;
+
+
+    // --- 1. Determinazione dell'Owner del Ticket ---
+    if (dto.getEmail() == null || dto.getEmail().isEmpty()) {
+        throw new IllegalArgumentException("L'email dell'utente proprietario del ticket è obbligatoria.");
+    }
+
+    ownerUser = userService.findUserByEmail(dto.getEmail())
+            .orElseThrow(() -> new UserProfileNotFoundException("Utente con email " + dto.getEmail() + " non trovato nel sistema. Non è possibile creare un ticket per un utente inesistente."));
+    log.info("createOrUpdateTicket: Ticket owner set to: {}", ownerUser.getEmail());
+
+    // --- 2. Aggiornamento dei dati utente (codice fiscale, telefono) nel profilo dell'owner ---
+    boolean ownerDataUpdated = false;
+    if (dto.getFiscalCode() != null && !dto.getFiscalCode().isEmpty() && !dto.getFiscalCode().equals(ownerUser.getFiscalCode())) {
+        ownerUser.setFiscalCode(dto.getFiscalCode());
+        ownerDataUpdated = true;
+    }
+    if (dto.getPhoneNumber() != null && !dto.getPhoneNumber().isEmpty() && !dto.getPhoneNumber().equals(ownerUser.getPhoneNumber())) {
+        ownerUser.setPhoneNumber(dto.getPhoneNumber());
+        ownerDataUpdated = true;
+    }
+    if (ownerDataUpdated) {
+        userService.save(ownerUser);
+        log.info("createOrUpdateTicket: Updated owner user details: {}", ownerUser.getEmail());
+    }
+
+    // --- 3. Inizializzazione dell'oggetto Ticket (nuovo o esistente) ---
+    if (!isNewTicketRequest) {
+        log.info("createOrUpdateTicket: Updating existing ticket with ID: {}", ticketId);
+        ticket = ticketRepository.findDetailedById(ticketId)
+                .orElseThrow(() -> new TicketNotFoundException("Ticket non trovato con ID: " + ticketId));
+        
+        oldAssignee = ticket.getAssignedTo();
+
+        boolean isTicketOwner = ticket.getOwner().getId().equals(currentUserId);
+        boolean isAssignedToMe = ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(currentUserId);
+
+        if (isUserOnlyRole) {
+            if (!isTicketOwner || ticket.getStatus() != TicketStatus.DRAFT) {
+                throw new UnauthorizedTicketActionException("Non autorizzato a modificare questo ticket. Gli utenti possono modificare solo le proprie bozze.");
             }
-            // Per ticket non-bozza, solo ADMIN o l'assegnatario possono aggiornare (non lo stato direttamente qui)
-            if (existingTicket.getStatus() != TicketStatus.DRAFT && creator.getRole() != UserRole.ADMIN &&
-                (existingTicket.getAssignedTo() == null || !existingTicket.getAssignedTo().getId().equals(creator.getId()))) {
-                throw new AccessDeniedException("You are not authorized to update this ticket.");
+        } else if (isHelperOrPmOrAdmin) {
+            if (ticket.getStatus() == TicketStatus.SOLVED && !isAdminOrPm) {
+                throw new UnauthorizedTicketActionException("Non autorizzato a modificare un ticket SOLVED (solo Admin/PM).");
+            }
+            if (!isAdminOrPm && !isAssignedToMe && !isTicketOwner) {
+                 throw new UnauthorizedTicketActionException("Non autorizzato a modificare questo ticket.");
             }
         }
+    } else {
+        log.info("createOrUpdateTicket: Creating new ticket object.");
+        ticket = new Ticket();
+        ticket.setOwner(ownerUser);
+        ticket.setCreatedDate(new Date());
+    }
 
-        // Determina lo stato desiderato (default OPEN se non specificato)
-        TicketStatus desiredStatus = dto.getStatus() != null ? dto.getStatus() : TicketStatus.OPEN;
+    // --- 4. Impostazione dei campi comuni del Ticket ---
+    ticket.setTitle(dto.getTitle());
+    ticket.setDescription(dto.getDescription());
+    ticket.setPriority(dto.getPriority() != null ? dto.getPriority() : TicketPriority.MEDIUM);
+    ticket.setEmail(dto.getEmail());
+    ticket.setFiscalCode(dto.getFiscalCode());
+    ticket.setPhoneNumber(dto.getPhoneNumber());
 
-        String ticketEmail = dto.getEmail();
-        String ticketPhoneNumber = dto.getPhoneNumber();
-        String ticketFiscalCode = dto.getFiscalCode();
+    Category category = categoryService.findById(dto.getCategoryId())
+            .orElseThrow(() -> new RuntimeException("Categoria non trovata con ID: " + dto.getCategoryId()));
+    ticket.setCategory(category);
+    log.info("createOrUpdateTicket: Category set to: {}", category.getName());
 
-        // Validazione formato email se fornita
-        if (ticketEmail != null && !ticketEmail.isBlank() && !isValidEmailFormat(ticketEmail)) {
-            throw new ValidationException("Invalid email format provided for the ticket.");
-        }
+    SupportService supportService = supportServicesService.findById(dto.getSupportServiceId())
+            .orElseThrow(() -> new RuntimeException(
+                    "Servizio di supporto non trovato con ID: " + dto.getSupportServiceId()));
+    ticket.setService(supportService);
+    log.info("createOrUpdateTicket: Support Service set to: {}", supportService.getTitle());
 
-        // Logica per utenti di ruolo USER: l'email è sempre la loro, e i dati di contatto possono essere aggiornati
-        if (creator.getRole() == UserRole.USER) {
-            ticketEmail = creator.getEmail(); // L'email del ticket è quella del creatore
-            if (desiredStatus != TicketStatus.DRAFT) { // Se non è una bozza, aggiorna i dati dell'utente
-                if (ticketPhoneNumber != null && !ticketPhoneNumber.isBlank()) creator.setPhoneNumber(ticketPhoneNumber);
-                if (ticketFiscalCode != null && !ticketFiscalCode.isBlank()) creator.setFiscalCode(ticketFiscalCode);
-                userRepository.save(creator); // Salva l'utente con i dati aggiornati
-            }
-        } else {
-            // Per ruoli non-USER (es. ADMIN, HELPER), l'email deve essere fornita e valida se non è una bozza
-            if (desiredStatus != TicketStatus.DRAFT) {
-                if (ticketEmail == null || ticketEmail.isBlank()) {
-                    throw new ValidationException("Email is required for non-user roles creating a final ticket.");
-                }
-                // Tenta di trovare e aggiornare un utente esistente con l'email fornita
-                Optional<User> existingUserOpt = userRepository.findByEmail(ticketEmail);
-                if (existingUserOpt.isPresent()) {
-                    User targetUser = existingUserOpt.get();
-                    if (ticketPhoneNumber != null && !ticketPhoneNumber.isBlank()) targetUser.setPhoneNumber(ticketPhoneNumber);
-                    if (ticketFiscalCode != null && !ticketFiscalCode.isBlank()) targetUser.setFiscalCode(ticketFiscalCode);
-                    userRepository.save(targetUser);
-                }
-            }
-        }
+    // --- 5. Logica di Stato e Assegnazione ---
+    TicketStatus desiredStatus = dto.getStatus();
+    String desiredAssignedToId = dto.getAssignedToId();
 
-        // Validazione per ticket finali (non bozze)
-        if (desiredStatus == TicketStatus.OPEN) {
-            validateFinalTicket(dto); // Valida campi obbligatori del DTO
-            if (ticketEmail == null || ticketEmail.isBlank()) throw new ValidationException("Email is required for final tickets.");
-            if (ticketPhoneNumber == null || ticketPhoneNumber.isBlank()) throw new ValidationException("Phone Number is required for final tickets.");
-            if (ticketFiscalCode == null || ticketFiscalCode.isBlank()) throw new ValidationException("Fiscal Code is required for final tickets.");
-        }
-
-        // Recupero Categoria
-        Category category = null;
-        if (dto.getCategoryId() != null) {
-            category = categoryRepository.findById(dto.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + dto.getCategoryId()));
-        } else if (desiredStatus == TicketStatus.OPEN) {
-             throw new ValidationException("Category is required for non-draft tickets.");
-        }
-
-        // Recupero Servizio di Supporto
-        SupportService service = null;
-        if (dto.getSupportServiceId() != null) {
-            service = supportServiceRepository.findById(dto.getSupportServiceId())
-                .orElseThrow(() -> new ResourceNotFoundException("Service not found with ID: " + dto.getSupportServiceId()));
-        } else if (desiredStatus == TicketStatus.OPEN) {
-            throw new ValidationException("Support Service is required for non-draft tickets.");
-        }
-
-        // Logica di Assegnazione
-        User assignedTo = null;
-        if (dto.getAssignedToId() != null && !dto.getAssignedToId().isBlank()) {
-            // Se un assignedToId è fornito, cerca l'utente e validane il ruolo
-            assignedTo = userRepository.findById(dto.getAssignedToId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Helper not found with ID: " + dto.getAssignedToId()));
-            if (!List.of(UserRole.HELPER_JUNIOR, UserRole.HELPER_SENIOR, UserRole.PM, UserRole.ADMIN).contains(assignedTo.getRole())) {
-                throw new ValidationException("The assigned user must be a helper, PM or an admin.");
-            }
-        } else if (desiredStatus == TicketStatus.OPEN && creator.getRole() == UserRole.USER) {
-            // Assegnazione automatica solo se un USER crea un ticket OPEN e non ha specificato assignedToId
-            assignedTo = findAvailableHelperOrAdmin();
-        }
-
-        Ticket ticketToSave;
-        if (existingTicket != null) {
-            // Aggiorna il ticket esistente
-            ticketToSave = existingTicket;
-            ticketToSave.setTitle(dto.getTitle());
-            ticketToSave.setDescription(dto.getDescription());
-            ticketToSave.setPriority(dto.getPriority());
-            ticketToSave.setCategory(category);
-            ticketToSave.setService(service);
-            ticketToSave.setEmail(ticketEmail);
-            ticketToSave.setPhoneNumber(ticketPhoneNumber);
-            ticketToSave.setFiscalCode(ticketFiscalCode);
-
-            // Aggiorna l'assegnatario solo se esplicitamente fornito o se la logica automatica lo ha impostato
-            if (dto.getAssignedToId() != null || (desiredStatus == TicketStatus.OPEN && creator.getRole() == UserRole.USER && assignedTo != null)) {
-                ticketToSave.setAssignedTo(assignedTo);
-            }
-            ticketToSave.setStatus(desiredStatus); // Aggiorna lo stato
-
-        } else {
-            // Crea un nuovo ticket
-            ticketToSave = ticketMapper.fromRequestDTO(dto, creator, category, service, assignedTo);
-            ticketToSave.setStatus(desiredStatus);
-            ticketToSave.setEmail(ticketEmail);
-            ticketToSave.setPhoneNumber(ticketPhoneNumber);
-            ticketToSave.setFiscalCode(ticketFiscalCode);
-            ticketToSave.setOwner(creator); // Imposta l'owner (popola il campo owner nella Ticket entity)
-            // createdDate, lastModifiedDate, createdBy, lastModifiedBy sono gestiti da Auditable
-        }
-
-        Ticket savedTicket = ticketRepository.save(ticketToSave);
-
-        // Notifiche e registrazione della storia del ticket solo se non è una bozza
-        if (desiredStatus != TicketStatus.DRAFT) {
-            // Notifica al creatore (owner) del ticket
-            if (savedTicket.getOwner() != null && isValidEmailFormat(savedTicket.getOwner().getEmail())) {
-                notificationService.sendTicketCreationEmail(savedTicket);
+    if (isNewTicketRequest) {
+        if (isUserOnlyRole) {
+            if (desiredStatus == TicketStatus.OPEN) {
+                ticket.setStatus(TicketStatus.OPEN);
+                assignTicketAutomatically(ticket);
+                log.info("createOrUpdateTicket: New ticket created by USER (only), status OPEN, assigned automatically.");
             } else {
-                log.warn("Skipping ticket creation email for ID {} due to invalid email format: {}", savedTicket.getId(), savedTicket.getOwner() != null ? savedTicket.getOwner().getEmail() : "N/A");
+                ticket.setStatus(TicketStatus.DRAFT);
+                log.info("createOrUpdateTicket: New ticket created by USER (only), status DRAFT.");
             }
-
-            // Notifica all'assegnatario se presente e valido
-            if (savedTicket.getAssignedTo() != null && isValidEmailFormat(savedTicket.getAssignedTo().getEmail())) {
-                notificationService.sendTicketAssignedEmail(savedTicket);
-            } else if (savedTicket.getAssignedTo() != null) {
-                log.warn("Skipping ticket assigned email for ID {} to helper {} due to invalid email format: {}", savedTicket.getId(), savedTicket.getAssignedTo().getId(), savedTicket.getAssignedTo().getEmail());
+        } else { // Helper/PM/Admin creano ticket: sempre OPEN di default
+            ticket.setStatus(desiredStatus != null ? desiredStatus : TicketStatus.OPEN);
+            
+            if (desiredAssignedToId != null) {
+                User assignedToUser = userService.findUserById(desiredAssignedToId)
+                        .orElseThrow(() -> new UserProfileNotFoundException("Assegnatario specificato non trovato: " + desiredAssignedToId));
+                if (!(hasRole(auth, UserRole.HELPER_JUNIOR.name()) || hasRole(auth, UserRole.HELPER_SENIOR.name()) ||
+                        hasRole(auth, UserRole.PM.name()) || hasRole(auth, UserRole.ADMIN.name()))) {
+                    throw new InvalidAssigneeRoleException("L'assegnatario deve essere un helper, PM o admin.");
+                }
+                ticket.setAssignedTo(assignedToUser);
+                ticket.setAssignedDate(new Date());
+                log.info("createOrUpdateTicket: New ticket created by Admin/Helper. Assigned to specified user: {}", assignedToUser.getEmail());
+            } else if (isHelper || isPm) {
+                ticket.setAssignedTo(currentUser);
+                ticket.setAssignedDate(new Date());
+                log.info("createOrUpdateTicket: New ticket created by Helper/PM. Assigned to self: {}", currentUser.getEmail());
+            } else if (isAdmin) {
+                ticket.setAssignedTo(null);
+                ticket.setAssignedDate(null);
+                log.info("createOrUpdateTicket: New ticket created by Admin. No assignee specified.");
             }
+        }
+    } else { // Aggiornamento di ticket esistente
+        if (desiredStatus != null && ticket.getStatus() != desiredStatus) {
+            if (ticket.getStatus() == TicketStatus.DRAFT && desiredStatus != TicketStatus.OPEN) {
+                throw new InvalidTicketStatusException("Una bozza può essere finalizzata solo a OPEN.");
+            }
+            ticket.setStatus(desiredStatus);
+            log.info("createOrUpdateTicket: Ticket status updated to {}", desiredStatus);
+        }
 
-            // Registra la storia solo se è una nuova creazione o se una bozza diventa un ticket finale
-            if (existingTicket == null || oldStatus == TicketStatus.DRAFT) {
-                 ticketHistoryService.recordHistory(savedTicket, TicketStatus.DRAFT, savedTicket.getStatus(), creator, null);
+        if (isAdminOrPm) {
+            if (desiredAssignedToId != null) {
+                User assignedToUser = userService.findUserById(desiredAssignedToId)
+                        .orElseThrow(() -> new UserProfileNotFoundException("Assegnatario specificato non trovato: " + desiredAssignedToId));
+                if (!(assignedToUser.getRole() == UserRole.HELPER_JUNIOR || assignedToUser.getRole() == UserRole.HELPER_SENIOR ||
+                        assignedToUser.getRole() == UserRole.PM || assignedToUser.getRole() == UserRole.ADMIN)) {
+                    throw new InvalidAssigneeRoleException("L'assegnatario deve essere un helper, PM o admin.");
+                }
+                ticket.setAssignedTo(assignedToUser);
+                ticket.setAssignedDate(new Date());
+                log.info("createOrUpdateTicket: Admin/PM updated assignedTo to: {}", assignedToUser.getEmail());
+            } else {
+                ticket.setAssignedTo(null);
+                ticket.setAssignedDate(null);
+                log.info("createOrUpdateTicket: Admin/PM de-assigned ticket.");
             }
         }
-        return ticketMapper.toResponseDTO(savedTicket);
     }
 
-    /**
-     * Trova un helper junior disponibile o, in assenza, un admin per l'assegnazione automatica.
-     * @return L'utente helper o admin disponibile.
-     * @throws IllegalStateException se nessun helper junior o admin è disponibile.
-     */
-    private User findAvailableHelperOrAdmin() {
-        // Cerca un HELPER_JUNIOR
-        List<User> helperJuniors = userRepository.findByRole(UserRole.HELPER_JUNIOR);
-        if (!helperJuniors.isEmpty()) {
-            // Puoi implementare una logica di bilanciamento del carico qui (es. il meno occupato)
-            return helperJuniors.get(0);
-        }
-
-        // Se nessun HELPER_JUNIOR, cerca un ADMIN
-        List<User> admins = userRepository.findByRole(UserRole.ADMIN);
-        if (!admins.isEmpty()) {
-            return admins.get(0); // Prendi il primo admin disponibile
-        }
-
-        throw new IllegalStateException("No helper junior or admin available for automatic assignment.");
+    // --- 6. Gestione della data di risoluzione ---
+    if (ticket.getStatus() != TicketStatus.SOLVED && dto.getStatus() == TicketStatus.SOLVED) {
+        ticket.setSolveDate(new Date());
+        log.info("createOrUpdateTicket: Ticket status changed to SOLVED. Setting solveDate.");
+    } else if (ticket.getStatus() == TicketStatus.SOLVED && dto.getStatus() != TicketStatus.SOLVED) {
+        ticket.setSolveDate(null);
+        log.info("createOrUpdateTicket: Ticket status changed from SOLVED. Clearing solveDate.");
     }
 
-    /**
-     * Accetta un ticket assegnato all'utente corrente, cambiando il suo stato in ANSWERED.
-     * @param ticketId ID del ticket da accettare.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @return DTO di risposta del ticket aggiornato.
-     * @throws ResourceNotFoundException se il ticket non viene trovato.
-     * @throws AccessDeniedException se l'utente non è l'assegnatario del ticket.
-     * @throws ValidationException se il ticket non è nello stato OPEN.
-     */
-    @Transactional
-    public TicketResponseDTO acceptTicket(Long ticketId, Authentication auth) {
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with ID: " + ticketId));
+    // --- 7. Salva il ticket ---
+    Ticket savedTicket = ticketRepository.save(ticket);
+    log.info("Ticket saved successfully. New/Updated Ticket ID: {}", savedTicket.getId());
 
-        User currentUser = getCurrentUser(auth);
-
-        if (ticket.getAssignedTo() == null || !ticket.getAssignedTo().getId().equals(currentUser.getId())) {
-            throw new AccessDeniedException("You are not authorized to accept this ticket, as you are not the assigned helper.");
-        }
-
-        if (ticket.getStatus() != TicketStatus.OPEN) {
-            throw new ValidationException("Only tickets with status OPEN can be accepted.");
-        }
-
-        TicketStatus oldStatus = ticket.getStatus();
-        ticket.setStatus(TicketStatus.ANSWERED);
-        Ticket savedTicket = ticketRepository.save(ticket);
-
-        ticketHistoryService.recordHistory(savedTicket, oldStatus, savedTicket.getStatus(), currentUser, null);
-
-        if (savedTicket.getOwner() != null && isValidEmailFormat(savedTicket.getOwner().getEmail())) {
-            notificationService.sendTicketStatusUpdateEmail(savedTicket);
-        } else if (savedTicket.getOwner() != null) {
-            log.warn("Skipping ticket status update email for ID {} to owner {} due to invalid email format: {}", savedTicket.getId(), savedTicket.getOwner().getId(), savedTicket.getOwner().getEmail());
-        }
-
-        return ticketMapper.toResponseDTO(savedTicket);
-    }
-
-    /**
-     * Rifiuta un ticket assegnato all'utente corrente e lo riassegna a un nuovo helper/admin.
-     * @param ticketId ID del ticket da rifiutare.
-     * @param newAssignedToId ID del nuovo utente a cui assegnare il ticket.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @return DTO di risposta del ticket aggiornato.
-     * @throws ResourceNotFoundException se il ticket o il nuovo assegnatario non vengono trovati.
-     * @throws AccessDeniedException se l'utente non è l'assegnatario del ticket.
-     * @throws ValidationException se il ticket non è nello stato OPEN o il nuovo assegnatario non è un helper/admin.
-     */
-    @Transactional
-    public TicketResponseDTO rejectTicket(Long ticketId, String newAssignedToId, Authentication auth) {
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with ID: " + ticketId));
-
-        User currentUser = getCurrentUser(auth);
-
-        if (ticket.getAssignedTo() == null || !ticket.getAssignedTo().getId().equals(currentUser.getId())) {
-            throw new AccessDeniedException("You are not authorized to reject this ticket, as you are not the assigned helper.");
-        }
-
-        if (ticket.getStatus() != TicketStatus.OPEN) {
-            throw new ValidationException("Only tickets with status OPEN can be rejected.");
-        }
-
-        User newAssignedTo = userRepository.findById(newAssignedToId)
-                .orElseThrow(() -> new ResourceNotFoundException("New assigned helper not found with ID: " + newAssignedToId));
-
-        if (!List.of(UserRole.HELPER_JUNIOR, UserRole.HELPER_SENIOR, UserRole.PM, UserRole.ADMIN).contains(newAssignedTo.getRole())) {
-            throw new ValidationException("The new assigned user must be a helper or an admin.");
-        }
-
-        TicketStatus oldStatus = ticket.getStatus();
-        User oldAssignedTo = ticket.getAssignedTo();
-
-        ticket.setAssignedTo(newAssignedTo);
-        Ticket savedTicket = ticketRepository.save(ticket);
-
-        ticketHistoryService.recordHistory(savedTicket, oldStatus, savedTicket.getStatus(), currentUser, "Ticket rejected and reassigned from " + (oldAssignedTo != null ? oldAssignedTo.getFullName() : "N/A") + " to " + newAssignedTo.getFullName());
-
-        if (newAssignedTo != null && isValidEmailFormat(newAssignedTo.getEmail())) {
-            notificationService.sendTicketReassignedEmail(savedTicket);
-        } else if (newAssignedTo != null) {
-             log.warn("Skipping ticket reassigned email for ID {} to new helper {} due to invalid email format: {}", savedTicket.getId(), newAssignedTo.getId(), newAssignedTo.getEmail());
-        }
-
-        return ticketMapper.toResponseDTO(savedTicket);
-    }
-
-    /**
-     * Escala un ticket assegnato all'utente corrente, riassegnandolo a un nuovo helper/admin e riportandolo allo stato OPEN.
-     * @param ticketId ID del ticket da escalare.
-     * @param newAssignedToId ID del nuovo utente a cui assegnare il ticket.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @return DTO di risposta del ticket aggiornato.
-     * @throws ResourceNotFoundException se il ticket o il nuovo assegnatario non vengono trovati.
-     * @throws AccessDeniedException se l'utente non è l'assegnatario del ticket.
-     * @throws ValidationException se il ticket non è nello stato ANSWERED o il nuovo assegnatario non è un helper/admin.
-     */
-    @Transactional
-    public TicketResponseDTO escalateTicket(Long ticketId, String newAssignedToId, Authentication auth) {
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with ID: " + ticketId));
-
-        User currentUser = getCurrentUser(auth);
-
-        if (ticket.getAssignedTo() == null || !ticket.getAssignedTo().getId().equals(currentUser.getId())) {
-            throw new AccessDeniedException("You are not authorized to escalate this ticket, as you are not the assigned helper.");
-        }
-
-        if (ticket.getStatus() != TicketStatus.ANSWERED) {
-            throw new ValidationException("Only tickets with status ANSWERED can be escalated.");
-        }
-
-        User newAssignedTo = userRepository.findById(newAssignedToId)
-                .orElseThrow(() -> new ResourceNotFoundException("New assigned helper not found with ID: " + newAssignedToId));
-
-        if (!List.of(UserRole.HELPER_JUNIOR, UserRole.HELPER_SENIOR, UserRole.PM, UserRole.ADMIN).contains(newAssignedTo.getRole())) {
-            throw new ValidationException("The new assigned user must be a helper or an admin.");
-        }
-
-        TicketStatus oldStatus = ticket.getStatus();
-        User oldAssignedTo = ticket.getAssignedTo();
-
-        ticket.setAssignedTo(newAssignedTo);
-        ticket.setStatus(TicketStatus.OPEN); // Dopo l'escalation torna OPEN
-        Ticket savedTicket = ticketRepository.save(ticket);
-
-        ticketHistoryService.recordHistory(savedTicket, oldStatus, savedTicket.getStatus(), currentUser, "Ticket escalated and reassigned from " + (oldAssignedTo != null ? oldAssignedTo.getFullName() : "N/A") + " to " + newAssignedTo.getFullName());
-
-        if (newAssignedTo != null && isValidEmailFormat(newAssignedTo.getEmail())) {
-            notificationService.sendTicketReassignedEmail(savedTicket);
+    // --- 8. Invio Email ---
+    if (emailService.isValidEmailProvider(savedTicket.getEmail())) {
+        if (isNewTicketRequest) {
+            emailService.sendTicketCreationEmail(savedTicket);
+            if (savedTicket.getAssignedTo() != null) {
+                emailService.sendTicketAssignedEmail(savedTicket, savedTicket.getAssignedTo());
+            }
         } else {
-            log.warn("Skipping ticket reassigned email for ID {} to new helper {} due to invalid email format: {}", savedTicket.getId(), newAssignedTo.getId(), newAssignedTo.getEmail());
+            emailService.sendTicketStatusUpdateEmail(savedTicket);
+            if (oldAssignee != null && savedTicket.getAssignedTo() != null && !savedTicket.getAssignedTo().equals(oldAssignee)) {
+                emailService.sendTicketReassignedEmail(savedTicket, oldAssignee, savedTicket.getAssignedTo());
+            } else if (oldAssignee == null && savedTicket.getAssignedTo() != null) {
+                emailService.sendTicketAssignedEmail(savedTicket, savedTicket.getAssignedTo());
+            } else if (oldAssignee != null && savedTicket.getAssignedTo() == null) {
+                emailService.sendTicketDeassignedEmail(savedTicket, oldAssignee);
+            }
         }
-
-        return ticketMapper.toResponseDTO(savedTicket);
+    } else {
+        log.warn("Email domain for ticket {} is not valid. Skipping email sending for: {}", savedTicket.getId(), savedTicket.getEmail());
     }
 
-    /**
-     * Valida i campi obbligatori per un ticket che non è una bozza.
-     * @param dto DTO del ticket da validare.
-     * @throws ValidationException se mancano campi obbligatori.
-     */
-    private void validateFinalTicket(TicketRequestDTO dto) {
-        if (dto.getTitle() == null || dto.getTitle().isBlank()) throw new ValidationException("Il titolo del ticket è obbligatorio.");
-        if (dto.getDescription() == null || dto.getDescription().isBlank()) throw new ValidationException("La descrizione del ticket è obbligatoria.");
-        if (dto.getPriority() == null) throw new ValidationException("La priorità del ticket è obbligatoria.");
-        if (dto.getCategoryId() == null) throw new ValidationException("È obbligatorio selezionare una categoria.");
-        if (dto.getSupportServiceId() == null) throw new ValidationException("È obbligatorio selezionare un servizio di supporto.");
-    }
+    return ticketMapper.toResponseDTO(savedTicket);
+}
 
-    /**
-     * Recupera tutti gli utenti con un ruolo specifico.
-     * @param role Il ruolo da cercare.
-     * @return Una lista di utenti con il ruolo specificato.
-     */
-    public List<User> getHelpersByRole(UserRole role) {
-        return userRepository.findByRole(role);
-    }
+/**
+ * Recupera i dettagli di un singolo ticket, con controlli di autorizzazione.
+ *
+ * @param ticketId ID del ticket.
+ * @param auth Dettagli dell'utente autenticato.
+ * @return Dettagli del ticket.
+ */
+public TicketResponseDTO getTicketDetails(Long ticketId, Authentication auth) {
+    Ticket ticket = ticketRepository.findDetailedById(ticketId)
+            .orElseThrow(() -> new TicketNotFoundException("Ticket non trovato con ID: " + ticketId));
 
-    /**
-     * Recupera tutti gli utenti che possono essere considerati "helper" (JUNIOR, SENIOR, PM, ADMIN).
-     * @return Una lista di tutti gli helper.
-     */
-    public List<User> getAllHelpers() {
-        return userRepository.findByRoleIn(List.of(UserRole.HELPER_JUNIOR, UserRole.HELPER_SENIOR, UserRole.PM, UserRole.ADMIN));
-    }
+    String currentUserId = getCurrentUserId(auth);
+    String currentUserEmail = getCurrentUserEmail(auth);
 
-    /**
-     * Recupera tutti i ticket di proprietà dell'utente corrente, escluse le bozze.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @return Una lista di DTO dei ticket.
-     */
-    public List<TicketResponseDTO> getMyTickets(Authentication auth) {
-        String userId = getCurrentUser(auth).getId();
-        return ticketRepository.findByOwner_IdAndStatusNot(userId, TicketStatus.DRAFT)
-                .stream()
-                .map(ticketMapper::toResponseDTO)
-                .toList();
-    }
+    log.info("getTicketDetails: Current User ID: {}, Email: {}", currentUserId, currentUserEmail);
 
-    /**
-     * Recupera i ticket di proprietà dell'utente corrente in base a uno stato specifico.
-     * @param status Lo stato dei ticket da cercare.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @return Una lista di DTO dei ticket.
-     */
-    public List<TicketResponseDTO> getMyTicketsByStatus(TicketStatus status, Authentication auth) {
-        String userId = getCurrentUser(auth).getId();
-        return ticketRepository.findByOwner_IdAndStatus(userId, status)
-                .stream()
-                .map(ticketMapper::toResponseDTO)
-                .toList();
-    }
+    boolean isOwner = ticket.getOwner().getId().equals(currentUserId);
+    boolean isAssignedToMe = ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(currentUserId);
+    boolean isAssociatedByEmail = ticket.getEmail().equals(currentUserEmail);
+    boolean isAdmin = hasRole(auth, UserRole.ADMIN.name());
+    boolean isPm = hasRole(auth, UserRole.PM.name());
+    boolean isHelper = hasRole(auth, UserRole.HELPER_JUNIOR.name()) || hasRole(auth, UserRole.HELPER_SENIOR.name());
+    boolean isUser = hasRole(auth, UserRole.USER.name());
 
-    /**
-     * Recupera tutte le bozze create dall'utente corrente.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @return Una lista di DTO dei ticket in stato DRAFT.
-     */
-    public List<TicketResponseDTO> getDrafts(Authentication auth) {
-        String userId = getCurrentUser(auth).getId();
-        return ticketRepository.findByOwner_IdAndStatus(userId, TicketStatus.DRAFT)
-                .stream()
-                .map(ticketMapper::toResponseDTO)
-                .toList();
-    }
-
-    /**
-     * Elimina un ticket. Solo l'owner di una bozza o un ADMIN possono eliminare.
-     * @param ticketId ID del ticket da eliminare.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @throws ResourceNotFoundException se il ticket non viene trovato.
-     * @throws AccessDeniedException se l'utente non è autorizzato a eliminare il ticket.
-     */
-    @Transactional
-    public void deleteTicket(Long ticketId, Authentication auth) {
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
-        User user = getCurrentUser(auth);
-
-        boolean isAdmin = user.getRole() == UserRole.ADMIN;
-        boolean isOwner = ticket.getOwner().getId().equals(user.getId());
-
-        if (ticket.getStatus() == TicketStatus.DRAFT && !isOwner && !isAdmin) {
-             throw new AccessDeniedException("You cannot delete this draft ticket.");
-        } else if (ticket.getStatus() != TicketStatus.DRAFT && !isAdmin) {
-             throw new AccessDeniedException("You cannot delete this ticket.");
-        }
-        ticketRepository.delete(ticket);
-    }
-
-    /**
-     * Aggiorna lo stato di un ticket. Accessibile solo a ADMIN o all'assegnatario.
-     * @param ticketId ID del ticket da aggiornare.
-     * @param newStatus Il nuovo stato desiderato.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @return DTO di risposta del ticket aggiornato.
-     * @throws ResourceNotFoundException se il ticket non viene trovato.
-     * @throws ValidationException se si tenta di aggiornare una bozza direttamente o di cambiare stato da SOLVED.
-     * @throws AccessDeniedException se l'utente non è autorizzato.
-     */
-    @Transactional
-    public TicketResponseDTO updateStatus(Long ticketId, TicketStatus newStatus, Authentication auth) {
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
-        User user = getCurrentUser(auth);
-
-        if (ticket.getStatus() == TicketStatus.DRAFT) {
-            throw new ValidationException("Cannot update status of a DRAFT ticket directly. Use create/update endpoint to finalize it.");
-        }
-
-        boolean isAdmin = user.getRole() == UserRole.ADMIN;
-        boolean isAssignedTo = ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(user.getId());
-
-        if (!isAdmin && !isAssignedTo) {
-            throw new AccessDeniedException("You are not authorized to update this ticket's status.");
-        }
-
-        if (ticket.getStatus() == TicketStatus.SOLVED && newStatus != TicketStatus.SOLVED) {
-            throw new ValidationException("Cannot change status from SOLVED.");
-        }
-
-        // Permetti solo agli ADMIN di forzare transizioni particolari (es. da ANSWERED a OPEN se non escalation)
-        if (ticket.getStatus() == TicketStatus.ANSWERED && newStatus == TicketStatus.OPEN && user.getRole() != UserRole.ADMIN) {
-            throw new ValidationException("Direct transition from ANSWERED to OPEN is not allowed outside of escalation process for non-admin users.");
-        }
-
-        TicketStatus oldStatus = ticket.getStatus();
-        ticket.setStatus(newStatus);
-        Ticket saved = ticketRepository.save(ticket);
-
-        ticketHistoryService.recordHistory(saved, oldStatus, newStatus, user, null);
-        if (saved.getOwner() != null && isValidEmailFormat(saved.getOwner().getEmail())) {
-            notificationService.sendTicketStatusUpdateEmail(saved);
-        } else {
-             log.warn("Skipping ticket status update email for ID {} to owner {} due to invalid email format: {}", saved.getId(), saved.getOwner() != null ? saved.getOwner().getId() : "N/A", saved.getOwner() != null ? saved.getOwner().getEmail() : "N/A");
-        }
-
-        return ticketMapper.toResponseDTO(saved);
-    }
-
-    /**
-     * Assegna un ticket a un helper/admin specifico. Solo ADMIN o PM possono eseguire questa operazione.
-     * @param ticketId ID del ticket da assegnare.
-     * @param helperId ID dell'utente a cui assegnare il ticket.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @return DTO di risposta del ticket aggiornato.
-     * @throws ResourceNotFoundException se il ticket o l'helper non vengono trovati.
-     * @throws AccessDeniedException se l'utente non è autorizzato.
-     * @throws ValidationException se si tenta di assegnare una bozza o un utente non idoneo.
-     */
-    @Transactional
-    public TicketResponseDTO assignTicket(Long ticketId, String helperId, Authentication auth) {
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
-        User assigner = getCurrentUser(auth);
-        User assignee = userRepository.findById(helperId)
-                .orElseThrow(() -> new ResourceNotFoundException("Helper not found"));
-
-        if (!List.of(UserRole.ADMIN, UserRole.PM).contains(assigner.getRole())) {
-            throw new AccessDeniedException("You cannot assign this ticket.");
-        }
-        if (ticket.getStatus() == TicketStatus.DRAFT) {
-            throw new ValidationException("Cannot assign a DRAFT ticket.");
-        }
-        
-        if (!List.of(UserRole.HELPER_JUNIOR, UserRole.HELPER_SENIOR, UserRole.PM, UserRole.ADMIN).contains(assignee.getRole())) {
-            throw new ValidationException("Only helpers or admins can be assigned a ticket.");
-        }
-
-        ticket.setAssignedTo(assignee);
-        // Se un ticket OPEN viene assegnato manualmente, il suo stato può diventare ANSWERED
-        if (ticket.getStatus() == TicketStatus.OPEN) {
-            ticket.setStatus(TicketStatus.ANSWERED);
-        }
-
-        Ticket saved = ticketRepository.save(ticket);
-        
-        if (assignee != null && isValidEmailFormat(assignee.getEmail())) {
-            notificationService.sendTicketAssignedEmail(saved);
-        } else {
-            log.warn("Skipping ticket assigned email for ID {} to helper {} due to invalid email format: {}", saved.getId(), assignee != null ? assignee.getId() : "N/A", assignee != null ? assignee.getEmail() : "N/A");
-        }
-
-        return ticketMapper.toResponseDTO(saved);
-    }
-
-    /**
-     * Recupera i conteggi dei ticket per la dashboard, filtrati per ruolo dell'utente corrente.
-     * @param connectedUser Oggetto Authentication dell'utente corrente.
-     * @return DTO con i conteggi dei ticket.
-     */
-    public DashboardCountsDTO getCounts(Authentication connectedUser) {
-        User user = getCurrentUser(connectedUser);
-        UserRole userRole = user.getRole();
-
-        long totalTickets;
-        long openTickets;
-        long answeredTickets;
-        long solvedTickets;
-        long draftTickets;
-
-        if (userRole == UserRole.ADMIN) {
-            totalTickets = ticketRepository.count();
-            openTickets = ticketRepository.countByStatus(TicketStatus.OPEN);
-            answeredTickets = ticketRepository.countByStatus(TicketStatus.ANSWERED);
-            solvedTickets = ticketRepository.countByStatus(TicketStatus.SOLVED);
-            draftTickets = ticketRepository.countByStatus(TicketStatus.DRAFT);
-        } else if (userRole == UserRole.USER) {
-            // Per USER: conteggi solo sui propri ticket creati
-            totalTickets = ticketRepository.countByOwner_Id(user.getId());
-            openTickets = ticketRepository.countByOwner_IdAndStatus(user.getId(), TicketStatus.OPEN);
-            answeredTickets = ticketRepository.countByOwner_IdAndStatus(user.getId(), TicketStatus.ANSWERED);
-            solvedTickets = ticketRepository.countByOwner_IdAndStatus(user.getId(), TicketStatus.SOLVED);
-            draftTickets = ticketRepository.countByOwner_IdAndStatus(user.getId(), TicketStatus.DRAFT);
-        } else { // HELPER_JUNIOR, HELPER_SENIOR, PM: conteggi sui ticket a loro assegnati O che hanno creato
-            totalTickets = ticketRepository.countByAssignedTo_IdOrOwner_Id(user.getId(), user.getId());
-            openTickets = ticketRepository.countByAssignedTo_IdAndStatusOrOwner_IdAndStatus(user.getId(), TicketStatus.OPEN, user.getId(), TicketStatus.OPEN);
-            answeredTickets = ticketRepository.countByAssignedTo_IdAndStatusOrOwner_IdAndStatus(user.getId(), TicketStatus.ANSWERED, user.getId(), TicketStatus.ANSWERED);
-            solvedTickets = ticketRepository.countByAssignedTo_IdAndStatusOrOwner_IdAndStatus(user.getId(), TicketStatus.SOLVED, user.getId(), TicketStatus.SOLVED);
-            draftTickets = ticketRepository.countByOwner_IdAndStatus(user.getId(), TicketStatus.DRAFT); // Gli helper/PM possono anche avere bozze da loro create
-        }
-
-        return DashboardCountsDTO.builder()
-                .totalTickets(totalTickets)
-                .openTickets(openTickets)
-                .answeredTickets(answeredTickets)
-                .solvedTickets(solvedTickets)
-                .draftTickets(draftTickets)
-                .build();
-    }
-
-    /**
-     * Recupera una pagina di ticket in base al ruolo dell'utente corrente.
-     * @param pageable Oggetto Pageable per paginazione.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @return Una pagina di DTO dei ticket.
-     * @throws AccessDeniedException se il ruolo non è autorizzato.
-     */
-    public Page<TicketResponseDTO> getTickets(Pageable pageable, Authentication auth) {
-        User user = getCurrentUser(auth);
-        UserRole role = user.getRole();
-
-        Page<Ticket> tickets;
-
-        switch (role) {
-            case ADMIN -> tickets = ticketRepository.findAll(pageable); // L'admin vede tutto
-            case HELPER_JUNIOR, HELPER_SENIOR, PM ->
-                // Helper/PM vedono ticket assegnati a loro O creati da loro (escludendo bozze)
-                tickets = ticketRepository.findByAssignedTo_IdOrOwner_IdAndStatusNot(user.getId(), user.getId(), TicketStatus.DRAFT, pageable);
-            case USER ->
-                // User vede solo i propri ticket (escludendo bozze)
-                tickets = ticketRepository.findByOwner_IdAndStatusNot(user.getId(), TicketStatus.DRAFT, pageable);
-            default ->
-                throw new AccessDeniedException("Ruolo non autorizzato.");
-        }
-        return tickets.map(ticketMapper::toResponseDTO);
-    }
-
-    /**
-     * Recupera i dettagli completi di un ticket specifico.
-     * @param ticketId ID del ticket.
-     * @return DTO di risposta del ticket.
-     * @throws ResourceNotFoundException se il ticket non viene trovato.
-     */
-    public TicketResponseDTO getTicketDetails(Long ticketId) {
-        Ticket ticket = ticketRepository.findDetailedById(ticketId)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
+    if (isAdmin || isPm) {
+        log.info("getTicketDetails: Admin/PM {} authorized to view ticket {}", currentUserId, ticketId);
         return ticketMapper.toResponseDTO(ticket);
-    }
-
-    /**
-     * Recupera tutti i ticket assegnati all'utente corrente, escluse le bozze.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @return Una lista di DTO dei ticket assegnati.
-     */
-    public List<TicketResponseDTO> getAssignedTickets(Authentication auth) {
-        String helperId = getCurrentUser(auth).getId();
-        return ticketRepository.findByAssignedTo_IdAndStatusNot(helperId, TicketStatus.DRAFT)
-            .stream()
-            .map(ticketMapper::toResponseDTO)
-            .toList();
-    }
-
-    /**
-     * Recupera i ticket assegnati all'utente corrente in base a uno stato specifico.
-     * @param auth Oggetto Authentication dell'utente corrente.
-     * @param status Lo stato dei ticket da cercare.
-     * @return Una lista di DTO dei ticket assegnati.
-     */
-    public List<TicketResponseDTO> getAssignedTicketsByStatus(Authentication auth, TicketStatus status) {
-        String helperId = getCurrentUser(auth).getId();
-        // I ticket DRAFT non sono assegnati, quindi restituisci una lista vuota se richiesto per lo stato DRAFT
-        if (status == TicketStatus.DRAFT) {
-            return List.of();
+    } else if (isHelper) {
+        if (isAssignedToMe || (isOwner && ticket.getStatus() == TicketStatus.DRAFT)) {
+            log.info("getTicketDetails: Helper {} authorized to view assigned/draft ticket {}", currentUserId, ticketId);
+            return ticketMapper.toResponseDTO(ticket);
         }
-        return ticketRepository.findByAssignedTo_IdAndStatus(helperId, status)
-            .stream()
+    } else if (isUser) {
+        if (isOwner || isAssociatedByEmail) {
+            log.info("getTicketDetails: User {} authorized to view owned/associated ticket {}", currentUserId, ticketId);
+            return ticketMapper.toResponseDTO(ticket);
+        }
+    }
+
+    log.warn("getTicketDetails: User {} (email: {}) not authorized to view ticket {}. Owner: {}, AssignedTo: {}, Ticket Email: {}",
+            currentUserId, currentUserEmail, ticketId, ticket.getOwner().getId(),
+            ticket.getAssignedTo() != null ? ticket.getAssignedTo().getId() : "N/A", ticket.getEmail());
+    throw new UnauthorizedTicketActionException("Non autorizzato a visualizzare questo ticket.");
+}
+
+/**
+ * Elimina un ticket, con controlli di autorizzazione.
+ *
+ * @param ticketId ID del ticket.
+ * @param auth Dettagli dell'utente autenticato.
+ */
+@Transactional
+public void deleteTicket(Long ticketId, Authentication auth) {
+    Ticket ticket = ticketRepository.findById(ticketId)
+            .orElseThrow(() -> new TicketNotFoundException("Ticket non trovato con ID: " + ticketId));
+
+    String currentUserId = getCurrentUserId(auth);
+    String currentUserEmail = getCurrentUserEmail(auth);
+
+    log.info("deleteTicket: Current User ID: {}, Email: {}", currentUserId, currentUserEmail);
+
+    boolean isOwner = ticket.getOwner().getId().equals(currentUserId);
+    boolean isAssociatedByEmail = ticket.getEmail().equals(currentUserEmail);
+    boolean isAdmin = hasRole(auth, UserRole.ADMIN.name());
+    boolean isHelperOrPm = hasRole(auth, UserRole.HELPER_JUNIOR.name()) || hasRole(auth, UserRole.HELPER_SENIOR.name()) || hasRole(auth, UserRole.PM.name());
+    boolean isAssignedToMe = ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(currentUserId);
+
+    if (isAdmin) {
+        log.info("deleteTicket: Admin {} deleting ticket {}", currentUserId, ticketId);
+        ticketRepository.delete(ticket);
+        emailService.sendTicketDeletedEmail(ticket);
+        return;
+    } else if (hasRole(auth, UserRole.USER.name())) {
+        if ((isOwner && ticket.getStatus() == TicketStatus.DRAFT) || isAssociatedByEmail) {
+            log.info("deleteTicket: User {} deleting own DRAFT or associated ticket {}", currentUserId, ticketId);
+            ticketRepository.delete(ticket);
+            emailService.sendTicketDeletedEmail(ticket);
+            return;
+        }
+    } else if (isHelperOrPm) {
+        if (isAssignedToMe && ticket.getStatus() != TicketStatus.SOLVED) {
+            log.info("deleteTicket: Helper/PM {} deleting assigned ticket {}", currentUserId, ticketId);
+            ticketRepository.delete(ticket);
+            emailService.sendTicketDeletedEmail(ticket);
+            return;
+        }
+    }
+
+    log.warn("deleteTicket: User {} (email: {}) not authorized to delete ticket {}. Owner: {}, AssignedTo: {}, Status: {}",
+            currentUserId, currentUserEmail, ticketId, ticket.getOwner().getId(),
+            ticket.getAssignedTo() != null ? ticket.getAssignedTo().getId() : "N/A", ticket.getStatus());
+    throw new UnauthorizedTicketActionException("Non autorizzato a eliminare questo ticket.");
+}
+
+/**
+ * Accetta un ticket assegnato all'utente corrente (solo per HELPER, PM, ADMIN).
+ * Lo stato del ticket passa da OPEN a ANSWERED.
+ *
+ * @param ticketId ID del ticket.
+ * @param auth Dettagli dell'utente autenticato.
+ * @return Il ticket aggiornato.
+ */
+@Transactional
+public TicketResponseDTO acceptTicket(Long ticketId, Authentication auth) {
+    Ticket ticket = ticketRepository.findDetailedById(ticketId)
+            .orElseThrow(() -> new TicketNotFoundException("Ticket non trovato con ID: " + ticketId));
+
+    String currentUserId = getCurrentUserId(auth);
+    log.info("acceptTicket: Current User ID: {}", currentUserId);
+
+    boolean isAssignedToMe = ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(currentUserId);
+    boolean isAdmin = hasRole(auth, UserRole.ADMIN.name());
+    boolean isPm = hasRole(auth, UserRole.PM.name());
+
+    if (!isAssignedToMe && !isAdmin && !isPm) {
+        throw new UnauthorizedTicketActionException("Non autorizzato ad accettare questo ticket.");
+    }
+    if (ticket.getStatus() != TicketStatus.OPEN) {
+        throw new InvalidTicketStatusException("Il ticket deve essere in stato OPEN per essere accettato.");
+    }
+
+    if (ticket.getAssignedTo() == null || !ticket.getAssignedTo().getId().equals(currentUserId)) {
+        User currentUser = userService.findUserById(currentUserId)
+                .orElseThrow(() -> new UserProfileNotFoundException("Utente corrente non trovato."));
+        ticket.setAssignedTo(currentUser);
+        ticket.setAssignedDate(new Date());
+        log.info("acceptTicket: Ticket {} assigned to user {} (self) and assignedDate set.", ticketId, currentUserId);
+    }
+
+    ticket.setStatus(TicketStatus.ANSWERED);
+    Ticket savedTicket = ticketRepository.save(ticket);
+    log.info("acceptTicket: Ticket {} accepted and saved. New status: {}", ticketId, savedTicket.getStatus());
+
+    if (emailService.isValidEmailProvider(savedTicket.getEmail())) {
+        emailService.sendTicketStatusUpdateEmail(savedTicket);
+        emailService.sendTicketAssignedEmail(savedTicket, savedTicket.getAssignedTo());
+    }
+
+    return ticketMapper.toResponseDTO(savedTicket);
+}
+
+/**
+ * Rifiuta un ticket assegnato all'utente corrente e lo riassegna a un altro non `USER` e diverso da loro stessi.
+ * Il ticket deve essere in stato OPEN.
+ *
+ * @param ticketId ID del ticket.
+ * @param newAssignedToId ID del nuovo utente a cui assegnare il ticket.
+ * @param auth Dettagli dell'utente autenticato.
+ * @return Il ticket aggiornato.
+ */
+@Transactional
+public TicketResponseDTO rejectTicket(Long ticketId, String newAssignedToId, Authentication auth) {
+    Ticket ticket = ticketRepository.findDetailedById(ticketId)
+            .orElseThrow(() -> new TicketNotFoundException("Ticket non trovato con ID: " + ticketId));
+
+    String currentUserId = getCurrentUserId(auth);
+    log.info("rejectTicket: Current User ID: {}", currentUserId);
+    User oldAssignee = ticket.getAssignedTo();
+
+    boolean isAssignedToMe = oldAssignee != null && oldAssignee.getId().equals(currentUserId);
+    boolean isAdmin = hasRole(auth, UserRole.ADMIN.name());
+    boolean isPm = hasRole(auth, UserRole.PM.name());
+
+    if (!isAssignedToMe && !isAdmin && !isPm) {
+        throw new UnauthorizedTicketActionException("Non autorizzato a rifiutare questo ticket.");
+    }
+    if (ticket.getStatus() != TicketStatus.OPEN) {
+        throw new InvalidTicketStatusException("Il ticket deve essere in stato OPEN per essere rifiutato.");
+    }
+
+    User newAssignee = userService.findUserById(newAssignedToId)
+            .orElseThrow(() -> new UserProfileNotFoundException("Nuovo assegnatario non trovato con ID: " + newAssignedToId));
+
+    if (!(newAssignee.getRole() == UserRole.HELPER_JUNIOR || newAssignee.getRole() == UserRole.HELPER_SENIOR ||
+            newAssignee.getRole() == UserRole.PM || newAssignee.getRole() == UserRole.ADMIN)) {
+        throw new InvalidAssigneeRoleException("Il nuovo assegnatario deve essere un helper, PM o admin.");
+    }
+    if (newAssignedToId.equals(currentUserId)) {
+        throw new IllegalArgumentException("Non puoi rifiutare e riassegnare a te stesso.");
+    }
+
+    ticket.setAssignedTo(newAssignee);
+    ticket.setAssignedDate(new Date());
+    ticket.setStatus(TicketStatus.OPEN);
+    Ticket savedTicket = ticketRepository.save(ticket);
+    log.info("rejectTicket: Ticket {} rejected and reassigned to {}. New status: {}", ticketId, newAssignee.getEmail(), savedTicket.getStatus());
+
+    if (emailService.isValidEmailProvider(savedTicket.getEmail())) {
+        emailService.sendTicketRejectedEmail(savedTicket, oldAssignee, newAssignee);
+    }
+
+    return ticketMapper.toResponseDTO(savedTicket);
+}
+
+/**
+ * Escala un ticket assegnato all'utente corrente, riassegnandolo a un altro helper/admin
+ * e riportandolo allo stato OPEN (solo per HELPER, PM, ADMIN).
+ * Il ticket deve essere in stato ANSWERED.
+ *
+ * @param ticketId ID del ticket.
+ * @param newAssignedToId ID del nuovo utente a cui assegnare il ticket.
+ * @param auth Dettagli dell'utente autenticato.
+ * @return Il ticket aggiornato.
+ */
+@Transactional
+public TicketResponseDTO escalateTicket(Long ticketId, String newAssignedToId, Authentication auth) {
+    Ticket ticket = ticketRepository.findDetailedById(ticketId)
+            .orElseThrow(() -> new TicketNotFoundException("Ticket non trovato con ID: " + ticketId));
+
+    String currentUserId = getCurrentUserId(auth);
+    log.info("escalateTicket: Current User ID: {}", currentUserId);
+    User oldAssignee = ticket.getAssignedTo();
+
+    boolean isAssignedToMe = oldAssignee != null && oldAssignee.getId().equals(currentUserId);
+    boolean isAdmin = hasRole(auth, UserRole.ADMIN.name());
+    boolean isPm = hasRole(auth, UserRole.PM.name());
+
+    if (!isAssignedToMe && !isAdmin && !isPm) {
+        throw new UnauthorizedTicketActionException("Non autorizzato a escalare questo ticket.");
+    }
+    if (ticket.getStatus() != TicketStatus.ANSWERED) {
+        throw new InvalidTicketStatusException("Il ticket deve essere in stato ANSWERED per essere escalato.");
+    }
+    if (ticket.getStatus() == TicketStatus.SOLVED) {
+        throw new InvalidTicketStatusException("Non è possibile escalare un ticket SOLVED.");
+    }
+
+    User newAssignee = userService.findUserById(newAssignedToId)
+            .orElseThrow(() -> new UserProfileNotFoundException("Nuovo assegnatario non trovato con ID: " + newAssignedToId));
+
+    if (!(newAssignee.getRole() == UserRole.HELPER_JUNIOR || newAssignee.getRole() == UserRole.HELPER_SENIOR ||
+            newAssignee.getRole() == UserRole.PM || newAssignee.getRole() == UserRole.ADMIN)) {
+        throw new InvalidAssigneeRoleException("Il nuovo assegnatario deve essere un helper, PM o admin.");
+    }
+    if (newAssignedToId.equals(currentUserId)) {
+        throw new IllegalArgumentException("Non puoi escalare e riassegnare a te stesso.");
+    }
+
+    ticket.setAssignedTo(newAssignee);
+    ticket.setAssignedDate(new Date());
+    ticket.setStatus(TicketStatus.OPEN);
+    Ticket savedTicket = ticketRepository.save(ticket);
+    log.info("escalateTicket: Ticket {} escalated and reassigned to {}. New status: {}", ticketId, newAssignee.getEmail(), savedTicket.getStatus());
+
+    if (emailService.isValidEmailProvider(savedTicket.getEmail())) {
+        emailService.sendTicketReassignedEmail(savedTicket, oldAssignee, newAssignee);
+    }
+
+    return ticketMapper.toResponseDTO(savedTicket);
+}
+
+/**
+ * Aggiorna lo stato di un ticket (solo per ADMIN, HELPER, PM).
+ * Le bozze non possono essere aggiornate direttamente tramite questo endpoint.
+ * Un ticket SOLVED non può essere riaperto tramite questo endpoint (solo da Admin/PM che modificano il ticket).
+ *
+ * @param ticketId ID del ticket.
+ * @param newStatus Il nuovo stato desiderato.
+ * @param auth Dettagli dell'utente autenticato.
+ * @return Il ticket aggiornato.
+ */
+@Transactional
+public TicketResponseDTO updateStatus(Long ticketId, TicketStatus newStatus, Authentication auth) {
+    Ticket ticket = ticketRepository.findDetailedById(ticketId)
+            .orElseThrow(() -> new TicketNotFoundException("Ticket non trovato con ID: " + ticketId));
+
+    String currentUserId = getCurrentUserId(auth);
+    log.info("updateStatus: Current User ID: {}", currentUserId);
+
+    boolean isAdmin = hasRole(auth, UserRole.ADMIN.name());
+    boolean isPm = hasRole(auth, UserRole.PM.name());
+    boolean isHelper = hasRole(auth, UserRole.HELPER_JUNIOR.name()) || hasRole(auth, UserRole.HELPER_SENIOR.name());
+    boolean isAssignedToMe = ticket.getAssignedTo() != null
+            && ticket.getAssignedTo().getId().equals(currentUserId);
+
+    if (!isAdmin && !isPm && (!isHelper || !isAssignedToMe)) {
+        throw new UnauthorizedTicketActionException("Non autorizzato a cambiare lo stato di questo ticket.");
+    }
+    if (ticket.getStatus() == TicketStatus.DRAFT) {
+        throw new InvalidTicketStatusException(
+            "Non è possibile aggiornare lo stato di una bozza direttamente tramite questo endpoint.");
+    }
+    if (ticket.getStatus() == TicketStatus.SOLVED && newStatus != TicketStatus.SOLVED) {
+        throw new InvalidTicketStatusException("Un ticket SOLVED non può essere riaperto tramite questo endpoint.");
+    }
+
+    if (ticket.getStatus() != TicketStatus.SOLVED && newStatus == TicketStatus.SOLVED) {
+        ticket.setSolveDate(new Date());
+        log.info("updateStatus: Ticket {} status changed to SOLVED. Setting solveDate.");
+    } else if (ticket.getStatus() == TicketStatus.SOLVED && newStatus != TicketStatus.SOLVED) {
+        ticket.setSolveDate(null);
+        log.info("updateStatus: Ticket {} status changed from SOLVED. Clearing solveDate.");
+    }
+
+    ticket.setStatus(newStatus);
+    Ticket savedTicket = ticketRepository.save(ticket);
+    log.info("updateStatus: Ticket {} status updated to {}.", ticketId, savedTicket.getStatus());
+
+    if (emailService.isValidEmailProvider(savedTicket.getEmail())) {
+        emailService.sendTicketStatusUpdateEmail(savedTicket);
+    }
+
+    return ticketMapper.toResponseDTO(savedTicket);
+}
+
+/**
+ * Assegna un ticket a un utente specifico (solo per ADMIN, PM).
+ * Non applicabile alle bozze.
+ *
+ * @param ticketId ID del ticket.
+ * @param helperId ID dell'utente (helper/admin) a cui assegnare il ticket.
+ * @param auth Dettagli dell'utente autenticato.
+ * @return Il ticket aggiornato.
+ */
+@Transactional
+public TicketResponseDTO assignTicket(Long ticketId, String helperId, Authentication auth) {
+    Ticket ticket = ticketRepository.findDetailedById(ticketId)
+            .orElseThrow(() -> new TicketNotFoundException("Ticket non trovato con ID: " + ticketId));
+
+    String currentUserId = getCurrentUserId(auth);
+    log.info("assignTicket: Current User ID: {}", currentUserId);
+
+    if (!hasRole(auth, UserRole.ADMIN.name()) && !hasRole(auth, UserRole.PM.name())) {
+        throw new UnauthorizedTicketActionException("Non autorizzato ad assegnare ticket.");
+    }
+    if (ticket.getStatus() == TicketStatus.DRAFT) {
+        throw new InvalidTicketStatusException("Non è possibile assegnare una bozza.");
+    }
+    if (ticket.getStatus() == TicketStatus.SOLVED) {
+        throw new InvalidTicketStatusException("Non è possibile riassegnare un ticket SOLVED.");
+    }
+
+    User assignee = userService.findUserById(helperId)
+            .orElseThrow(() -> new UserProfileNotFoundException("Assegnatario non trovato con ID: " + helperId));
+
+    if (!(assignee.getRole() == UserRole.HELPER_JUNIOR || assignee.getRole() == UserRole.HELPER_SENIOR ||
+            assignee.getRole() == UserRole.PM || assignee.getRole() == UserRole.ADMIN)) {
+        throw new InvalidAssigneeRoleException("L'assegnatario deve essere un helper, PM o admin.");
+    }
+    if (ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(helperId)) {
+        throw new IllegalArgumentException("Il ticket è già assegnato a questo utente.");
+    }
+
+    User oldAssignee = ticket.getAssignedTo();
+    ticket.setAssignedTo(assignee);
+    ticket.setAssignedDate(new Date());
+    Ticket savedTicket = ticketRepository.save(ticket);
+    log.info("assignTicket: Ticket {} assigned to {}. Old assignee: {}", ticketId, assignee.getEmail(), oldAssignee != null ? oldAssignee.getEmail() : "N/A");
+
+    if (emailService.isValidEmailProvider(savedTicket.getEmail())) {
+        emailService.sendTicketReassignedEmail(savedTicket, oldAssignee, assignee);
+    }
+
+    return ticketMapper.toResponseDTO(savedTicket);
+}
+
+/**
+ * Recupera tutti i ticket con paginazione, filtrati per ruolo utente.
+ * ADMIN/PM vedono tutti i ticket (incluse bozze).
+ * HELPER vedono solo i ticket a loro assegnati e le proprie bozze.
+ * USER vede tutti i ticket associati alla propria email (owner o email del ticket).
+ *
+ * @param pageable Oggetto per la paginazione e ordinamento.
+ * @param auth Dettagli dell'utente autenticato.
+ * @param status Filtro per stato del ticket (opzionale).
+ * @param priority Filtro per priorità del ticket (opzionale).
+ * @param search Termine di ricerca per titolo/descrizione/categoria/servizio (opzionale).
+ * @return Una pagina di ticket.
+ */
+public Page<TicketResponseDTO> getTickets(Pageable pageable, Authentication auth,
+                                          TicketStatus status, TicketPriority priority, String search) {
+    String currentUserId = getCurrentUserId(auth);
+    String currentUserEmail = getCurrentUserEmail(auth);
+    
+    // Crea un nuovo Pageable con l'ordinamento forzato in DESC
+    Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "createdDate"));
+    
+    Specification<Ticket> spec = Specification.where(null); // Default: nessuna restrizione
+
+    boolean isAdmin = hasRole(auth, UserRole.ADMIN.name());
+    boolean isPm = hasRole(auth, UserRole.PM.name());
+    boolean isHelper = hasRole(auth, UserRole.HELPER_JUNIOR.name()) || hasRole(auth, UserRole.HELPER_SENIOR.name());
+    boolean isUser = hasRole(auth, UserRole.USER.name());
+
+    if (isAdmin || isPm) {
+        log.info("getTickets: Fetching ALL tickets for ADMIN/PM.");
+        // spec rimane null, quindi findAll recupererà tutto
+    } else if (isHelper) {
+        spec = Specification.where(byAssignedToId(currentUserId))
+                .or(byOwnerIdAndStatus(currentUserId, TicketStatus.DRAFT));
+        log.info("getTickets: Fetching assigned tickets and own drafts for HELPER: {}", currentUserId);
+    } else if (isUser) {
+        spec = byOwnerIdOrTicketEmail(currentUserId, currentUserEmail);
+        log.info("getTickets: Fetching all tickets (including drafts) for USER: {} or email: {}", currentUserId,
+                currentUserEmail);
+    } else {
+        log.warn("getTickets: Unauthorized access attempt to getTickets by user: {}", currentUserId);
+        return Page.empty(pageable); // Nessun ruolo riconosciuto, restituisci pagina vuota
+    }
+
+    // --- Applicazione dei filtri aggiuntivi ---
+    if (status != null) {
+        spec = spec.and(byStatus(status));
+        log.info("getTickets: Applying status filter: {}", status);
+    }
+    if (priority != null) {
+        spec = spec.and(byPriority(priority)); // Usa la nuova specifica byPriority
+        log.info("getTickets: Applying priority filter: {}", priority);
+    }
+    if (search != null && !search.trim().isEmpty()) {
+        spec = spec.and(byKeywordInTicketDetails(search.trim())); // Usa la nuova specifica byKeywordInTicketDetails
+        log.info("getTickets: Applying search filter: '{}'", search.trim());
+    }
+
+    Page<Ticket> ticketsPage = ticketRepository.findAll(spec, sortedPageable); // Usa sortedPageable
+    log.info("getTickets: Found {} tickets for user {}. Role: {}. Total elements in page: {}", ticketsPage.getTotalElements(), currentUserId, auth.getAuthorities(), ticketsPage.getContent().size());
+    return ticketsPage.map(ticketMapper::toResponseDTO);
+}
+
+/**
+ * Recupera tutti i ticket dove l'utente è l'owner O la sua email corrisponde all'email del ticket.
+ * Questo endpoint è pensato per i ruoli USER che devono vedere ticket creati da altri ma a loro associati via email.
+ *
+ * @param pageable Oggetto per la paginazione e ordinamento.
+ * @param auth Dettagli dell'utente autenticato.
+ * @param status Filtro per stato del ticket (opzionale).
+ * @param priority Filtro per priorità del ticket (opzionale).
+ * @param search Termine di ricerca per titolo/descrizione/categoria/servizio (opzionale).
+ * @return Una pagina di ticket.
+ */
+public Page<TicketResponseDTO> getMyTicketsAndAssociatedByEmail(Pageable pageable, Authentication auth,
+                                                                TicketStatus status, TicketPriority priority, String search) {
+    String userId = getCurrentUserId(auth);
+    String userEmail = getCurrentUserEmail(auth);
+    log.info("getMyTicketsAndAssociatedByEmail: Fetching my tickets and associated by email for user ID: {} or email: {}", userId,
+            userEmail);
+
+    // Crea un nuovo Pageable con l'ordinamento forzato in DESC
+    Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "createdDate"));
+
+    Specification<Ticket> spec = byOwnerIdOrTicketEmail(userId, userEmail);
+    
+    // --- Applicazione dei filtri aggiuntivi ---
+    if (status != null) {
+        spec = spec.and(byStatus(status));
+        log.info("getMyTicketsAndAssociatedByEmail: Applying status filter: {}", status);
+    }
+    if (priority != null) {
+        spec = spec.and(byPriority(priority)); // Usa la nuova specifica byPriority
+        log.info("getMyTicketsAndAssociatedByEmail: Applying priority filter: {}", priority);
+    }
+    if (search != null && !search.trim().isEmpty()) {
+        spec = spec.and(byKeywordInTicketDetails(search.trim())); // Usa la nuova specifica byKeywordInTicketDetails
+        log.info("getMyTicketsAndAssociatedByEmail: Applying search filter: '{}'", search.trim());
+    }
+
+    Page<Ticket> ticketsPage = ticketRepository.findAll(spec, sortedPageable); // Usa sortedPageable
+    return ticketsPage.map(ticketMapper::toResponseDTO);
+}
+
+/**
+ * Recupera tutte le bozze create dall'utente corrente.
+ *
+ * @param auth Dettagli dell'utente autenticato.
+ * @return Lista di bozze.
+ */
+public List<TicketResponseDTO> getDrafts(Authentication auth) {
+    String userId = getCurrentUserId(auth);
+    log.info("getDrafts: Fetching drafts for user ID: {}", userId);
+
+    Specification<Ticket> spec = byOwnerIdAndStatus(userId, TicketStatus.DRAFT);
+
+    List<Ticket> drafts = ticketRepository.findAll(spec);
+    return drafts.stream()
             .map(ticketMapper::toResponseDTO)
             .toList();
+}
+
+// Metodi per i conteggi della dashboard
+public DashboardCountsDTO getDashboardCounts(Authentication auth) {
+    String userId = getCurrentUserId(auth);
+    String userEmail = getCurrentUserEmail(auth);
+
+    log.info("getDashboardCounts: User {} has authorities: {}", userId, auth.getAuthorities());
+
+    DashboardCountsDTO counts = new DashboardCountsDTO();
+
+    boolean isUserRole = hasRole(auth, UserRole.USER.name());
+    boolean isAdmin = hasRole(auth, UserRole.ADMIN.name());
+    boolean isPm = hasRole(auth, UserRole.PM.name());
+    boolean isHelper = hasRole(auth, UserRole.HELPER_JUNIOR.name()) || hasRole(auth, UserRole.HELPER_SENIOR.name());
+
+    if (isAdmin || isPm) {
+        log.info("getDashboardCounts: Processing for ADMIN/PM role. User ID: {}", userId);
+        counts.setTotalTickets(ticketRepository.count());
+        counts.setOpenTickets(ticketRepository.countByStatus(TicketStatus.OPEN));
+        counts.setAnsweredTickets(ticketRepository.countByStatus(TicketStatus.ANSWERED));
+        counts.setSolvedTickets(ticketRepository.countByStatus(TicketStatus.SOLVED));
+        counts.setDraftTickets(ticketRepository.countByStatus(TicketStatus.DRAFT));
+    } else if (isHelper) {
+        log.info("getDashboardCounts: Processing for HELPER role. User ID: {}", userId);
+        Specification<Ticket> helperSpec = Specification.where(byAssignedToId(userId))
+                                                .or(byOwnerIdAndStatus(userId, TicketStatus.DRAFT));
+        counts.setTotalTickets(ticketRepository.count(helperSpec));
+        counts.setOpenTickets(
+                ticketRepository.count(Specification.where(byAssignedToId(userId)).and(byStatus(TicketStatus.OPEN))));
+        counts.setAnsweredTickets(
+                ticketRepository.count(Specification.where(byAssignedToId(userId)).and(byStatus(TicketStatus.ANSWERED))));
+        counts.setSolvedTickets(
+                ticketRepository.count(Specification.where(byAssignedToId(userId)).and(byStatus(TicketStatus.SOLVED))));
+        counts.setDraftTickets(ticketRepository.countByOwner_IdAndStatus(userId, TicketStatus.DRAFT));
+    } else if (isUserRole) {
+        log.info("getDashboardCounts: Processing for USER role. User ID: {}, Email: {}", userId, userEmail);
+        Specification<Ticket> userTicketsSpec = byOwnerIdOrTicketEmail(userId, userEmail);
+        counts.setTotalTickets(ticketRepository.count(userTicketsSpec));
+        counts.setOpenTickets(
+                ticketRepository.count(Specification.where(userTicketsSpec).and(byStatus(TicketStatus.OPEN))));
+        counts.setAnsweredTickets(
+                ticketRepository.count(Specification.where(userTicketsSpec).and(byStatus(TicketStatus.ANSWERED))));
+        counts.setSolvedTickets(
+                ticketRepository.count(Specification.where(userTicketsSpec).and(byStatus(TicketStatus.SOLVED))));
+        counts.setDraftTickets(ticketRepository.countByOwner_IdAndStatus(userId, TicketStatus.DRAFT));
+    } else {
+        log.warn("getDashboardCounts: Unauthorized access attempt to getDashboardCounts by user: {}", userId);
+        return new DashboardCountsDTO(0, 0, 0, 0, 0);
     }
+    log.info("getDashboardCounts for {}: Total={}, Open={}, Answered={}, Solved={}, Draft={}",
+            isUserRole ? "USER" : (isAdmin || isPm ? "ADMIN/PM" : "HELPER"),
+            counts.getTotalTickets(), counts.getOpenTickets(), counts.getAnsweredTickets(),
+            counts.getSolvedTickets(), counts.getDraftTickets());
+    return counts;
+}
+
+// Assegnazione automatica del ticket a Helper_Junior o Admin
+private void assignTicketAutomatically(Ticket ticket) {
+    log.info("assignTicketAutomatically: Attempting automatic assignment for ticket ID: {}", ticket.getId());
+    
+    List<UserRole> assignmentRoles = List.of(
+        UserRole.HELPER_JUNIOR,
+        UserRole.HELPER_SENIOR,
+        UserRole.PM,
+        UserRole.ADMIN
+    );
+
+    User assignedUser = null;
+    for (UserRole role : assignmentRoles) {
+        List<User> usersWithRole = userService.getUsersEntitiesByRoles(List.of(role));
+        log.info("assignTicketAutomatically: Found {} users for role {}.", usersWithRole.size(), role);
+        if (!usersWithRole.isEmpty()) {
+            assignedUser = usersWithRole.get(0); // Prendi il primo disponibile
+            log.info("assignTicketAutomatically: Ticket {} assigned to {} (Role: {}).",
+                     ticket.getId(), assignedUser.getEmail(), role);
+            break; // Trovato un assegnatario, esci dal ciclo
+        }
+    }
+
+    if (assignedUser != null) {
+        ticket.setAssignedTo(assignedUser);
+        if (ticket.getAssignedDate() == null) {
+            ticket.setAssignedDate(new Date());
+            log.info("assignTicketAutomatically: Assigned date set for ticket {}", ticket.getId());
+        }
+    } else {
+        log.error("assignTicketAutomatically: Nessun helper o admin disponibile per l'assegnazione automatica per ticket ID: {}. Il ticket rimarrà non assegnato.", ticket.getId());
+        ticket.setAssignedTo(null);
+        ticket.setAssignedDate(null);
+    }
+}
 }

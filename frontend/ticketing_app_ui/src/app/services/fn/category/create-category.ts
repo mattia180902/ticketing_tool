@@ -8,11 +8,11 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { CategoryDto } from '../../models/category-dto';
+import { CategoryRequest } from '../../models/category-request';
 import { CategoryResponse } from '../../models/category-response';
 
 export interface CreateCategory$Params {
-      body: CategoryDto
+      body: CategoryRequest
 }
 
 export function createCategory(http: HttpClient, rootUrl: string, params: CreateCategory$Params, context?: HttpContext): Observable<StrictHttpResponse<CategoryResponse>> {

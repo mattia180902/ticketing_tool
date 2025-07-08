@@ -1,9 +1,209 @@
-<!-- <div class="p-4">
-    <h2 class="text-xl font-bold mb-4">Elenco Ticket</h2>
-    <ul>
-      <li *ngFor="let ticket of tickets" class="border p-2 rounded mb-2">
-        <strong>{{ ticket.title }}</strong> - {{ ticket.status }}
-      </li>
-    </ul>
+<!-- eslint-disable @angular-eslint/template/elements-content -->
+<!-- src/app/modules/ticket/components/ticket-list/ticket-list.component.html -->
+
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<div class="ticket-list-container p-fluid">
+  <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-6 text-center">Lista Ticket</h1>
+
+  <!-- Filtri e Ricerca -->
+  <p-card class="mb-4 filter-card">
+    <div class="grid formgrid p-nogutter">
+      <div class="col-12 md:col-4 field p-fluid">
+        <label for="statusFilter" class="block text-900 font-medium mb-2">Stato</label>
+        <p-dropdown
+          id="statusFilter"
+          [options]="statusOptions"
+          [(ngModel)]="selectedStatusFilter"
+          optionLabel="label"
+          optionValue="value"
+          (onChange)="onStatusFilterChange()"
+          placeholder="Seleziona Stato"
+          [showClear]="true"
+        ></p-dropdown>
+      </div>
+
+      <div class="col-12 md:col-4 field p-fluid">
+        <label for="priorityFilter" class="block text-900 font-medium mb-2">Priorità</label>
+        <p-dropdown
+          id="priorityFilter"
+          [options]="priorityOptions"
+          [(ngModel)]="selectedPriorityFilter"
+          optionLabel="label"
+          optionValue="value"
+          (onChange)="onPriorityFilterChange()"
+          placeholder="Seleziona Priorità"
+          [showClear]="true"
+        ></p-dropdown>
+      </div>
+
+      <div class="col-12 md:col-4 field p-fluid">
+        <label for="search" class="block text-900 font-medium mb-2">Ricerca</label>
+        <input
+          pInputText
+          id="search"
+          type="text"
+          [formControl]="searchFormControl"
+          (input)="onSearch()"
+          placeholder="Cerca per oggetto o descrizione"
+        />
+      </div>
+    </div>
+    <div class="flex justify-content-end mt-3">
+      <button pButton type="button" label="Reset Filtri" icon="pi pi-times" class="p-button-secondary" (click)="clearFilters()"></button>
+    </div>
+  </p-card>
+
+  <!-- Tabella dei Ticket -->
+  <p-table
+    [value]="tickets"
+    [paginator]="true"
+    [rows]="rows"
+    [totalRecords]="totalRecords"
+    [lazy]="true"
+    (onLazyLoad)="loadTickets($event)"
+    [loading]="loading"
+    [responsiveLayout]="'scroll'"
+    [rowsPerPageOptions]="[5, 10, 20, 50]"
+    styleClass="p-datatable-gridlines p-datatable-striped"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th>ID</th>
+        <th>Oggetto</th>
+        <th>Stato</th>
+        <th>Priorità</th>
+        <th>Servizio</th>
+        <th>Proprietario</th>
+        <th>Assegnato a</th>
+        <th>Creato il</th>
+        <th>Azioni</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-ticket>
+      <tr>
+        <td>{{ ticket.id }}</td>
+        <td>{{ ticket.title }}</td>
+        <td>
+          <p-badge
+            [value]="ticket.status"
+            [severity]="getBadgeSeverity(ticket.status)"
+            styleClass="ticket-status-badge"
+          ></p-badge>
+        </td>
+        <td>{{ ticket.priority }}</td>
+        <td>{{ ticket.supportServiceName || 'N/A' }}</td>
+        <td>{{ ticket.userFirstName }} {{ ticket.userLastName }} ({{ ticket.userEmail }})</td>
+        <td>{{ ticket.assignedToName || 'N/A' }}</td>
+        <td>{{ ticket.createdOn | date:'dd/MM/yyyy HH:mm' }}</td>
+        <td>
+          <div class="flex flex-wrap gap-2">
+            <!-- Pulsante Dettagli/Modifica -->
+            <button
+              pButton
+              type="button"
+              [label]="ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId() ? 'Modifica' : 'Dettagli'"
+              [icon]="ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId() ? 'pi pi-pencil' : 'pi pi-eye'"
+              [class]="ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId() ? 'p-button-primary' : 'p-button-info'"
+              class="p-button-sm"
+              (click)="handleRowDetails(ticket)"
+            ></button>
+
+            <!-- Pulsante Accetta (solo per Helper/PM/Admin su ticket OPEN assegnati o per Admin/PM su qualsiasi OPEN) -->
+            <button
+              pButton
+              type="button"
+              label="Accetta"
+              icon="pi pi-check"
+              class="p-button-success p-button-sm"
+              (click)="acceptTicket(ticket)"
+              *ngIf="showAcceptButton(ticket)"
+            ></button>
+
+            <!-- Pulsante Rifiuta (solo per Helper/PM/Admin su ticket OPEN assegnati o per Admin/PM su qualsiasi OPEN) -->
+            <button
+              pButton
+              type="button"
+              label="Rifiuta"
+              icon="pi pi-times"
+              class="p-button-warning p-button-sm"
+              (click)="showRejectDialog(ticket)"
+              *ngIf="showRejectButton(ticket)"
+            ></button>
+
+            <!-- Pulsante Escala (solo per Helper/PM/Admin su ticket ANSWERED assegnati o per Admin/PM su qualsiasi ANSWERED) -->
+            <button
+              pButton
+              type="button"
+              label="Escala"
+              icon="pi pi-arrow-up"
+              class="p-button-danger p-button-sm"
+              (click)="showEscalateDialog(ticket)"
+              *ngIf="showEscalateButton(ticket)"
+            ></button>
+
+            <!-- Pulsante Risolvi (solo per Helper/PM/Admin su ticket ANSWERED assegnati o per Admin/PM su qualsiasi ANSWERED) -->
+            <button
+              pButton
+              type="button"
+              label="Risolvi"
+              icon="pi pi-check-square"
+              class="p-button-info p-button-sm"
+              (click)="updateTicketStatus(ticket, TicketStatus.SOLVED)"
+              *ngIf="showSolveButton(ticket)"
+            ></button>
+
+            <!-- Pulsante Elimina (ora usa showDeleteButton) -->
+            <button
+              pButton
+              type="button"
+              label="Elimina"
+              icon="pi pi-trash"
+              class="p-button-danger p-button-sm"
+              (click)="deleteTicket(ticket)"
+              *ngIf="showDeleteButton(ticket)"
+            ></button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td [attr.colspan]="8">Nessun ticket trovato con i filtri selezionati.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<!-- Modale per Assegna/Rifiuta/Escala -->
+<p-dialog
+  [(visible)]="displayActionDialog"
+  [modal]="true"
+  [style]="{ width: '50vw' }"
+  [header]="actionDialogHeader"
+  [draggable]="false"
+  [resizable]="false"
+>
+  <div class="p-fluid">
+    <p>{{ actionDialogMessage }}</p>
+    <div class="field mt-4">
+      <label for="assignee" class="block text-900 font-medium mb-2">Seleziona Assegnatario</label>
+      <p-dropdown
+        id="assignee"
+        [options]="availableUsersForAssignment"
+        [(ngModel)]="selectedAssigneeId"
+        optionLabel="fullName"
+        optionValue="id"
+        placeholder="Seleziona un utente"
+        [filter]="true"
+        filterBy="fullName"
+        [showClear]="true"
+      ></p-dropdown>
+    </div>
   </div>
-  x -->
+  <ng-template pTemplate="footer">
+    <p-button label="Annulla" icon="pi pi-times" styleClass="p-button-text" (click)="displayActionDialog = false"></p-button>
+    <p-button label="Conferma" icon="pi pi-check" (click)="performAction()" [disabled]="!selectedAssigneeId"></p-button>
+  </ng-template>
+</p-dialog>

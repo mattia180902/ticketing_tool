@@ -11,7 +11,7 @@ import lombok.*;
 @Builder
 public class SupportServiceUpdateRequest {
     
-    @NotBlank(message = "Service ma,e is required")
+    @NotBlank(message = "Service name is required")
     @Size(min = 2, max = 100, message = "Service name must be between 2 and 100 characters")
     private String title;
 

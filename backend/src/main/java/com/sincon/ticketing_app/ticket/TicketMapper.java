@@ -11,21 +11,20 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class TicketMapper {
 
-    // Mappa dal DTO di richiesta all'entità Ticket (usato per NUOVE CREAZIONI)
+    // Mappa dal DTO di richiesta all'entità Ticket 
     public Ticket fromRequestDTO(TicketRequestDTO dto, User owner, Category category, SupportService service, User assignedTo) {
         return Ticket.builder()
                 .title(dto.getTitle())
                 .description(dto.getDescription())
                 .priority(dto.getPriority())
                 .status(dto.getStatus() != null ? dto.getStatus() : TicketStatus.OPEN)
-                .owner(owner) // Owner è obbligatorio, passato da TicketService
+                .owner(owner) 
                 .category(category)
                 .service(service)
                 .assignedTo(assignedTo)
-                .email(dto.getEmail())
-                .phoneNumber(dto.getPhoneNumber())
-                .fiscalCode(dto.getFiscalCode())
-                // createdDate, lastModifiedDate, createdBy, lastModifiedBy sono gestiti da Auditable
+                .email(dto.getEmail()) // Mappa email dal DTO di richiesta
+                .phoneNumber(dto.getPhoneNumber()) // Mappa phoneNumber dal DTO di richiesta
+                .fiscalCode(dto.getFiscalCode()) // Mappa fiscalCode dal DTO di richiesta
                 .build();
     }
 
@@ -37,12 +36,12 @@ public class TicketMapper {
                 .description(ticket.getDescription())
                 .status(ticket.getStatus())
                 .priority(ticket.getPriority())
-                .userId(ticket.getOwner().getId())
-                .userFirstName(ticket.getOwner().getFirstName())
-                .userLastName(ticket.getOwner().getLastName())
-                .userEmail(ticket.getOwner().getEmail())
-                .userPhoneNumber(ticket.getOwner().getPhoneNumber())
-                .userFiscalCode(ticket.getOwner().getFiscalCode())
+                .userId(ticket.getOwner().getId()) // ID dell'utente che HA CREATO il ticket (Owner)
+                .userFirstName(ticket.getOwner().getFirstName()) // Nome dell'utente che HA CREATO il ticket
+                .userLastName(ticket.getOwner().getLastName()) // Cognome dell'utente che HA CREATO il ticket
+                .userEmail(ticket.getEmail()) // EMAIL del ticket (che può essere dell'owner O dell'utente a cui è associato)
+                .userPhoneNumber(ticket.getPhoneNumber()) // NUMERO DI TELEFONO del ticket
+                .userFiscalCode(ticket.getFiscalCode()) // CODICE FISCALE del ticket
                 .categoryId(ticket.getCategory() != null ? ticket.getCategory().getId() : null)
                 .categoryName(ticket.getCategory() != null ? ticket.getCategory().getName() : null)
                 .supportServiceId(ticket.getService() != null ? ticket.getService().getId() : null)
@@ -51,9 +50,9 @@ public class TicketMapper {
                 .assignedToName(ticket.getAssignedTo() != null
                         ? ticket.getAssignedTo().getFirstName() + " " + ticket.getAssignedTo().getLastName()
                         : null)
-                .createdOn(ticket.getCreatedDate()) // Direttamente la Date
-                .updatedOn(ticket.getLastModifiedDate()) // Direttamente la Date
-                .solvedOn(ticket.getSolveDate()) // Direttamente la Date
+                .createdOn(ticket.getCreatedDate())
+                .updatedOn(ticket.getLastModifiedDate())
+                .solvedOn(ticket.getSolveDate())
                 .build();
     }
 }
