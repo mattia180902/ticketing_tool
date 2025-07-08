@@ -7,9 +7,9 @@ import { HttpClient } from '@angular/common/http';
 import { ApiConfiguration, ApiConfigurationParams } from './api-configuration';
 
 import { UserManagementService } from './services/user-management.service';
+import { TicketManagementService } from './services/ticket-management.service';
 import { SupportServicesService } from './services/support-services.service';
 import { CategoryService } from './services/category.service';
-import { TicketManagementService } from './services/ticket-management.service';
 import { TicketHistoryService } from './services/ticket-history.service';
 
 /**
@@ -21,9 +21,9 @@ import { TicketHistoryService } from './services/ticket-history.service';
   declarations: [],
   providers: [
     UserManagementService,
+    TicketManagementService,
     SupportServicesService,
     CategoryService,
-    TicketManagementService,
     TicketHistoryService,
     ApiConfiguration
   ],

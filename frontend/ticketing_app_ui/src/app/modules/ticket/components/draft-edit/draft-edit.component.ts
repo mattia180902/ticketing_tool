@@ -61,9 +61,9 @@ export class DraftEditComponent implements OnInit, OnDestroy {
   priorities: TicketPriority[] = Object.values(TicketPriority);
   
   ticketId: number | null = null;
-  isEditMode = true; // Sarà sempre in modalità modifica
-  isDraft = true; // Sarà sempre una bozza in questo componente
-  isReadOnly = false; // Per ora, le bozze sono modificabili
+  isEditMode = true;
+  isDraft = true;
+  isReadOnly = false;
   currentTicket: TicketResponseDto | null = null;
   
   assignableUsers: UserDto[] = [];
@@ -80,7 +80,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
   public TicketStatus = TicketStatus;
   public TicketPriority = TicketPriority;
 
-  // Inietta DynamicDialogRef e DynamicDialogConfig per la modale
   public ref: DynamicDialogRef = inject(DynamicDialogRef);
   public config: DynamicDialogConfig = inject(DynamicDialogConfig);
 
@@ -106,14 +105,12 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       assignedToId: [null]
     });
 
-    // Recupera il ticketId dalla configurazione della modale
     if (this.config && this.config.data && this.config.data.ticketId) {
       this.ticketId = this.config.data.ticketId;
     } else {
-      // Questo componente dovrebbe essere aperto solo con un ticketId valido per una bozza
       console.error('DraftEditComponent: Ticket ID non fornito nella configurazione della modale.');
       this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare la bozza: ID mancante.' });
-      this.ref.close(); // Chiudi la modale se l'ID non è presente
+      this.ref.close();
     }
   }
 
@@ -130,12 +127,10 @@ export class DraftEditComponent implements OnInit, OnDestroy {
     if (this.ticketId !== null) {
       this.loadTicketDetails(this.ticketId);
     } else {
-      // Non dovrebbe succedere se la logica del costruttore è corretta
       this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare la bozza.' });
       this.ref.close();
     }
 
-    // L'auto-salvataggio è solo per USER che stanno creando/modificando bozze
     if (this.isUserRole && this.isDraft && !this.isReadOnly) {
       this.setupAutoSave();
     }
@@ -165,13 +160,12 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       catchError(err => {
         console.error('Errore nel caricamento dei dettagli della bozza:', err);
         this.messageService.add({ severity: 'error', summary: 'Errore', detail: err.error?.message || 'Impossibile caricare i dettagli della bozza.' });
-        this.ref.close(); // Chiudi la modale in caso di errore
+        this.ref.close();
         return of(null);
       })
     ).subscribe({
       next: (ticket) => {
         if (ticket) {
-          // Assicurati che sia effettivamente una bozza dell'utente corrente
           if (ticket.status !== TicketStatus.DRAFT || ticket.userId !== this.currentUserId) {
             this.messageService.add({ severity: 'warn', summary: 'Non Autorizzato', detail: 'Non puoi modificare questa bozza.' });
             this.ref.close();
@@ -181,7 +175,7 @@ export class DraftEditComponent implements OnInit, OnDestroy {
           this.currentTicket = ticket;
           this.isDraft = true;
           this.isEditMode = true;
-          this.isReadOnly = false; // Le bozze sono modificabili
+          this.isReadOnly = false;
 
           this.ticketForm.patchValue({
             title: ticket.title,
@@ -198,7 +192,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
             this.ticketForm.get('supportServiceId')?.setValue(ticket.supportServiceId);
           });
 
-          // L'email dovrebbe essere disabilitata per l'utente che modifica la propria bozza
           this.ticketForm.get('email')?.disable();
         }
       }
@@ -228,13 +221,8 @@ export class DraftEditComponent implements OnInit, OnDestroy {
   autoSaveDraft(): void {
     const ticketDto = this.prepareTicketDto(TicketStatus.DRAFT);
 
-    let saveObservable: Observable<TicketResponseDto>;
-    
-    if (this.ticketId !== null) { // Se esiste già un ID, aggiorna la bozza esistente
-      saveObservable = this.ticketService.createOrUpdateTicket({ ticketId: this.ticketId, body: ticketDto });
-    } else { // Altrimenti, crea una nuova bozza
-      saveObservable = this.ticketService.createOrUpdateTicket({ body: ticketDto });
-    }
+    // DraftEditComponent gestisce sempre l'aggiornamento di una bozza esistente (PUT)
+    const saveObservable = this.ticketService.updateTicket({ ticketId: this.ticketId!, body: ticketDto });
 
     saveObservable.pipe(
       takeUntil(this.destroy$),
@@ -248,9 +236,9 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       next: (ticket) => {
         if (ticket) {
           this.messageService.add({ severity: 'success', summary: 'Bozza Salvata', detail: 'Il ticket è stato salvato automaticamente come bozza.' });
-          this.ticketId = ticket.id!; // Aggiorna l'ID se è una nuova bozza
+          this.ticketId = ticket.id!;
           this.currentTicket = ticket;
-          this.ticketForm.markAsPristine(); // Resetta lo stato "dirty" del form
+          this.ticketForm.markAsPristine();
         }
       }
     });
@@ -294,9 +282,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
    * Solo per Helper, PM, Admin.
    */
   loadAssignableUsers(): void {
-    // Le bozze sono sempre create da USER, quindi non dovrebbero avere un assegnatario iniziale.
-    // Questa funzione è più rilevante per i ticket non bozza, ma la manteniamo per completezza
-    // se in futuro si volesse permettere a Helper/Admin di creare bozze assegnate.
     if (this.isHelperOrPmRole || this.isAdminRole) {
       this.userService.getHelpersAndAdmins().pipe(
         takeUntil(this.destroy$),
@@ -364,25 +349,23 @@ export class DraftEditComponent implements OnInit, OnDestroy {
    * @returns True se il form è valido, false altrimenti.
    */
   isFormValidForFinalization(): boolean {
-    // Per le bozze, l'assegnatario non è obbligatorio.
-    // Questo componente gestisce solo le bozze, quindi l'assegnatario non è mai obbligatorio qui.
     return this.ticketForm.valid;
   }
 
   /**
    * Finalizza la bozza (la trasforma in un ticket OPEN).
    */
-  finalizeDraft(): void { // Rinominato da finalizeTicket
+  finalizeDraft(): void {
     if (!this.isFormValidForFinalization()) {
       this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Compila tutti i campi obbligatori per finalizzare la bozza.' });
       this.ticketForm.markAllAsTouched();
       return;
     }
 
-    const ticketDto = this.prepareTicketDto(TicketStatus.OPEN); // Forza lo stato a OPEN
+    const ticketDto = this.prepareTicketDto(TicketStatus.OPEN);
 
-    // Questo componente è sempre in modalità modifica di una bozza esistente
-    const saveObservable = this.ticketService.createOrUpdateTicket({ ticketId: this.ticketId!, body: ticketDto });
+    // Questo componente è sempre in modalità modifica di una bozza esistente, quindi usa updateTicket (PUT)
+    const saveObservable = this.ticketService.updateTicket({ ticketId: this.ticketId!, body: ticketDto });
 
     saveObservable.pipe(
       takeUntil(this.destroy$),
@@ -393,7 +376,7 @@ export class DraftEditComponent implements OnInit, OnDestroy {
         return of(null);
       }),
       finalize(() => {
-        this.ref.close(true); // Chiudi la modale e indica successo
+        this.ref.close(true);
       })
     ).subscribe({
       next: (ticket) => {
@@ -428,7 +411,7 @@ export class DraftEditComponent implements OnInit, OnDestroy {
         ).subscribe({
           next: () => {
             this.messageService.add({ severity: 'success', summary: 'Successo', detail: 'Bozza eliminata con successo.' });
-            this.ref.close('Deleted'); // Chiudi la modale e notifica l'eliminazione
+            this.ref.close('Deleted');
           }
         });
       },

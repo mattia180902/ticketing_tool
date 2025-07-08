@@ -15,8 +15,8 @@ import { acceptTicket } from '../fn/ticket-management/accept-ticket';
 import { AcceptTicket$Params } from '../fn/ticket-management/accept-ticket';
 import { assignTicket } from '../fn/ticket-management/assign-ticket';
 import { AssignTicket$Params } from '../fn/ticket-management/assign-ticket';
-import { createOrUpdateTicket } from '../fn/ticket-management/create-or-update-ticket';
-import { CreateOrUpdateTicket$Params } from '../fn/ticket-management/create-or-update-ticket';
+import { createTicket } from '../fn/ticket-management/create-ticket';
+import { CreateTicket$Params } from '../fn/ticket-management/create-ticket';
 import { DashboardCountsDto } from '../models/dashboard-counts-dto';
 import { deleteTicket } from '../fn/ticket-management/delete-ticket';
 import { DeleteTicket$Params } from '../fn/ticket-management/delete-ticket';
@@ -36,6 +36,8 @@ import { PageTicketResponseDto } from '../models/page-ticket-response-dto';
 import { rejectTicket } from '../fn/ticket-management/reject-ticket';
 import { RejectTicket$Params } from '../fn/ticket-management/reject-ticket';
 import { TicketResponseDto } from '../models/ticket-response-dto';
+import { updateTicket } from '../fn/ticket-management/update-ticket';
+import { UpdateTicket$Params } from '../fn/ticket-management/update-ticket';
 import { updateTicketStatus } from '../fn/ticket-management/update-ticket-status';
 import { UpdateTicketStatus$Params } from '../fn/ticket-management/update-ticket-status';
 
@@ -47,6 +49,105 @@ import { UpdateTicketStatus$Params } from '../fn/ticket-management/update-ticket
 export class TicketManagementService extends BaseService {
   constructor(config: ApiConfiguration, http: HttpClient) {
     super(config, http);
+  }
+
+  /** Path part for operation `getTicketDetails()` */
+  static readonly GetTicketDetailsPath = '/api/v1/tickets/{ticketId}';
+
+  /**
+   * Recupera i dettagli di un ticket specifico.
+   *
+   * Recupera i dettagli completi di un ticket tramite il suo ID.
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `getTicketDetails()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  getTicketDetails$Response(params: GetTicketDetails$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
+    return getTicketDetails(this.http, this.rootUrl, params, context);
+  }
+
+  /**
+   * Recupera i dettagli di un ticket specifico.
+   *
+   * Recupera i dettagli completi di un ticket tramite il suo ID.
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `getTicketDetails$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  getTicketDetails(params: GetTicketDetails$Params, context?: HttpContext): Observable<TicketResponseDto> {
+    return this.getTicketDetails$Response(params, context).pipe(
+      map((r: StrictHttpResponse<TicketResponseDto>): TicketResponseDto => r.body)
+    );
+  }
+
+  /** Path part for operation `updateTicket()` */
+  static readonly UpdateTicketPath = '/api/v1/tickets/{ticketId}';
+
+  /**
+   * Aggiorna un ticket esistente.
+   *
+   * Permette a USER (solo le proprie bozze), HELPER, PM e ADMIN di aggiornare un ticket esistente.
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `updateTicket()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  updateTicket$Response(params: UpdateTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
+    return updateTicket(this.http, this.rootUrl, params, context);
+  }
+
+  /**
+   * Aggiorna un ticket esistente.
+   *
+   * Permette a USER (solo le proprie bozze), HELPER, PM e ADMIN di aggiornare un ticket esistente.
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `updateTicket$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  updateTicket(params: UpdateTicket$Params, context?: HttpContext): Observable<TicketResponseDto> {
+    return this.updateTicket$Response(params, context).pipe(
+      map((r: StrictHttpResponse<TicketResponseDto>): TicketResponseDto => r.body)
+    );
+  }
+
+  /** Path part for operation `deleteTicket()` */
+  static readonly DeleteTicketPath = '/api/v1/tickets/{ticketId}';
+
+  /**
+   * Elimina un ticket.
+   *
+   * Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket. Helper/PM possono eliminare ticket assegnati e non risolti.
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `deleteTicket()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  deleteTicket$Response(params: DeleteTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<void>> {
+    return deleteTicket(this.http, this.rootUrl, params, context);
+  }
+
+  /**
+   * Elimina un ticket.
+   *
+   * Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket. Helper/PM possono eliminare ticket assegnati e non risolti.
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `deleteTicket$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  deleteTicket(params: DeleteTicket$Params, context?: HttpContext): Observable<void> {
+    return this.deleteTicket$Response(params, context).pipe(
+      map((r: StrictHttpResponse<void>): void => r.body)
+    );
   }
 
   /** Path part for operation `getTickets()` */
@@ -82,35 +183,35 @@ export class TicketManagementService extends BaseService {
     );
   }
 
-  /** Path part for operation `createOrUpdateTicket()` */
-  static readonly CreateOrUpdateTicketPath = '/api/v1/tickets';
+  /** Path part for operation `createTicket()` */
+  static readonly CreateTicketPath = '/api/v1/tickets';
 
   /**
-   * Crea un nuovo ticket o aggiorna una bozza esistente.
+   * Crea un nuovo ticket.
    *
-   * Permette a USER, HELPER, PM e ADMIN di creare un nuovo ticket o di salvare/finalizzare una bozza.
+   * Permette a USER, HELPER, PM e ADMIN di creare un nuovo ticket.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `createOrUpdateTicket()` instead.
+   * To access only the response body, use `createTicket()` instead.
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  createOrUpdateTicket$Response(params: CreateOrUpdateTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
-    return createOrUpdateTicket(this.http, this.rootUrl, params, context);
+  createTicket$Response(params: CreateTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
+    return createTicket(this.http, this.rootUrl, params, context);
   }
 
   /**
-   * Crea un nuovo ticket o aggiorna una bozza esistente.
+   * Crea un nuovo ticket.
    *
-   * Permette a USER, HELPER, PM e ADMIN di creare un nuovo ticket o di salvare/finalizzare una bozza.
+   * Permette a USER, HELPER, PM e ADMIN di creare un nuovo ticket.
    *
    * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `createOrUpdateTicket$Response()` instead.
+   * To access the full response (for headers, for example), `createTicket$Response()` instead.
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  createOrUpdateTicket(params: CreateOrUpdateTicket$Params, context?: HttpContext): Observable<TicketResponseDto> {
-    return this.createOrUpdateTicket$Response(params, context).pipe(
+  createTicket(params: CreateTicket$Params, context?: HttpContext): Observable<TicketResponseDto> {
+    return this.createTicket$Response(params, context).pipe(
       map((r: StrictHttpResponse<TicketResponseDto>): TicketResponseDto => r.body)
     );
   }
@@ -277,72 +378,6 @@ export class TicketManagementService extends BaseService {
   acceptTicket(params: AcceptTicket$Params, context?: HttpContext): Observable<TicketResponseDto> {
     return this.acceptTicket$Response(params, context).pipe(
       map((r: StrictHttpResponse<TicketResponseDto>): TicketResponseDto => r.body)
-    );
-  }
-
-  /** Path part for operation `getTicketDetails()` */
-  static readonly GetTicketDetailsPath = '/api/v1/tickets/{ticketId}';
-
-  /**
-   * Recupera i dettagli di un ticket specifico.
-   *
-   * Recupera i dettagli completi di un ticket tramite il suo ID.
-   *
-   * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `getTicketDetails()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  getTicketDetails$Response(params: GetTicketDetails$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
-    return getTicketDetails(this.http, this.rootUrl, params, context);
-  }
-
-  /**
-   * Recupera i dettagli di un ticket specifico.
-   *
-   * Recupera i dettagli completi di un ticket tramite il suo ID.
-   *
-   * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `getTicketDetails$Response()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  getTicketDetails(params: GetTicketDetails$Params, context?: HttpContext): Observable<TicketResponseDto> {
-    return this.getTicketDetails$Response(params, context).pipe(
-      map((r: StrictHttpResponse<TicketResponseDto>): TicketResponseDto => r.body)
-    );
-  }
-
-  /** Path part for operation `deleteTicket()` */
-  static readonly DeleteTicketPath = '/api/v1/tickets/{ticketId}';
-
-  /**
-   * Elimina un ticket.
-   *
-   * Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket. Helper/PM possono eliminare ticket assegnati e non risolti.
-   *
-   * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `deleteTicket()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  deleteTicket$Response(params: DeleteTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<void>> {
-    return deleteTicket(this.http, this.rootUrl, params, context);
-  }
-
-  /**
-   * Elimina un ticket.
-   *
-   * Permette all'owner di eliminare le proprie bozze, e agli ADMIN di eliminare qualsiasi ticket. Helper/PM possono eliminare ticket assegnati e non risolti.
-   *
-   * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `deleteTicket$Response()` instead.
-   *
-   * This method doesn't expect any request body.
-   */
-  deleteTicket(params: DeleteTicket$Params, context?: HttpContext): Observable<void> {
-    return this.deleteTicket$Response(params, context).pipe(
-      map((r: StrictHttpResponse<void>): void => r.body)
     );
   }
 

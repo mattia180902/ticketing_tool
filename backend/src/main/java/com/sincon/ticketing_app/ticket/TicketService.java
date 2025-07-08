@@ -121,6 +121,15 @@ private boolean hasRole(Authentication auth, String role) {
     return result;
 }
 
+// Helper method for role checking
+private boolean hasAnyHelperPmAdminRole(Authentication auth) {
+    return hasRole(auth, UserRole.HELPER_JUNIOR.name()) ||
+           hasRole(auth, UserRole.HELPER_SENIOR.name()) ||
+           hasRole(auth, UserRole.PM.name()) ||
+           hasRole(auth, UserRole.ADMIN.name());
+}
+
+
 // --- Metodi del Servizio Ticket ---
 
 /**
@@ -146,11 +155,10 @@ public TicketResponseDTO createOrUpdateTicket(TicketRequestDTO dto, Authenticati
     Ticket ticket;
     User ownerUser;
     User oldAssignee = null;
+    TicketStatus oldStatus = null; // Store old status for transition check
 
     boolean isNewTicketRequest = (ticketId == null);
-    boolean isUserOnlyRole = hasRole(auth, UserRole.USER.name()) && !hasRole(auth, UserRole.HELPER_JUNIOR.name()) &&
-                             !hasRole(auth, UserRole.HELPER_SENIOR.name()) && !hasRole(auth, UserRole.PM.name()) &&
-                             !hasRole(auth, UserRole.ADMIN.name());
+    boolean isUserOnlyRole = hasRole(auth, UserRole.USER.name()) && !hasAnyHelperPmAdminRole(auth);
     boolean isAdmin = hasRole(auth, UserRole.ADMIN.name());
     boolean isPm = hasRole(auth, UserRole.PM.name());
     boolean isHelper = hasRole(auth, UserRole.HELPER_JUNIOR.name()) || hasRole(auth, UserRole.HELPER_SENIOR.name());
@@ -189,11 +197,13 @@ public TicketResponseDTO createOrUpdateTicket(TicketRequestDTO dto, Authenticati
                 .orElseThrow(() -> new TicketNotFoundException("Ticket non trovato con ID: " + ticketId));
         
         oldAssignee = ticket.getAssignedTo();
+        oldStatus = ticket.getStatus(); // Store old status
 
         boolean isTicketOwner = ticket.getOwner().getId().equals(currentUserId);
         boolean isAssignedToMe = ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(currentUserId);
 
         if (isUserOnlyRole) {
+            // User can only modify their own DRAFTs
             if (!isTicketOwner || ticket.getStatus() != TicketStatus.DRAFT) {
                 throw new UnauthorizedTicketActionException("Non autorizzato a modificare questo ticket. Gli utenti possono modificare solo le proprie bozze.");
             }
@@ -210,6 +220,8 @@ public TicketResponseDTO createOrUpdateTicket(TicketRequestDTO dto, Authenticati
         ticket = new Ticket();
         ticket.setOwner(ownerUser);
         ticket.setCreatedDate(new Date());
+        // For new tickets, if status is not explicitly DRAFT, it's OPEN by default for USERs
+        // This is handled below in section 5.
     }
 
     // --- 4. Impostazione dei campi comuni del Ticket ---
@@ -239,13 +251,13 @@ public TicketResponseDTO createOrUpdateTicket(TicketRequestDTO dto, Authenticati
         if (isUserOnlyRole) {
             if (desiredStatus == TicketStatus.OPEN) {
                 ticket.setStatus(TicketStatus.OPEN);
-                assignTicketAutomatically(ticket);
+                assignTicketAutomatically(ticket); // Automatic assignment for new OPEN tickets by USER
                 log.info("createOrUpdateTicket: New ticket created by USER (only), status OPEN, assigned automatically.");
-            } else {
+            } else { // Status is DRAFT
                 ticket.setStatus(TicketStatus.DRAFT);
                 log.info("createOrUpdateTicket: New ticket created by USER (only), status DRAFT.");
             }
-        } else { // Helper/PM/Admin creano ticket: sempre OPEN di default
+        } else { // Helper/PM/Admin create ticket: always OPEN by default
             ticket.setStatus(desiredStatus != null ? desiredStatus : TicketStatus.OPEN);
             
             if (desiredAssignedToId != null) {
@@ -269,6 +281,16 @@ public TicketResponseDTO createOrUpdateTicket(TicketRequestDTO dto, Authenticati
             }
         }
     } else { // Aggiornamento di ticket esistente
+        // Check for DRAFT to OPEN transition for automatic assignment
+        if (oldStatus == TicketStatus.DRAFT && desiredStatus == TicketStatus.OPEN) {
+            if (ticket.getAssignedTo() == null) { // Only assign automatically if not already assigned
+                assignTicketAutomatically(ticket);
+                log.info("createOrUpdateTicket: Existing DRAFT ticket {} updated to OPEN, assigned automatically.", ticket.getId());
+            } else {
+                log.info("createOrUpdateTicket: Existing DRAFT ticket {} updated to OPEN, but already assigned. Skipping automatic assignment.", ticket.getId());
+            }
+        }
+        
         if (desiredStatus != null && ticket.getStatus() != desiredStatus) {
             if (ticket.getStatus() == TicketStatus.DRAFT && desiredStatus != TicketStatus.OPEN) {
                 throw new InvalidTicketStatusException("Una bozza può essere finalizzata solo a OPEN.");
@@ -526,6 +548,7 @@ public TicketResponseDTO rejectTicket(Long ticketId, String newAssignedToId, Aut
 
     return ticketMapper.toResponseDTO(savedTicket);
 }
+
 
 /**
  * Escala un ticket assegnato all'utente corrente, riassegnandolo a un altro helper/admin

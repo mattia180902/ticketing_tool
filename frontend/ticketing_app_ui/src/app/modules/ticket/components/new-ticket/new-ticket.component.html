@@ -65,7 +65,7 @@
             placeholder="Seleziona un servizio"
             [filter]="true"
             filterBy="title"
-            [disabled]="!ticketForm.get('categoryId')?.value"
+            [disabled]="!ticketForm.get('categoryId')?.value || isReadOnly"
           ></p-dropdown>
           <small
             *ngIf="ticketForm.get('supportServiceId')?.invalid && ticketForm.get('supportServiceId')?.touched"
@@ -82,6 +82,7 @@
             [options]="priorities"
             formControlName="priority"
             placeholder="Seleziona priorità"
+            [disabled]="isReadOnly"
           ></p-dropdown>
           <small
             *ngIf="ticketForm.get('priority')?.invalid && ticketForm.get('priority')?.touched"
@@ -93,7 +94,7 @@
         <!-- Email (visibile per Admin/Helper/PM, disabilitato per USER) -->
         <div class="field col-12 md:col-6">
           <label for="email">Email</label>
-          <input id="email" type="email" pInputText formControlName="email" />
+          <input id="email" type="email" pInputText formControlName="email" [readOnly]="isReadOnly" />
           <small
             *ngIf="ticketForm.get('email')?.invalid && ticketForm.get('email')?.touched"
             class="p-error"
@@ -109,6 +110,7 @@
             type="text"
             pInputText
             formControlName="fiscalCode"
+            [readOnly]="isReadOnly"
           />
         </div>
 
@@ -120,6 +122,7 @@
             type="text"
             pInputText
             formControlName="phoneNumber"
+            [readOnly]="isReadOnly"
           />
         </div>
 
@@ -165,14 +168,14 @@
           icon="pi pi-plus"
           class="p-button-secondary"
           (click)="onNewTicket()"
-          *ngIf="!ref" 
+          *ngIf="!ref"
         ></button>
 
-        <!-- Pulsante "Crea Ticket" / "Salva Modifiche" -->
+        <!-- Pulsante "Crea Ticket" / "Finalizza Bozza" / "Salva Modifiche" -->
         <button
           pButton
           type="submit"
-          [label]="isDraft ? 'Crea Ticket' : (isEditMode ? 'Salva Modifiche' : 'Crea Ticket')"
+          [label]="isDraft ? 'Finalizza Bozza' : (isEditMode ? 'Salva Modifiche' : 'Crea Ticket')"
           [icon]="isDraft ? 'pi pi-check' : (isEditMode ? 'pi pi-save' : 'pi pi-plus')"
           [disabled]="ticketForm.invalid || isReadOnly"
           [class]="isEditMode && !isDraft ? 'p-button-primary' : 'p-button-success'"

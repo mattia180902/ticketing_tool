@@ -11,19 +11,13 @@ import { RequestBuilder } from '../../request-builder';
 import { TicketRequestDto } from '../../models/ticket-request-dto';
 import { TicketResponseDto } from '../../models/ticket-response-dto';
 
-export interface CreateOrUpdateTicket$Params {
-
-/**
- * ID del ticket da aggiornare (solo per le bozze)
- */
-  ticketId?: number;
+export interface CreateTicket$Params {
       body: TicketRequestDto
 }
 
-export function createOrUpdateTicket(http: HttpClient, rootUrl: string, params: CreateOrUpdateTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
-  const rb = new RequestBuilder(rootUrl, createOrUpdateTicket.PATH, 'post');
+export function createTicket(http: HttpClient, rootUrl: string, params: CreateTicket$Params, context?: HttpContext): Observable<StrictHttpResponse<TicketResponseDto>> {
+  const rb = new RequestBuilder(rootUrl, createTicket.PATH, 'post');
   if (params) {
-    rb.query('ticketId', params.ticketId, {});
     rb.body(params.body, 'application/json');
   }
 
@@ -37,4 +31,4 @@ export function createOrUpdateTicket(http: HttpClient, rootUrl: string, params: 
   );
 }
 
-createOrUpdateTicket.PATH = '/api/v1/tickets';
+createTicket.PATH = '/api/v1/tickets';

@@ -33,32 +33,60 @@ public class TicketController {
     private final TicketService ticketService;
 
     /**
-     * Crea un nuovo ticket o aggiorna una bozza esistente.
+     * Crea un nuovo ticket.
      * Un utente USER crea sempre un ticket con la sua email.
      * ADMIN e HELPER possono specificare l'email di un altro utente.
+     * Lo stato iniziale sarà DRAFT o OPEN a seconda del ruolo e del frontend.
      *
      * @param dto DTO con i dati del ticket.
      * @param auth Dettagli dell'utente autenticato.
-     * @param ticketId ID del ticket da aggiornare (opzionale, per le bozze).
-     * @return Il ticket creato o aggiornato.
+     * @return Il ticket creato.
      */
     @PostMapping
     @PreAuthorize("hasAnyAuthority('USER', 'HELPER_JUNIOR', 'HELPER_SENIOR', 'PM', 'ADMIN')")
-    @Operation(summary = "Crea un nuovo ticket o aggiorna una bozza esistente",
-               description = "Permette a USER, HELPER, PM e ADMIN di creare un nuovo ticket o di salvare/finalizzare una bozza.")
+    @Operation(summary = "Crea un nuovo ticket",
+               description = "Permette a USER, HELPER, PM e ADMIN di creare un nuovo ticket.")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "201", description = "Ticket creato/aggiornato con successo."),
+        @ApiResponse(responseCode = "201", description = "Ticket creato con successo."),
         @ApiResponse(responseCode = "400", description = "Dati di input non validi."),
         @ApiResponse(responseCode = "401", description = "Non autenticato."),
         @ApiResponse(responseCode = "403", description = "Non autorizzato."),
         @ApiResponse(responseCode = "404", description = "Risorsa non trovata (es. categoria, servizio).")
     })
-    public ResponseEntity<TicketResponseDTO> createOrUpdateTicket(
+    public ResponseEntity<TicketResponseDTO> createTicket(
             @Valid @RequestBody TicketRequestDTO dto,
-            Authentication auth,
-            @RequestParam(required = false) @Parameter(description = "ID del ticket da aggiornare (solo per le bozze)", example = "1") Long ticketId) {
-        TicketResponseDTO response = ticketService.createOrUpdateTicket(dto, auth, ticketId);
-        return ticketId == null ? new ResponseEntity<>(response, HttpStatus.CREATED) : ResponseEntity.ok(response);
+            Authentication auth) {
+        log.info("Received request to create a new ticket.");
+        TicketResponseDTO response = ticketService.createOrUpdateTicket(dto, auth, null); // Passa null per ticketId
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    /**
+     * Aggiorna un ticket esistente (incluse le bozze).
+     *
+     * @param ticketId ID del ticket da aggiornare.
+     * @param dto DTO con i dati aggiornati del ticket.
+     * @param auth Dettagli dell'utente autenticato.
+     * @return Il ticket aggiornato.
+     */
+    @PutMapping("/{ticketId}")
+    @PreAuthorize("hasAnyAuthority('USER', 'HELPER_JUNIOR', 'HELPER_SENIOR', 'PM', 'ADMIN')")
+    @Operation(summary = "Aggiorna un ticket esistente",
+               description = "Permette a USER (solo le proprie bozze), HELPER, PM e ADMIN di aggiornare un ticket esistente.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Ticket aggiornato con successo."),
+        @ApiResponse(responseCode = "400", description = "Dati di input non validi."),
+        @ApiResponse(responseCode = "401", description = "Non autenticato."),
+        @ApiResponse(responseCode = "403", description = "Non autorizzato."),
+        @ApiResponse(responseCode = "404", description = "Ticket non trovato o risorsa non trovata (es. categoria, servizio).")
+    })
+    public ResponseEntity<TicketResponseDTO> updateTicket(
+            @PathVariable @Parameter(description = "ID del ticket da aggiornare", example = "1") Long ticketId,
+            @Valid @RequestBody TicketRequestDTO dto,
+            Authentication auth) {
+        log.info("Received request to update ticket with ID: {}", ticketId);
+        TicketResponseDTO response = ticketService.createOrUpdateTicket(dto, auth, ticketId); // Passa ticketId
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -202,9 +230,9 @@ public class TicketController {
 
     /**
      * Recupera tutti i ticket con paginazione, filtrati per ruolo utente.
-     * ADMIN vede tutti i ticket.
-     * HELPER/PM vedono i ticket a loro assegnati o da loro creati (non bozze).
-     * USER vede tutti i propri ticket (incluse bozze o associati via email).
+     * ADMIN/PM vedono tutti i ticket (incluse bozze).
+     * HELPER vedono solo i ticket a loro assegnati e le proprie bozze.
+     * USER vede tutti i ticket associati alla propria email (owner o email del ticket).
      *
      * @param pageable Oggetto per la paginazione e ordinamento.
      * @param auth Dettagli dell'utente autenticato.
