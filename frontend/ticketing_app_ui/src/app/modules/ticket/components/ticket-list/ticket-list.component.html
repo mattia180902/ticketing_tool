@@ -7,53 +7,15 @@
 <div class="ticket-list-container p-fluid">
   <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-6 text-center">Lista Ticket</h1>
 
-  <!-- Filtri e Ricerca -->
-  <p-card class="mb-4 filter-card">
-    <div class="grid formgrid p-nogutter">
-      <div class="col-12 md:col-4 field p-fluid">
-        <label for="statusFilter" class="block text-900 font-medium mb-2">Stato</label>
-        <p-dropdown
-          id="statusFilter"
-          [options]="statusOptions"
-          [(ngModel)]="selectedStatusFilter"
-          optionLabel="label"
-          optionValue="value"
-          (onChange)="onStatusFilterChange()"
-          placeholder="Seleziona Stato"
-          [showClear]="true"
-        ></p-dropdown>
-      </div>
-
-      <div class="col-12 md:col-4 field p-fluid">
-        <label for="priorityFilter" class="block text-900 font-medium mb-2">Priorità</label>
-        <p-dropdown
-          id="priorityFilter"
-          [options]="priorityOptions"
-          [(ngModel)]="selectedPriorityFilter"
-          optionLabel="label"
-          optionValue="value"
-          (onChange)="onPriorityFilterChange()"
-          placeholder="Seleziona Priorità"
-          [showClear]="true"
-        ></p-dropdown>
-      </div>
-
-      <div class="col-12 md:col-4 field p-fluid">
-        <label for="search" class="block text-900 font-medium mb-2">Ricerca</label>
-        <input
-          pInputText
-          id="search"
-          type="text"
-          [formControl]="searchFormControl"
-          (input)="onSearch()"
-          placeholder="Cerca per oggetto o descrizione"
-        />
-      </div>
-    </div>
-    <div class="flex justify-content-end mt-3">
-      <button pButton type="button" label="Reset Filtri" icon="pi pi-times" class="p-button-secondary" (click)="clearFilters()"></button>
-    </div>
-  </p-card>
+  <!-- Includi il nuovo componente per i filtri -->
+  <app-ticket-filter
+    [initialStatusFilter]="initialFilterStatusForChild"
+    [initialPriorityFilter]="initialFilterPriorityForChild"
+    [initialSearchTerm]="initialSearchTermForChild"
+    [disableStatusFilter]="disableStatusFilterInChild"
+    (filtersChanged)="onFiltersChanged($event)"
+    (clearFiltersEvent)="onClearFilters()"
+  ></app-ticket-filter>
 
   <!-- Tabella dei Ticket -->
   <p-table

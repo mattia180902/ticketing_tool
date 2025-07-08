@@ -38,6 +38,7 @@ import { AuthService } from '../../service/auth.service';
 import { NewTicketComponent } from '../new-ticket/new-ticket.component'; // Per la modale di dettaglio/modifica
 import { DialogModule } from 'primeng/dialog'; // Per la modale di assegnazione/rifiuto/escalation
 import { TicketDetailsModalComponent } from '../ticket-details-modal/ticket-details-modal.component';
+import { TicketFilterParams, TicketFilterComponent } from '../ticket-filter/ticket-filter.component';
 
 type BadgeSeverity = 'success' | 'info' | 'warning' | 'danger' | 'help' | 'primary' | 'secondary' | 'contrast';
 
@@ -59,8 +60,9 @@ type BadgeSeverity = 'success' | 'info' | 'warning' | 'danger' | 'help' | 'prima
     ReactiveFormsModule,
     DialogModule,
     CardModule,
-    DatePipe 
-  ],
+    DatePipe,
+    TicketFilterComponent
+],
   templateUrl: './ticket-list.component.html',
   styleUrl: './ticket-list.component.scss',
   providers: [MessageService, ConfirmationService, DialogService]
@@ -74,15 +76,20 @@ export class TicketListComponent implements OnInit, OnDestroy {
   first = 0;
   rows = 10;
   sortField = 'createdDate';
-  sortOrder = 'desc'; 
+  sortOrder = 'desc';
 
-  statusOptions: { label: string; value: 'ALL' | TicketStatus }[] = [];
-  priorityOptions: { label: string; value: 'ALL' | TicketPriority }[] = [];
+  // Variabili per i filtri (ora gestite dal TicketFilterComponent, ma mantenute per il loadTickets)
   selectedStatusFilter: 'ALL' | TicketStatus = 'ALL';
   selectedPriorityFilter: 'ALL' | TicketPriority = 'ALL';
   searchTerm = '';
-  searchFormControl = new FormControl('');
 
+  // Nuovo input per il componente filtro
+  initialFilterStatusForChild: 'ALL' | TicketStatus = 'ALL';
+  initialFilterPriorityForChild: 'ALL' | TicketPriority = 'ALL';
+  initialSearchTermForChild = '';
+  disableStatusFilterInChild = false; // Nuovo flag per disabilitare il filtro stato nel componente figlio
+
+  // Variabili per le modali di azione (assegna, rifiuta, escala)
   displayActionDialog = false;
   actionType: 'assign' | 'reject' | 'escalate' | null = null;
   selectedTicketForAction: TicketResponseDto | null = null;
@@ -98,7 +105,7 @@ export class TicketListComponent implements OnInit, OnDestroy {
   public TicketPriority = TicketPriority;
 
   private destroy$ = new Subject<void>();
-  private initialLoadCompleted = false; // Flag per il caricamento iniziale
+  private initialLoadCompleted = false;
 
   constructor(
     private ticketService: TicketManagementService,
@@ -110,61 +117,61 @@ export class TicketListComponent implements OnInit, OnDestroy {
     private confirmationService: ConfirmationService,
     public dialogService: DialogService,
     @Optional() public dialogConfig: DynamicDialogConfig
-  ) {
-    this.initializeFilterOptions();
-  }
+  ) {} // Inizializzazione opzioni filtri spostata nel TicketFilterComponent
 
   ngOnInit(): void {
-    // Carica gli utenti per le azioni (indipendente dal caricamento ticket)
     this.loadUsersForAssignment();
 
-    // Gestione della ricerca testuale con debounce
-    this.searchFormControl.valueChanges.pipe(
-      debounceTime(300),
-      distinctUntilChanged(),
-      takeUntil(this.destroy$)
-    ).subscribe((value) => {
-      this.searchTerm = value || '';
-      this.first = 0;
-      this.loadTickets(); // Questa chiamata è voluta per la ricerca dinamica
-    });
-
     // Centralizza la logica di caricamento iniziale
-    // Usa combineLatest per aspettare che sia i queryParams che la dialogConfig siano disponibili
-    // o che il componente sia pronto per il caricamento iniziale.
     combineLatest([
-      this.route.queryParams.pipe(take(1)), // Prendi solo il primo valore dei queryParams
-      of(this.dialogConfig) // Emetti la dialogConfig una volta
+      this.route.queryParams.pipe(take(1)),
+      of(this.dialogConfig)
     ]).pipe(
       takeUntil(this.destroy$),
-      filter(() => !this.initialLoadCompleted) // Assicurati che venga eseguito solo una volta
+      filter(() => !this.initialLoadCompleted)
     ).subscribe(([queryParams, dialogConfig]) => {
-      this.initialLoadCompleted = true; // Imposta il flag a true
+      this.initialLoadCompleted = true;
 
-      // Applica i filtri dalla dialogConfig se presente (priorità più alta)
-      if (dialogConfig && dialogConfig.data && dialogConfig.data.filterStatus) {
-        this.selectedStatusFilter = dialogConfig.data.filterStatus;
-        // Reset altri filtri per evitare interferenze da URL precedenti
-        this.selectedPriorityFilter = 'ALL';
-        this.searchFormControl.setValue('');
-        this.searchTerm = '';
-      } else if (queryParams['status']) { // Altrimenti, applica i filtri dai queryParams
+      // Logica per determinare i filtri iniziali e la disabilitazione del filtro stato
+      if (dialogConfig && dialogConfig.data) {
+        // Se è una modale
+        if (dialogConfig.data.filterStatus && dialogConfig.data.filterStatus !== 'ALL') {
+          this.initialFilterStatusForChild = dialogConfig.data.filterStatus;
+          this.disableStatusFilterInChild = true; // Disabilita il filtro stato
+        } else {
+          // Se la modale è stata aperta con 'ALL' (es. "Tutti i ticket")
+          this.initialFilterStatusForChild = 'ALL';
+          this.disableStatusFilterInChild = false; // Abilita il filtro stato
+        }
+        // Applica anche altri filtri se passati dalla dashboard
+        if (dialogConfig.data.filterPriority) {
+          this.initialFilterPriorityForChild = dialogConfig.data.filterPriority;
+        }
+        if (dialogConfig.data.searchTerm) {
+          this.initialSearchTermForChild = dialogConfig.data.searchTerm;
+        }
+      } else {
+        // Se è una navigazione diretta (non modale)
+        this.disableStatusFilterInChild = false; // Abilita sempre il filtro stato
         const statusFromUrl = queryParams['status'] as TicketStatus | 'ALL';
         if (statusFromUrl && (Object.values(TicketStatus).includes(statusFromUrl as TicketStatus) || statusFromUrl === 'ALL')) {
-          this.selectedStatusFilter = statusFromUrl;
+          this.initialFilterStatusForChild = statusFromUrl;
         } else {
-          this.selectedStatusFilter = 'ALL';
+          this.initialFilterStatusForChild = 'ALL';
         }
-        // Applica anche altri filtri da queryParams se necessario
         if (queryParams['priority']) {
-          this.selectedPriorityFilter = queryParams['priority'];
+          this.initialFilterPriorityForChild = queryParams['priority'];
         }
         if (queryParams['search']) {
-          this.searchTerm = queryParams['search'];
-          this.searchFormControl.setValue(this.searchTerm); // Sincronizza FormControl
+          this.initialSearchTermForChild = queryParams['search'];
         }
       }
-      // Se non ci sono filtri da dialogConfig né da queryParams, i filtri rimarranno 'ALL' e ''
+
+      // Sincronizza i filtri locali con quelli iniziali per il loadTickets
+      this.selectedStatusFilter = this.initialFilterStatusForChild;
+      this.selectedPriorityFilter = this.initialFilterPriorityForChild;
+      this.searchTerm = this.initialSearchTermForChild;
+
       this.loadTickets(); // Innesca il caricamento iniziale con i filtri impostati
     });
   }
@@ -177,15 +184,25 @@ export class TicketListComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  initializeFilterOptions(): void {
-    this.statusOptions = [
-      { label: 'Tutti gli Stati', value: 'ALL' },
-      ...Object.values(TicketStatus).map(status => ({ label: status.replace('_', ' '), value: status }))
-    ];
-    this.priorityOptions = [
-      { label: 'Tutte le Priorità', value: 'ALL' },
-      ...Object.values(TicketPriority).map(priority => ({ label: priority.replace('_', ' '), value: priority }))
-    ];
+  /**
+   * Riceve i filtri aggiornati dal TicketFilterComponent.
+   * @param params I parametri di filtro aggiornati.
+   */
+  onFiltersChanged(params: TicketFilterParams): void {
+    this.selectedStatusFilter = params.status;
+    this.selectedPriorityFilter = params.priority;
+    this.searchTerm = params.search;
+    this.first = 0; // Reset paginazione
+    this.loadTickets();
+  }
+
+  /**
+   * Riceve l'evento di reset filtri dal TicketFilterComponent.
+   */
+  onClearFilters(): void {
+    // I filtri sono già stati resettati nel componente figlio e onFiltersChanged è già stato chiamato.
+    // Questo è un evento aggiuntivo se il componente padre ha bisogno di logica extra sul reset completo.
+    // In questo caso, loadTickets() è già stato chiamato da onFiltersChanged.
   }
 
   loadTickets(event?: any): void {
@@ -195,8 +212,7 @@ export class TicketListComponent implements OnInit, OnDestroy {
       this.first = event.first;
       this.rows = event.rows;
       this.sortField = event.sortField || 'createdDate';
-      // Assicurati che il default sia 'desc' se event.sortOrder non è definito o non è 1/-1
-      this.sortOrder = (event.sortOrder === 1 ? 'asc' : 'desc'); 
+      this.sortOrder = event.sortOrder === 1 ? 'asc' : 'desc'; 
     }
 
     const page = this.first / this.rows;
@@ -238,29 +254,6 @@ export class TicketListComponent implements OnInit, OnDestroy {
         this.loading = false;
       },
     });
-  }
-
-  onStatusFilterChange(): void {
-    this.first = 0;
-    this.loadTickets();
-  }
-
-  onPriorityFilterChange(): void {
-    this.first = 0;
-    this.loadTickets();
-  }
-
-  onSearch(): void {
-    // searchFormControl.valueChanges gestisce già il debounce e chiama loadTickets
-  }
-
-  clearFilters(): void {
-    this.selectedStatusFilter = 'ALL';
-    this.selectedPriorityFilter = 'ALL';
-    this.searchFormControl.setValue('');
-    this.searchTerm = '';
-    this.first = 0;
-    this.loadTickets();
   }
 
   loadUsersForAssignment(): void {
@@ -573,4 +566,3 @@ export class TicketListComponent implements OnInit, OnDestroy {
     }
   }
 }
-

@@ -14,12 +14,10 @@ import { MessageService } from 'primeng/api';
 import { Subject, Observable, of } from 'rxjs';
 import { takeUntil, catchError } from 'rxjs/operators';
 
-// Importa il tuo AuthService personalizzato
 import { AuthService } from '../../service/auth.service';
 
-// Importa le componenti che verranno aperte in modale
 import { NewTicketComponent } from '../new-ticket/new-ticket.component';
-import { TicketDetailsModalComponent } from '../ticket-details-modal/ticket-details-modal.component'; // Importa la modale dei dettagli
+import { TicketDetailsModalComponent } from '../ticket-details-modal/ticket-details-modal.component'; 
 import { DashboardCountsDto, PageTicketResponseDto, TicketResponseDto } from '../../../../services/models';
 import { UserRole } from '../../../../shared/enums/UserRole';
 import { TicketStatus } from '../../../../shared/enums/TicketStatus';
@@ -113,10 +111,10 @@ export class TicketDashboardComponent implements OnInit, OnDestroy {
 
     let apiCall: Observable<PageTicketResponseDto>;
 
-    if (this.authService.isUser()) {
-      apiCall = this.ticketService.getMyTicketsAndAssociatedByEmail(params);
+    if (this.authService.isUser() && !this.authService.hasRole([UserRole.HELPER_JUNIOR, UserRole.HELPER_SENIOR, UserRole.PM, UserRole.ADMIN])) {
+        apiCall = this.ticketService.getMyTicketsAndAssociatedByEmail(params);
     } else {
-      apiCall = this.ticketService.getTickets(params);
+        apiCall = this.ticketService.getTickets(params);
     }
 
     apiCall.pipe(
@@ -136,6 +134,7 @@ export class TicketDashboardComponent implements OnInit, OnDestroy {
   openTicketListModal(status: 'ALL' | TicketStatus): void {
     let headerText = '';
     const filterStatus: TicketStatus | 'ALL' = status;
+    let disableStatusFilter = false; 
 
     switch (status) {
       case 'ALL':
@@ -143,21 +142,27 @@ export class TicketDashboardComponent implements OnInit, OnDestroy {
         if (this.authService.isUser()) {
           headerText = 'Tutti i miei Ticket e Associati';
         }
+        disableStatusFilter = false; // Abilita il filtro stato per "Tutti i ticket"
         break;
       case TicketStatus.OPEN:
         headerText = 'Ticket Aperti';
+        disableStatusFilter = true; // Disabilita il filtro stato per gli stati specifici
         break;
       case TicketStatus.ANSWERED:
         headerText = 'Ticket In Risposta';
+        disableStatusFilter = true;
         break;
-        case TicketStatus.SOLVED:
+      case TicketStatus.SOLVED:
         headerText = 'Ticket Risolti';
+        disableStatusFilter = true;
         break;
       case TicketStatus.DRAFT:
         headerText = 'Bozze';
+        disableStatusFilter = true;
         break;
       default:
         headerText = 'Lista Ticket';
+        disableStatusFilter = false;
         break;
     }
 
@@ -169,7 +174,8 @@ export class TicketDashboardComponent implements OnInit, OnDestroy {
       baseZIndex: 10000,
       data: {
         filterStatus: filterStatus,
-        isModalSelection: false 
+        isModalSelection: false, 
+        disableStatusFilter: disableStatusFilter
       }
     });
 
@@ -201,14 +207,13 @@ export class TicketDashboardComponent implements OnInit, OnDestroy {
 
   /**
    * Apre la modale dei dettagli del ticket usando TicketDetailsModalComponent.
-   * Modificato per forzare la larghezza.
    * @param ticket Il ticket da visualizzare.
    */
   openTicketDetailsModal(ticket: TicketResponseDto): void {
     this.ref = this.dialogService.open(TicketDetailsModalComponent, {
       header: 'Dettagli Ticket',
-      width: '90vw', // <--- Imposta la larghezza desiderata qui
-      height: 'auto', // Lascia l'altezza automatica o imposta un max-height
+      width: '90vw',
+      height: 'auto',
       contentStyle: { "max-height": "calc(100vh - 100px)", "overflow": "auto" },
       baseZIndex: 10000,
       data: {

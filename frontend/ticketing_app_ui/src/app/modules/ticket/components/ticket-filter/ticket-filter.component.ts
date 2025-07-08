@@ -1,5 +1,3 @@
-// src/app/modules/ticket/components/ticket-filter/ticket-filter.component.ts
-
 import { Component, OnInit, OnDestroy, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormControl } from '@angular/forms';
@@ -14,7 +12,6 @@ import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { TicketStatus } from '../../../../shared/enums/TicketStatus';
 import { TicketPriority } from '../../../../shared/enums/TicketPriority';
 
-// Definisci un'interfaccia per i parametri di filtro che il componente emetterà
 export interface TicketFilterParams {
   status: 'ALL' | TicketStatus;
   priority: 'ALL' | TicketPriority;
@@ -31,18 +28,18 @@ export interface TicketFilterParams {
     DropdownModule,
     InputTextModule,
     ButtonModule,
-    CardModule
+    CardModule 
   ],
   templateUrl: './ticket-filter.component.html',
   styleUrl: './ticket-filter.component.scss'
 })
 export class TicketFilterComponent implements OnInit, OnDestroy {
 
-  // Input properties
+  // Input properties 
   @Input() initialStatusFilter: 'ALL' | TicketStatus = 'ALL';
   @Input() initialPriorityFilter: 'ALL' | TicketPriority = 'ALL';
-  @Input() string = '';
-  @Input() boolean = false; // serve a disabilitare il filtro stato
+  @Input() initialSearchTerm = ''; 
+  @Input() disableStatusFilter = false; 
 
   // Output events
   @Output() filtersChanged = new EventEmitter<TicketFilterParams>();
@@ -51,8 +48,8 @@ export class TicketFilterComponent implements OnInit, OnDestroy {
   // Filter models
   selectedStatusFilter: 'ALL' | TicketStatus = 'ALL';
   selectedPriorityFilter: 'ALL' | TicketPriority = 'ALL';
-  searchTerm = '';
-  searchFormControl = new FormControl('');
+  searchTerm = ''; 
+  searchFormControl = new FormControl<string>(''); 
 
   // Options for dropdowns
   statusOptions: { label: string; value: 'ALL' | TicketStatus }[] = [];
@@ -130,7 +127,7 @@ export class TicketFilterComponent implements OnInit, OnDestroy {
    * Gestisce la ricerca testuale (chiamata da searchFormControl.valueChanges).
    */
   onSearchInput(): void {
-    // Questo metodo è qui principalmente per essere chiamato dall'input (input)="onSearchInput()"
+    // Questo metodo è qui per essere chiamato dall'input (input)="onSearchInput()"
     // e per attivare il debounce tramite searchFormControl.valueChanges.
     // L'emissione dei filtri avviene nella sottoscrizione di searchFormControl.valueChanges.
   }
