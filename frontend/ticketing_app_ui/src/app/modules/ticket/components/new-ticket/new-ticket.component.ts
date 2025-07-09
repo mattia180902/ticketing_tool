@@ -74,6 +74,9 @@ export class NewTicketComponent implements OnInit, OnDestroy {
   currentTicket: TicketResponseDto | null = null;
   
   assignableUsers: UserDto[] = [];
+  usersWithUserRole: UserDto[] = [];
+
+  isSaving = false;
 
   private destroy$ = new Subject<void>();
   private currentUserId = '';
@@ -117,15 +120,13 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       assignedToId: [null]
     });
 
-    // Blocco di codice dove si verifica l'errore
     if (this.config && this.config.data) {
-      // Verifica esplicita che ticketId sia un numero e non null/undefined
       if (typeof this.config.data.ticketId === 'number' && this.config.data.ticketId !== null) {
         this.ticketId = this.config.data.ticketId;
         this.isEditMode = true;
         this.isDraft = this.config.data.isDraft || false;
         this.isReadOnly = this.config.data.isReadOnly || false;
-        this.loadTicketDetails(this.ticketId!); 
+        this.loadTicketDetails(this.ticketId!);
       } else {
         this.initializeNewTicketForm();
       }
@@ -144,19 +145,18 @@ export class NewTicketComponent implements OnInit, OnDestroy {
     this.loadCategories();
     this.loadAllSupportServices();
     this.loadAssignableUsers();
+    this.loadUsersWithUserRole();
 
-    // Blocco di codice dove si verifica un errore simile
     if (!this.ticketId && !this.config?.data?.ticketId) {
       const routeSnapshot = this.route.snapshot;
       const idFromQueryParams = routeSnapshot.queryParams['ticketId'] ? +routeSnapshot.queryParams['ticketId'] : null;
       const initialCategoryId = routeSnapshot.queryParams['categoryId'] ? +routeSnapshot.queryParams['categoryId'] : null;
       const initialSupportServiceId = routeSnapshot.queryParams['supportServiceId'] ? +routeSnapshot.queryParams['supportServiceId'] : (routeSnapshot.queryParams['serviceId'] ? +routeSnapshot.queryParams['serviceId'] : null);
 
-      // Verifica esplicita che idFromQueryParams sia un numero e non null
       if (typeof idFromQueryParams === 'number' && idFromQueryParams !== null) {
         this.ticketId = idFromQueryParams;
         this.isEditMode = true;
-        this.loadTicketDetails(this.ticketId!); // Aggiunto ! qui
+        this.loadTicketDetails(this.ticketId!);
       } else {
         this.initializeNewTicketForm();
         if (initialCategoryId) {
@@ -173,7 +173,8 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       }
     }
 
-    if (this.isUserRole && !this.isReadOnly) {
+    // Modificata la condizione per l'auto-salvataggio
+    if (!this.isReadOnly && (this.isUserRole || this.isHelperOrPmRole || this.isAdminRole)) {
       this.setupAutoSave();
     }
 
@@ -208,7 +209,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
     this.isEditMode = false;
     this.isDraft = false;
     this.isReadOnly = false;
-    this.ticketId = null; // Assicurati che l'ID sia null per un nuovo ticket
+    this.ticketId = null;
     this.currentTicket = null;
     this.ticketForm.reset(); 
     this.ticketForm.enable();
@@ -243,8 +244,8 @@ export class NewTicketComponent implements OnInit, OnDestroy {
    */
   loadTicketDetails(id: number): void {
     console.log('loadTicketDetails called for ID:', id);
-    this.ticketId = id; // Questa riga è corretta e cruciale
-    this.isEditMode = true; // Assicurati che sia in modalità modifica
+    this.ticketId = id;
+    this.isEditMode = true;
     
     this.ticketService.getTicketDetails({ ticketId: id }).pipe(
       takeUntil(this.destroy$),
@@ -263,7 +264,6 @@ export class NewTicketComponent implements OnInit, OnDestroy {
         if (ticket) {
           this.currentTicket = ticket;
           this.isDraft = ticket.status === TicketStatus.DRAFT;
-          // this.isEditMode = true; // Già impostato sopra, ma lo lascio per chiarezza se vuoi riabilitarlo in futuro
 
           this.isReadOnly = this.determineReadOnlyStatus(ticket);
           if (this.isReadOnly) {
@@ -287,10 +287,14 @@ export class NewTicketComponent implements OnInit, OnDestroy {
             this.ticketForm.get('supportServiceId')?.setValue(ticket.supportServiceId);
           });
 
+          // Gestione del campo email dopo il caricamento
           if (this.isUserRole && (ticket.userId === this.currentUserId || ticket.userEmail === this.authService.getUserEmail())) {
             this.ticketForm.get('email')?.disable();
-          } else {
+          } else if (this.isAdminRole || this.isHelperOrPmRole) {
+            // Se Admin/Helper/PM caricano un ticket, l'email deve essere selezionabile dal dropdown
             this.ticketForm.get('email')?.enable();
+          } else {
+            this.ticketForm.get('email')?.disable(); // Per altri ruoli o se readOnly
           }
           console.log('loadTicketDetails: Ticket loaded. ticketId=', this.ticketId, 'isEditMode=', this.isEditMode, 'isDraft=', this.isDraft);
         }
@@ -305,6 +309,10 @@ export class NewTicketComponent implements OnInit, OnDestroy {
    */
   private determineReadOnlyStatus(ticket: TicketResponseDto): boolean {
     if (this.isAdminRole || this.isHelperOrPmRole) {
+      // NUOVO: Se Admin/PM/Helper visualizzano una bozza NON loro, è read-only.
+      if (ticket.status === TicketStatus.DRAFT && ticket.userId !== this.currentUserId) {
+        return true;
+      }
       return ticket.status === TicketStatus.SOLVED;
     } else if (this.isUserRole) {
       const isOwner = ticket.userId === this.currentUserId;
@@ -326,7 +334,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)),
       takeUntil(this.destroy$)
     ).subscribe(() => {
-      if (this.isUserRole && !this.isReadOnly) {
+      if (!this.isReadOnly && !this.isSaving) { // La condizione sul ruolo è ora gestita da ngOnInit
         this.autoSaveDraft();
       }
     });
@@ -336,17 +344,20 @@ export class NewTicketComponent implements OnInit, OnDestroy {
    * Salva automaticamente il ticket come bozza.
    */
   autoSaveDraft(): void {
+    if (this.isSaving) {
+      console.log('autoSaveDraft: Save already in progress, skipping.');
+      return;
+    }
+    this.isSaving = true;
     console.log('autoSaveDraft triggered. Current state: ticketId=', this.ticketId, 'isEditMode=', this.isEditMode, 'isDraft=', this.isDraft);
     const ticketDto = this.prepareTicketDto(TicketStatus.DRAFT);
 
     let saveObservable: Observable<TicketResponseDto>;
     
     if (this.isEditMode && this.ticketId !== null) {
-      // Se è una bozza esistente, usa updateTicket (PUT)
       console.log('autoSaveDraft: Calling updateTicket (PUT) for existing draft ID:', this.ticketId);
       saveObservable = this.ticketService.updateTicket({ ticketId: this.ticketId, body: ticketDto });
     } else {
-      // Altrimenti, crea un nuovo ticket come bozza (POST)
       console.log('autoSaveDraft: Calling createTicket (POST) for new draft.');
       saveObservable = this.ticketService.createTicket({ body: ticketDto });
     }
@@ -363,16 +374,18 @@ export class NewTicketComponent implements OnInit, OnDestroy {
 
         this.messageService.add({ severity: 'error', summary: 'Errore Auto-salvataggio', detail: errorMessage });
         return of(null);
+      }),
+      finalize(() => {
+        this.isSaving = false;
       })
     ).subscribe({
       next: (ticket) => {
         if (ticket) {
           this.messageService.add({ severity: 'success', summary: 'Bozza Salvata', detail: 'Il ticket è stato salvato automaticamente come bozza.' });
-          this.ticketId = ticket.id!; // Aggiorna l'ID del ticket con quello della bozza salvata
-          this.isEditMode = true; // Imposta a true, perché ora stiamo modificando una bozza esistente
+          this.ticketId = ticket.id!;
+          this.isEditMode = true;
           this.isDraft = true;
           this.currentTicket = ticket;
-          // Rimosso router.navigate da qui per evitare potenziali reset di stato
           console.log('autoSaveDraft success: New ticketId=', this.ticketId, 'isEditMode=', this.isEditMode);
           this.ticketForm.markAsPristine();
         }
@@ -428,6 +441,25 @@ export class NewTicketComponent implements OnInit, OnDestroy {
         })
       ).subscribe(users => {
         this.assignableUsers = users;
+      });
+    }
+  }
+
+  /**
+   * Carica la lista di utenti con ruolo USER.
+   * Utilizzato per il dropdown di selezione email per Admin/PM/Helper.
+   */
+  loadUsersWithUserRole(): void {
+    if (this.isAdminRole || this.isHelperOrPmRole) {
+      this.userService.getUsersByRole({ roleName: UserRole.USER }).pipe(
+        takeUntil(this.destroy$),
+        catchError(err => {
+          console.error('Errore nel caricamento degli utenti con ruolo USER:', err);
+          this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare la lista degli utenti USER.' });
+          return of([]);
+        })
+      ).subscribe(users => {
+        this.usersWithUserRole = users;
       });
     }
   }
@@ -497,23 +529,28 @@ export class NewTicketComponent implements OnInit, OnDestroy {
    * Finalizza la bozza o crea un nuovo ticket con stato OPEN.
    */
   finalizeTicket(): void {
+    if (this.isSaving) {
+      console.log('finalizeTicket: Save already in progress, skipping.');
+      this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'Un\'operazione di salvataggio è già in corso. Attendi.' });
+      return;
+    }
+
     if (!this.isFormValidForFinalization()) {
       this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Compila tutti i campi obbligatori per finalizzare il ticket.' });
       this.ticketForm.markAllAsTouched();
       return;
     }
 
+    this.isSaving = true;
     const ticketDto = this.prepareTicketDto(TicketStatus.OPEN);
 
     let saveObservable: Observable<TicketResponseDto>;
     console.log('FinalizeTicket: isEditMode =', this.isEditMode, 'ticketId =', this.ticketId);
 
     if (this.isEditMode && this.ticketId !== null) {
-      // Se è in modalità modifica E ha un ticketId, allora è un aggiornamento (PUT)
       console.log('FinalizeTicket: Calling updateTicket (PUT) for ticket ID:', this.ticketId);
       saveObservable = this.ticketService.updateTicket({ ticketId: this.ticketId, body: ticketDto });
     } else {
-      // Altrimenti, è una creazione di un nuovo ticket (POST)
       console.log('FinalizeTicket: Calling createTicket (POST) for new ticket.');
       saveObservable = this.ticketService.createTicket({ body: ticketDto });
     }
@@ -532,6 +569,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
         return of(null);
       }),
       finalize(() => {
+        this.isSaving = false;
         if (this.ref) {
           this.ref.close(true);
         }
@@ -583,7 +621,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
 
     this.refDraftSelection.onClose.pipe(takeUntil(this.destroy$)).subscribe((ticketId: number | undefined) => {
       if (ticketId) {
-        this.loadTicketDetails(ticketId!); // Aggiunto ! qui
+        this.loadTicketDetails(ticketId!);
         this.messageService.add({ severity: 'success', summary: 'Bozza Caricata', detail: 'Bozza caricata con successo nel form.' });
       } else {
         this.messageService.add({ severity: 'info', summary: 'Nessuna Bozza Selezionata', detail: 'Nessuna bozza è stata caricata.' });

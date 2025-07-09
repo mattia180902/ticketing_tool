@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -20,6 +22,7 @@ import java.util.List;
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 @Tag(name = "User Management", description = "API per la gestione degli utenti")
+@Slf4j
 public class UserController {
 
     private final UserService service;
@@ -41,7 +44,6 @@ public class UserController {
         @ApiResponse(responseCode = "403", description = "Non autorizzato (solo ADMIN).")
     })
     public ResponseEntity<List<UserDTO>> getAllUsers(Authentication authentication) {
-        // Ho rinominato UserDTO in UserResponseDTO per coerenza con le best practice DTO
         return ResponseEntity.ok(service.getAllUsersExceptSelf(authentication));
     }
 
@@ -99,7 +101,29 @@ public class UserController {
         @ApiResponse(responseCode = "403", description = "Non autorizzato.")
     })
     public ResponseEntity<List<UserDTO>> getHelpersAndAdmins() {
-        return ResponseEntity.ok(service.getUsersByRoles(List.of(UserRole.HELPER_JUNIOR, UserRole.HELPER_SENIOR, UserRole.PM, UserRole.ADMIN)));
+        // Modificato per chiamare il metodo dedicato nel service
+        return ResponseEntity.ok(service.getHelpersAndAdmins());
+    }
+
+    /**
+     * NUOVO ENDPOINT: Recupera la lista di utenti con un ruolo specifico.
+     * @param roleName Il nome del ruolo da filtrare (es. "USER").
+     * @return Una lista di UserResponseDTO.
+     */
+    @GetMapping("/by-role")
+    @PreAuthorize("hasAnyAuthority('HELPER_JUNIOR', 'HELPER_SENIOR', 'PM', 'ADMIN')") // Solo questi ruoli possono richiedere liste di utenti per ruolo
+    @Operation(summary = "Recupera la lista di utenti per ruolo",
+               description = "Fornisce una lista di utenti filtrata per il ruolo specificato.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista recuperata con successo."),
+            @ApiResponse(responseCode = "400", description = "Ruolo non valido."),
+            @ApiResponse(responseCode = "401", description = "Non autenticato."),
+            @ApiResponse(responseCode = "403", description = "Non autorizzato.")
+    })
+    public ResponseEntity<List<UserDTO>> getUsersByRole(
+            @RequestParam @Parameter(description = "Nome del ruolo da filtrare (es. 'USER')", example = "USER") UserRole roleName) {
+        log.info("getUsersByRole: Fetching users with role: {}", roleName);
+        return ResponseEntity.ok(service.getUsersByRole(roleName));
     }
 
     /**
@@ -109,6 +133,7 @@ public class UserController {
      * @return UserResponseDTO dell'utente corrente.
      */
     @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()") // Aggiunto PreAuthorize per coerenza
     @Operation(summary = "Recupera i dettagli dell'utente corrente",
                description = "Recupera le informazioni del profilo dell'utente autenticato.")
     @ApiResponses(value = {
@@ -140,7 +165,7 @@ public class UserController {
     })
     public ResponseEntity<UserDTO> updateContactInfo(Authentication authentication,
                                                      @Valid @RequestBody UserContactUpdateRequest request) {
-        return ResponseEntity.ok(service.updateContactInfo(authentication.getName(), request));
+        return ResponseEntity.ok(service.updateContactInfo(service.getCurrentUserId(authentication), request)); // Usato service.getCurrentUserId
     }
 
     /**
@@ -167,7 +192,7 @@ public class UserController {
             @PathVariable @Parameter(description = "ID dell'utente da aggiornare", example = "uuid-user-1") String userId,
             @RequestParam @Parameter(description = "Il nuovo ruolo da assegnare", example = "HELPER_JUNIOR") UserRole newRole,
             Authentication authentication) {
-        String currentAdminId = service.getCurrentUserId(authentication); // Metodo da aggiungere a UserService
+        String currentAdminId = service.getCurrentUserId(authentication);
         UserDTO response = service.updateUserRole(userId, newRole, currentAdminId);
         return ResponseEntity.ok(response);
     }
@@ -193,7 +218,7 @@ public class UserController {
     public ResponseEntity<Void> deleteUser(
             @PathVariable @Parameter(description = "ID dell'utente da eliminare", example = "uuid-user-1") String userId,
             Authentication authentication) {
-        String currentAdminId = service.getCurrentUserId(authentication); // Metodo da aggiungere a UserService
+        String currentAdminId = service.getCurrentUserId(authentication);
         service.deleteUser(userId, currentAdminId);
         return ResponseEntity.noContent().build();
     }

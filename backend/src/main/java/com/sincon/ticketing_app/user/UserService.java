@@ -9,10 +9,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sincon.ticketing_app.enums.UserRole;
+import com.sincon.ticketing_app.exception.UserProfileNotFoundException;
 import com.sincon.ticketing_app.ticket.TicketRepository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,10 +23,9 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
-    private final TicketRepository ticketRepository;
+    private final TicketRepository ticketRepository; // Mantenuto per la logica di deleteUser
 
     // Metodo per ottenere l'ID dell'utente corrente dall'autenticazione JWT
-    // Duplicato da TicketService per renderlo disponibile anche qui, o si potrebbe creare un AuthUtils
     public String getCurrentUserId(Authentication auth) {
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
             String subject = jwtAuth.getToken().getSubject();
@@ -49,7 +50,15 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    /**
+     * Recupera una lista di utenti (entità) in base a una lista di ruoli specifici.
+     * Utilizzato per l'assegnazione automatica e altre logiche interne.
+     *
+     * @param roles La lista di ruoli da cercare.
+     * @return Una lista di entità User.
+     */
     public List<User> getUsersEntitiesByRoles(List<UserRole> roles) {
+        log.info("Fetching user entities with roles: {}", roles);
         return userRepository.findByRoleIn(roles);
     }
 
@@ -57,13 +66,12 @@ public class UserService {
      * Recupera tutti gli utenti, escluso l'utente corrente.
      *
      * @param authentication Dettagli dell'utente autenticato.
-     * @return Lista di UserDTO.
+     * @return Lista di UserResponseDTO.
      */
     public List<UserDTO> getAllUsersExceptSelf(Authentication authentication) {
         String currentUserId = getCurrentUserId(authentication);
-        return userRepository.findAll().stream()
-                .filter(user -> !user.getId().equals(currentUserId))
-                .map(userMapper::toUserDTO)
+        return userRepository.findAllUsersExceptSelf(currentUserId).stream()
+                .map(userMapper::toUserDTO) // Assicurati che UserMapper abbia toResponseDTO
                 .toList();
     }
 
@@ -71,24 +79,51 @@ public class UserService {
      * Recupera gli utenti in base a una lista di ruoli specifici.
      *
      * @param roles Lista dei ruoli da cercare.
-     * @return Lista di UserDTO.
+     * @return Lista di UserResponseDTO.
      */
     public List<UserDTO> getUsersByRoles(List<UserRole> roles) {
+        log.info("Fetching users with roles: {}", roles);
         return userRepository.findByRoleIn(roles).stream()
-                .map(userMapper::toUserDTO)
+                .map(userMapper::toUserDTO) // Assicurati che UserMapper abbia toResponseDTO
                 .toList();
+    }
+
+    /**
+     * Recupera la lista di utenti con ruolo Helper_Junior, Helper_Senior, PM o Admin.
+     *
+     * @return Lista di UserResponseDTO.
+     */
+    public List<UserDTO> getHelpersAndAdmins() {
+        log.info("Fetching list of helpers and admins.");
+        return userRepository.findByRoleIn(List.of(UserRole.HELPER_JUNIOR, UserRole.HELPER_SENIOR, UserRole.PM, UserRole.ADMIN))
+                .stream()
+                .map(userMapper::toUserDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * NUOVO METODO: Recupera una lista di DTO di utenti in base a un singolo ruolo specificato.
+     * Utile per popolare dropdown nel frontend (es. lista di utenti con ruolo USER).
+     * @param role Il ruolo da cercare.
+     * @return Una lista di UserResponseDTO.
+     */
+    public List<UserDTO> getUsersByRole(UserRole role) {
+        log.info("Fetching users with role: {}", role);
+        return userRepository.findByRole(role).stream()
+                             .map(userMapper::toUserDTO)
+                             .collect(Collectors.toList());
     }
 
     /**
      * Recupera i dettagli dell'utente corrente.
      *
      * @param authentication Dettagli dell'utente autenticato.
-     * @return UserDTO dell'utente corrente.
+     * @return UserResponseDTO dell'utente corrente.
      */
     public UserDTO getMe(Authentication authentication) {
         String userId = getCurrentUserId(authentication);
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Utente autenticato non trovato nel DB: " + userId));
+                .orElseThrow(() -> new UserProfileNotFoundException("Utente autenticato non trovato nel DB: " + userId)); // Usata UserProfileNotFoundException
         return userMapper.toUserDTO(user);
     }
 
@@ -97,12 +132,12 @@ public class UserService {
      *
      * @param userId ID dell'utente da aggiornare.
      * @param request DTO con le informazioni di contatto.
-     * @return UserDTO aggiornato.
+     * @return UserResponseDTO aggiornato.
      */
     @Transactional
     public UserDTO updateContactInfo(String userId, UserContactUpdateRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Utente non trovato: " + userId));
+                .orElseThrow(() -> new UserProfileNotFoundException("Utente non trovato: " + userId)); // Usata UserProfileNotFoundException
 
         boolean updated = false;
         if (request.getPhoneNumber() != null && !request.getPhoneNumber().isEmpty() && !request.getPhoneNumber().equals(user.getPhoneNumber())) {
@@ -136,7 +171,7 @@ public class UserService {
     @Transactional
     public UserDTO updateUserRole(String userId, UserRole newRole, String currentAdminId) {
         User userToUpdate = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Utente non trovato con ID: " + userId));
+                .orElseThrow(() -> new UserProfileNotFoundException("Utente non trovato con ID: " + userId)); // Usata UserProfileNotFoundException
 
         // Controllo per impedire a un Admin di modificare un altro Admin
         if (userToUpdate.getRole() == UserRole.ADMIN && !userId.equals(currentAdminId)) {
@@ -163,7 +198,7 @@ public class UserService {
     @Transactional
     public void deleteUser(String userId, String currentAdminId) {
         User userToDelete = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Utente non trovato con ID: " + userId));
+                .orElseThrow(() -> new UserProfileNotFoundException("Utente non trovato con ID: " + userId)); // Usata UserProfileNotFoundException
 
         // Controllo per impedire a un Admin di eliminare un altro Admin
         if (userToDelete.getRole() == UserRole.ADMIN && !userId.equals(currentAdminId)) {

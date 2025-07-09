@@ -91,15 +91,36 @@
           >
         </div>
 
-        <!-- Email (visibile per Admin/Helper/PM, disabilitato per USER) -->
+        <!-- Email (Condizionale: Input per USER, Dropdown per Admin/PM/Helper) -->
         <div class="field col-12 md:col-6">
-          <label for="email">Email</label>
-          <input id="email" type="email" pInputText formControlName="email" [readOnly]="isReadOnly" />
-          <small
-            *ngIf="ticketForm.get('email')?.invalid && ticketForm.get('email')?.touched"
-            class="p-error"
-            >Inserisci un'email valida.</small
-          >
+          <ng-container *ngIf="isUserRole; else adminHelperPmEmailInput">
+            <label for="email">Email</label>
+            <input id="email" type="email" pInputText formControlName="email" [readOnly]="isReadOnly" />
+            <small
+              *ngIf="ticketForm.get('email')?.invalid && ticketForm.get('email')?.touched"
+              class="p-error"
+              >Inserisci un'email valida.</small
+            >
+          </ng-container>
+          <ng-template #adminHelperPmEmailInput>
+            <label for="userEmailSelect">Email Utente</label>
+            <p-dropdown
+              id="userEmailSelect"
+              [options]="usersWithUserRole"
+              formControlName="email"
+              optionLabel="email"
+              optionValue="email"
+              placeholder="Seleziona l'email dell'utente"
+              [filter]="true"
+              filterBy="email"
+              [disabled]="isReadOnly"
+              [showClear]="true"
+            ></p-dropdown>
+            <small
+              *ngIf="ticketForm.get('email')?.invalid && ticketForm.get('email')?.touched"
+              class="p-error"
+              >L'email dell'utente è obbligatoria.</small>
+          </ng-template>
         </div>
 
         <!-- Codice Fiscale -->
@@ -158,6 +179,7 @@
           class="p-button-secondary load-draft-button"
           (click)="openDraftSelectionModal()"
           *ngIf="isUserRole && !isEditMode && !isReadOnly"
+          [disabled]="isSaving"
         ></button>
 
         <!-- Pulsante "Nuovo Ticket" - Sempre visibile, ma la logica cambia se è una modale -->
@@ -169,6 +191,7 @@
           class="p-button-secondary"
           (click)="onNewTicket()"
           *ngIf="!ref"
+          [disabled]="isSaving"
         ></button>
 
         <!-- Pulsante "Crea Ticket" / "Finalizza Bozza" / "Salva Modifiche" -->
@@ -177,7 +200,7 @@
           type="submit"
           [label]="isDraft ? 'Finalizza Bozza' : (isEditMode ? 'Salva Modifiche' : 'Crea Ticket')"
           [icon]="isDraft ? 'pi pi-check' : (isEditMode ? 'pi pi-save' : 'pi pi-plus')"
-          [disabled]="ticketForm.invalid || isReadOnly"
+          [disabled]="ticketForm.invalid || isReadOnly || isSaving"
           [class]="isEditMode && !isDraft ? 'p-button-primary' : 'p-button-success'"
           *ngIf="!isReadOnly"
         ></button>
@@ -191,6 +214,7 @@
           class="p-button-text p-button-secondary"
           (click)="ref.close()"
           *ngIf="ref"
+          [disabled]="isSaving"
         ></button>
       </div>
     </form>

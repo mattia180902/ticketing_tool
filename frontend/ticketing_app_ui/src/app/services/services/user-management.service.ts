@@ -23,6 +23,8 @@ import { getHelpersJunior } from '../fn/user-management/get-helpers-junior';
 import { GetHelpersJunior$Params } from '../fn/user-management/get-helpers-junior';
 import { getMe } from '../fn/user-management/get-me';
 import { GetMe$Params } from '../fn/user-management/get-me';
+import { getUsersByRole } from '../fn/user-management/get-users-by-role';
+import { GetUsersByRole$Params } from '../fn/user-management/get-users-by-role';
 import { updateContactInfo } from '../fn/user-management/update-contact-info';
 import { UpdateContactInfo$Params } from '../fn/user-management/update-contact-info';
 import { updateUserRole } from '../fn/user-management/update-user-role';
@@ -266,6 +268,39 @@ export class UserManagementService extends BaseService {
    */
   getHelpersAndAdmins(params?: GetHelpersAndAdmins$Params, context?: HttpContext): Observable<Array<UserDto>> {
     return this.getHelpersAndAdmins$Response(params, context).pipe(
+      map((r: StrictHttpResponse<Array<UserDto>>): Array<UserDto> => r.body)
+    );
+  }
+
+  /** Path part for operation `getUsersByRole()` */
+  static readonly GetUsersByRolePath = '/api/v1/users/by-role';
+
+  /**
+   * Recupera la lista di utenti per ruolo.
+   *
+   * Fornisce una lista di utenti filtrata per il ruolo specificato.
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `getUsersByRole()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  getUsersByRole$Response(params: GetUsersByRole$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<UserDto>>> {
+    return getUsersByRole(this.http, this.rootUrl, params, context);
+  }
+
+  /**
+   * Recupera la lista di utenti per ruolo.
+   *
+   * Fornisce una lista di utenti filtrata per il ruolo specificato.
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `getUsersByRole$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  getUsersByRole(params: GetUsersByRole$Params, context?: HttpContext): Observable<Array<UserDto>> {
+    return this.getUsersByRole$Response(params, context).pipe(
       map((r: StrictHttpResponse<Array<UserDto>>): Array<UserDto> => r.body)
     );
   }

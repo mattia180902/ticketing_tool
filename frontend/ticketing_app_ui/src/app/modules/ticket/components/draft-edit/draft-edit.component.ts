@@ -68,6 +68,8 @@ export class DraftEditComponent implements OnInit, OnDestroy {
   
   assignableUsers: UserDto[] = [];
 
+  isSaving = false;
+
   private destroy$ = new Subject<void>();
   private currentUserId = '';
   private formSubscription: Subscription | undefined;
@@ -105,7 +107,7 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       assignedToId: [null]
     });
 
-    if (this.config && this.config.data && this.config.data.ticketId) {
+    if (this.config && this.config.data && typeof this.config.data.ticketId === 'number' && this.config.data.ticketId !== null) {
       this.ticketId = this.config.data.ticketId;
     } else {
       console.error('DraftEditComponent: Ticket ID non fornito nella configurazione della modale.');
@@ -211,7 +213,9 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)),
       takeUntil(this.destroy$)
     ).subscribe(() => {
-      this.autoSaveDraft();
+      if (!this.isSaving) { // Aggiunto !this.isSaving
+        this.autoSaveDraft();
+      }
     });
   }
 
@@ -219,9 +223,13 @@ export class DraftEditComponent implements OnInit, OnDestroy {
    * Salva automaticamente il ticket come bozza.
    */
   autoSaveDraft(): void {
+    if (this.isSaving) { // Previene l'esecuzione se un salvataggio è già in corso
+      console.log('autoSaveDraft: Save already in progress, skipping.');
+      return;
+    }
+    this.isSaving = true; // Imposta il flag di salvataggio
     const ticketDto = this.prepareTicketDto(TicketStatus.DRAFT);
 
-    // DraftEditComponent gestisce sempre l'aggiornamento di una bozza esistente (PUT)
     const saveObservable = this.ticketService.updateTicket({ ticketId: this.ticketId!, body: ticketDto });
 
     saveObservable.pipe(
@@ -231,6 +239,9 @@ export class DraftEditComponent implements OnInit, OnDestroy {
         let errorMessage = err.error?.message || 'Impossibile salvare la bozza automaticamente.';
         this.messageService.add({ severity: 'error', summary: 'Errore Auto-salvataggio', detail: errorMessage });
         return of(null);
+      }),
+      finalize(() => {
+        this.isSaving = false; // Resetta il flag di salvataggio al termine dell'operazione
       })
     ).subscribe({
       next: (ticket) => {
@@ -356,15 +367,21 @@ export class DraftEditComponent implements OnInit, OnDestroy {
    * Finalizza la bozza (la trasforma in un ticket OPEN).
    */
   finalizeDraft(): void {
+    if (this.isSaving) { // Previene l'esecuzione se un salvataggio è già in corso
+      console.log('finalizeDraft: Save already in progress, skipping.');
+      this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'Un\'operazione di salvataggio è già in corso. Attendi.' });
+      return;
+    }
+
     if (!this.isFormValidForFinalization()) {
       this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Compila tutti i campi obbligatori per finalizzare la bozza.' });
       this.ticketForm.markAllAsTouched();
       return;
     }
 
+    this.isSaving = true; // Imposta il flag di salvataggio
     const ticketDto = this.prepareTicketDto(TicketStatus.OPEN);
 
-    // Questo componente è sempre in modalità modifica di una bozza esistente, quindi usa updateTicket (PUT)
     const saveObservable = this.ticketService.updateTicket({ ticketId: this.ticketId!, body: ticketDto });
 
     saveObservable.pipe(
@@ -376,6 +393,7 @@ export class DraftEditComponent implements OnInit, OnDestroy {
         return of(null);
       }),
       finalize(() => {
+        this.isSaving = false; // Resetta il flag di salvataggio al termine dell'operazione
         this.ref.close(true);
       })
     ).subscribe({

@@ -1,12 +1,10 @@
 <!-- eslint-disable @angular-eslint/template/elements-content -->
-<!-- src/app/modules/ticket/components/draft-edit/draft-edit.component.html -->
-
 <p-toast></p-toast>
 <p-confirmDialog></p-confirmDialog>
 
 <div class="draft-edit-container">
-  <p-card>
-    <form [formGroup]="ticketForm" (ngSubmit)="finalizeDraft()">
+  <p-card header="Modifica Bozza">
+    <form [formGroup]="ticketForm">
       <div class="p-fluid grid">
         <!-- Titolo -->
         <div class="field col-12">
@@ -67,7 +65,7 @@
             placeholder="Seleziona un servizio"
             [filter]="true"
             filterBy="title"
-            [disabled]="!ticketForm.get('categoryId')?.value"
+            [disabled]="!ticketForm.get('categoryId')?.value || isReadOnly"
           ></p-dropdown>
           <small
             *ngIf="ticketForm.get('supportServiceId')?.invalid && ticketForm.get('supportServiceId')?.touched"
@@ -84,6 +82,7 @@
             [options]="priorities"
             formControlName="priority"
             placeholder="Seleziona priorità"
+            [disabled]="isReadOnly"
           ></p-dropdown>
           <small
             *ngIf="ticketForm.get('priority')?.invalid && ticketForm.get('priority')?.touched"
@@ -92,10 +91,10 @@
           >
         </div>
 
-        <!-- Email (disabilitato per l'utente che modifica la propria bozza) -->
+        <!-- Email (sempre disabilitata per le bozze in DraftEditComponent, è l'email dell'owner) -->
         <div class="field col-12 md:col-6">
           <label for="email">Email</label>
-          <input id="email" type="email" pInputText formControlName="email" />
+          <input id="email" type="email" pInputText formControlName="email" [readOnly]="true" />
           <small
             *ngIf="ticketForm.get('email')?.invalid && ticketForm.get('email')?.touched"
             class="p-error"
@@ -111,6 +110,7 @@
             type="text"
             pInputText
             formControlName="fiscalCode"
+            [readOnly]="isReadOnly"
           />
         </div>
 
@@ -122,11 +122,11 @@
             type="text"
             pInputText
             formControlName="phoneNumber"
+            [readOnly]="isReadOnly"
           />
         </div>
 
-        <!-- Assegnato a (visibile solo per Helper, PM, Admin - ma non rilevante per le bozze) -->
-        <!-- Puoi decidere se mostrarlo o meno per coerenza di form, ma il valore non sarà usato per le bozze -->
+        <!-- Assegnato a (visibile solo per Helper, PM, Admin) -->
         <div class="field col-12 md:col-6" *ngIf="isHelperOrPmRole || isAdminRole">
           <label for="assignedTo">Assegnato a</label>
           <p-dropdown
@@ -139,12 +139,8 @@
             [filter]="true"
             filterBy="fullName"
             [showClear]="true"
-            [disabled]="true" 
+            [disabled]="isReadOnly"
           ></p-dropdown>
-          <small
-            *ngIf="ticketForm.get('assignedToId')?.invalid && ticketForm.get('assignedToId')?.touched"
-            class="p-error"
-            >L'assegnatario è obbligatorio per i ticket non bozza.</small>
         </div>
       </div>
 
@@ -157,16 +153,18 @@
           icon="pi pi-trash"
           class="p-button-danger"
           (click)="deleteDraft()"
+          [disabled]="isSaving"
         ></button>
 
         <!-- Pulsante "Finalizza Bozza" -->
         <button
           pButton
-          type="submit"
+          type="button"
           label="Finalizza Bozza"
           icon="pi pi-check"
           class="p-button-success"
-          [disabled]="ticketForm.invalid"
+          (click)="finalizeDraft()"
+          [disabled]="ticketForm.invalid || isSaving"
         ></button>
       </div>
     </form>

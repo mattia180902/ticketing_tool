@@ -5,3 +5,4 @@ public class InvalidTicketStatusException extends RuntimeException {
         super(message);
     }
 }
+

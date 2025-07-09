@@ -26,6 +26,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Service;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -167,13 +168,27 @@ public TicketResponseDTO createOrUpdateTicket(TicketRequestDTO dto, Authenticati
 
 
     // --- 1. Determinazione dell'Owner del Ticket ---
-    if (dto.getEmail() == null || dto.getEmail().isEmpty()) {
+    // NUOVA LOGICA: L'email è obbligatoria solo se il ticket non è una bozza O se l'utente è un USER_ONLY
+    if ((dto.getStatus() != TicketStatus.DRAFT || isUserOnlyRole) && (dto.getEmail() == null || dto.getEmail().isEmpty())) {
         throw new IllegalArgumentException("L'email dell'utente proprietario del ticket è obbligatoria.");
     }
+    
+    // Se è un Admin/PM/Helper che crea una bozza e l'email non è stata specificata, usa la propria email come owner temporaneo
+    if (isNewTicketRequest && dto.getStatus() == TicketStatus.DRAFT && isHelperOrPmOrAdmin && (dto.getEmail() == null || dto.getEmail().isEmpty())) {
+        ownerUser = currentUser; // L'Admin/PM/Helper è il proprietario della bozza
+        dto.setEmail(currentUserEmail); // Aggiorna il DTO con l'email dell'utente corrente
+        log.info("createOrUpdateTicket: Admin/PM/Helper creating DRAFT with no specified email. Setting current user ({}) as owner.", currentUserEmail);
+    } else {
+        ownerUser = userService.findUserByEmail(dto.getEmail())
+                .orElseThrow(() -> new UserProfileNotFoundException("Utente con email " + dto.getEmail() + " non trovato nel sistema. Non è possibile creare un ticket per un utente inesistente."));
+        log.info("createOrUpdateTicket: Ticket owner set to: {}", ownerUser.getEmail());
 
-    ownerUser = userService.findUserByEmail(dto.getEmail())
-            .orElseThrow(() -> new UserProfileNotFoundException("Utente con email " + dto.getEmail() + " non trovato nel sistema. Non è possibile creare un ticket per un utente inesistente."));
-    log.info("createOrUpdateTicket: Ticket owner set to: {}", ownerUser.getEmail());
+        // NUOVA VALIDAZIONE: Se l'utente corrente non è un USER_ONLY, l'owner del ticket deve essere un USER
+        if (!isUserOnlyRole && ownerUser.getRole() != UserRole.USER) {
+            throw new InvalidTicketOwnerException("Un ticket creato da un Admin/PM/Helper deve avere come proprietario un utente con ruolo USER.");
+        }
+    }
+
 
     // --- 2. Aggiornamento dei dati utente (codice fiscale, telefono) nel profilo dell'owner ---
     boolean ownerDataUpdated = false;
@@ -202,23 +217,32 @@ public TicketResponseDTO createOrUpdateTicket(TicketRequestDTO dto, Authenticati
         boolean isTicketOwner = ticket.getOwner().getId().equals(currentUserId);
         boolean isAssignedToMe = ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(currentUserId);
 
+        // NUOVA LOGICA: Impedisci a chiunque tranne l'owner di modificare una bozza
+        if (ticket.getStatus() == TicketStatus.DRAFT && !isTicketOwner) {
+            throw new UnauthorizedTicketActionException("Non autorizzato a modificare questa bozza. Solo il proprietario può modificare le bozze.");
+        }
+
         if (isUserOnlyRole) {
-            // User can only modify their own DRAFTs
+            // User can only modify their own DRAFTs (this is now covered by the new logic above for DRAFTs)
+            // For non-DRAFT tickets, a USER cannot modify them.
             if (!isTicketOwner || ticket.getStatus() != TicketStatus.DRAFT) {
+                // This condition will mainly apply to non-DRAFT tickets for USERs,
+                // as DRAFTs are already handled by the specific check above.
                 throw new UnauthorizedTicketActionException("Non autorizzato a modificare questo ticket. Gli utenti possono modificare solo le proprie bozze.");
             }
         } else if (isHelperOrPmOrAdmin) {
             if (ticket.getStatus() == TicketStatus.SOLVED && !isAdminOrPm) {
                 throw new UnauthorizedTicketActionException("Non autorizzato a modificare un ticket SOLVED (solo Admin/PM).");
             }
-            if (!isAdminOrPm && !isAssignedToMe && !isTicketOwner) {
+            // For non-DRAFT tickets, Helper/PM/Admin can modify if assigned or if Admin/PM
+            if (ticket.getStatus() != TicketStatus.DRAFT && !isAdminOrPm && !isAssignedToMe && !isTicketOwner) {
                  throw new UnauthorizedTicketActionException("Non autorizzato a modificare questo ticket.");
             }
         }
     } else {
         log.info("createOrUpdateTicket: Creating new ticket object.");
         ticket = new Ticket();
-        ticket.setOwner(ownerUser);
+        ticket.setOwner(ownerUser); // Ora ownerUser è sempre impostato
         ticket.setCreatedDate(new Date());
         // For new tickets, if status is not explicitly DRAFT, it's OPEN by default for USERs
         // This is handled below in section 5.
@@ -257,27 +281,37 @@ public TicketResponseDTO createOrUpdateTicket(TicketRequestDTO dto, Authenticati
                 ticket.setStatus(TicketStatus.DRAFT);
                 log.info("createOrUpdateTicket: New ticket created by USER (only), status DRAFT.");
             }
-        } else { // Helper/PM/Admin create ticket: always OPEN by default
-            ticket.setStatus(desiredStatus != null ? desiredStatus : TicketStatus.OPEN);
-            
-            if (desiredAssignedToId != null) {
-                User assignedToUser = userService.findUserById(desiredAssignedToId)
-                        .orElseThrow(() -> new UserProfileNotFoundException("Assegnatario specificato non trovato: " + desiredAssignedToId));
-                if (!(hasRole(auth, UserRole.HELPER_JUNIOR.name()) || hasRole(auth, UserRole.HELPER_SENIOR.name()) ||
-                        hasRole(auth, UserRole.PM.name()) || hasRole(auth, UserRole.ADMIN.name()))) {
-                    throw new InvalidAssigneeRoleException("L'assegnatario deve essere un helper, PM o admin.");
+        } else { // Helper/PM/Admin create ticket:
+            // They can create DRAFTs or OPEN tickets. If DRAFT, no auto-assignment.
+            // If OPEN and no assignee specified, auto-assign.
+            ticket.setStatus(desiredStatus != null ? desiredStatus : TicketStatus.OPEN); // Accept DRAFT if sent
+
+            if (ticket.getStatus() == TicketStatus.OPEN) { // Only assign if the final status is OPEN
+                if (desiredAssignedToId != null) {
+                    User assignedToUser = userService.findUserById(desiredAssignedToId)
+                            .orElseThrow(() -> new UserProfileNotFoundException("Assegnatario specificato non trovato: " + desiredAssignedToId));
+                    if (!(hasRole(auth, UserRole.HELPER_JUNIOR.name()) || hasRole(auth, UserRole.HELPER_SENIOR.name()) ||
+                            hasRole(auth, UserRole.PM.name()) || hasRole(auth, UserRole.ADMIN.name()))) {
+                        throw new InvalidAssigneeRoleException("L'assegnatario deve essere un helper, PM o admin.");
+                    }
+                    ticket.setAssignedTo(assignedToUser);
+                    ticket.setAssignedDate(new Date());
+                    log.info("createOrUpdateTicket: New ticket created by Admin/Helper. Assigned to specified user: {}", assignedToUser.getEmail());
+                    
+                    // NUOVA LOGICA: Se Admin/PM/Helper assegna a se stesso, lo stato diventa ANSWERED
+                    if (assignedToUser.getId().equals(currentUserId)) {
+                        ticket.setStatus(TicketStatus.ANSWERED);
+                        log.info("createOrUpdateTicket: Admin/Helper/PM assigned ticket to self. Status set to ANSWERED.");
+                    }
+                } else { // No assignee specified, auto-assign for Helper/PM/Admin creating OPEN ticket
+                    assignTicketAutomatically(ticket); // Auto-assign for non-USER roles creating OPEN tickets
+                    log.info("createOrUpdateTicket: New ticket created by Helper/PM/Admin. No assignee specified, assigned automatically.");
+                    // L'assegnazione automatica non porta ad ANSWERED, rimane OPEN
                 }
-                ticket.setAssignedTo(assignedToUser);
-                ticket.setAssignedDate(new Date());
-                log.info("createOrUpdateTicket: New ticket created by Admin/Helper. Assigned to specified user: {}", assignedToUser.getEmail());
-            } else if (isHelper || isPm) {
-                ticket.setAssignedTo(currentUser);
-                ticket.setAssignedDate(new Date());
-                log.info("createOrUpdateTicket: New ticket created by Helper/PM. Assigned to self: {}", currentUser.getEmail());
-            } else if (isAdmin) {
+            } else { // If it's a DRAFT, ensure no assignee
                 ticket.setAssignedTo(null);
                 ticket.setAssignedDate(null);
-                log.info("createOrUpdateTicket: New ticket created by Admin. No assignee specified.");
+                log.info("createOrUpdateTicket: New ticket created by Helper/PM/Admin. Status DRAFT, no assignee.");
             }
         }
     } else { // Aggiornamento di ticket esistente
@@ -288,6 +322,11 @@ public TicketResponseDTO createOrUpdateTicket(TicketRequestDTO dto, Authenticati
                 log.info("createOrUpdateTicket: Existing DRAFT ticket {} updated to OPEN, assigned automatically.", ticket.getId());
             } else {
                 log.info("createOrUpdateTicket: Existing DRAFT ticket {} updated to OPEN, but already assigned. Skipping automatic assignment.", ticket.getId());
+            }
+            // Se una bozza viene finalizzata a OPEN, e l'assegnatario è l'utente corrente (Admin/PM/Helper), diventa ANSWERED
+            if (ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(currentUserId) && isHelperOrPmOrAdmin) {
+                ticket.setStatus(TicketStatus.ANSWERED);
+                log.info("createOrUpdateTicket: DRAFT finalized to OPEN by Admin/Helper/PM to self. Status set to ANSWERED.");
             }
         }
         
@@ -889,37 +928,58 @@ public DashboardCountsDTO getDashboardCounts(Authentication auth) {
     return counts;
 }
 
-// Assegnazione automatica del ticket a Helper_Junior o Admin
+/**
+ * Assegnazione automatica del ticket a Helper_Junior, Helper_Senior, PM, o Admin
+ * in base al minor numero di ticket OPEN o ANSWERED assegnati.
+ *
+ * @param ticket Il ticket da assegnare.
+ */
 private void assignTicketAutomatically(Ticket ticket) {
     log.info("assignTicketAutomatically: Attempting automatic assignment for ticket ID: {}", ticket.getId());
     
-    List<UserRole> assignmentRoles = List.of(
+    // Recupera tutti gli utenti che possono essere assegnatari
+    List<User> potentialAssignees = userService.getUsersEntitiesByRoles(List.of(
         UserRole.HELPER_JUNIOR,
         UserRole.HELPER_SENIOR,
         UserRole.PM,
         UserRole.ADMIN
-    );
+    ));
 
-    User assignedUser = null;
-    for (UserRole role : assignmentRoles) {
-        List<User> usersWithRole = userService.getUsersEntitiesByRoles(List.of(role));
-        log.info("assignTicketAutomatically: Found {} users for role {}.", usersWithRole.size(), role);
-        if (!usersWithRole.isEmpty()) {
-            assignedUser = usersWithRole.get(0); // Prendi il primo disponibile
-            log.info("assignTicketAutomatically: Ticket {} assigned to {} (Role: {}).",
-                     ticket.getId(), assignedUser.getEmail(), role);
-            break; // Trovato un assegnatario, esci dal ciclo
-        }
+    if (potentialAssignees.isEmpty()) {
+        log.error("assignTicketAutomatically: Nessun helper, PM o admin disponibile per l'assegnazione automatica per ticket ID: {}. Il ticket rimarrà non assegnato.", ticket.getId());
+        ticket.setAssignedTo(null);
+        ticket.setAssignedDate(null);
+        return;
     }
+
+    // Mappa gli assegnatari potenziali al loro carico di lavoro attuale
+    Map<User, Long> assigneesLoad = potentialAssignees.stream()
+        .collect(Collectors.toMap(
+            user -> user,
+            user -> ticketRepository.count(
+                Specification.where(byAssignedToId(user.getId()))
+                    .and(byStatus(TicketStatus.OPEN))
+                    .or(byAssignedToId(user.getId()).and(byStatus(TicketStatus.ANSWERED)))
+            )
+        ));
+
+    // Trova l'utente con il minor numero di ticket in carico
+    User assignedUser = assigneesLoad.entrySet().stream()
+        .min(Comparator.comparingLong(Map.Entry::getValue))
+        .map(Map.Entry::getKey)
+        .orElse(null); // Dovrebbe sempre trovare uno se potentialAssignees non è vuoto
 
     if (assignedUser != null) {
         ticket.setAssignedTo(assignedUser);
         if (ticket.getAssignedDate() == null) {
             ticket.setAssignedDate(new Date());
-            log.info("assignTicketAutomatically: Assigned date set for ticket {}", ticket.getId());
         }
+        log.info("assignTicketAutomatically: Ticket {} assigned to {} (Role: {}, Load: {}).",
+                 ticket.getId(), assignedUser.getEmail(), assignedUser.getRole(), assigneesLoad.get(assignedUser));
     } else {
-        log.error("assignTicketAutomatically: Nessun helper o admin disponibile per l'assegnazione automatica per ticket ID: {}. Il ticket rimarrà non assegnato.", ticket.getId());
+        // Questo blocco dovrebbe essere raggiunto solo se potentialAssignees era vuoto,
+        // ma è un fallback di sicurezza.
+        log.error("assignTicketAutomatically: Fallback: Nessun utente idoneo trovato per l'assegnazione automatica per ticket ID: {}. Il ticket rimarrà non assegnato.", ticket.getId());
         ticket.setAssignedTo(null);
         ticket.setAssignedDate(null);
     }
