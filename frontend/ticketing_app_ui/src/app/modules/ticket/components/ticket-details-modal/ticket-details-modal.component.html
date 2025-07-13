@@ -7,34 +7,20 @@
       <div class="w-full md:w-1/2 px-2 double-line "> <!-- Metà larghezza su md+, intera su mobile -->
         <div class="form-field">
           <label for="title" class="form-label">Titolo</label>
-          <input type="text" id="title" class="form-input" [ngModel]="ticket.title" [disabled]="isFieldReadOnly('title')" name="title">
+          <input type="text" id="title" class="form-input" [ngModel]="ticket.title" [disabled]="true" name="title">
         </div>
       </div>
       <div class="w-full md:w-1/2 px-2 double-line ">
         <div class="form-field">
           <label for="description" class="form-label">Descrizione</label>
-          <textarea id="description" rows="1" class="form-input" [ngModel]="ticket.description" [disabled]="isFieldReadOnly('description')" name="description"></textarea>
+          <textarea id="description" rows="1" class="form-input" [ngModel]="ticket.description" [disabled]="true" name="description"></textarea>
         </div>
       </div>
 
       <div class="w-full md:w-1/2 px-2 double-line ">
         <div class="form-field">
           <label for="status" class="form-label">Stato</label>
-          <div *ngIf="!isFieldReadOnly('status'); else disabledStatus">
-            <p-dropdown
-              [options]="statusOptions"
-              [(ngModel)]="selectedStatus"
-              optionLabel="label"
-              optionValue="value"
-              [placeholder]="ticket.status"
-              styleClass="form-input-dropdown"
-              (onChange)="updateTicketStatus()"
-              name="statusDropdown"
-            ></p-dropdown>
-          </div>
-          <ng-template #disabledStatus>
-            <input type="text" id="status" class="form-input" [value]="ticket.status" [disabled]="true">
-          </ng-template>
+          <input type="text" id="status" class="form-input" [value]="ticket.status" [disabled]="true">
         </div>
       </div>
       <div class="w-full md:w-1/2 px-2 double-line ">
@@ -118,15 +104,18 @@
       </div>
     </div>
 
-    <div class="flex justify-between items-center mt-6">
-      <button pButton type="button" label="Elimina Ticket" icon="pi pi-trash"
-              (click)="deleteTicket()"
-              class="p-button-danger p-button-sm">
-      </button>
-
+    <!-- Sezione Pulsanti -->
+    <div class="flex mt-5">
+      <!-- Pulsante Nuovo Ticket -->
       <button pButton type="button" label="Nuovo Ticket" icon="pi pi-plus"
               (click)="createNewTicket()"
               class="p-button-success p-button-sm ml-auto">
+      </button>
+      <!-- Pulsante Elimina Ticket -->
+      <button pButton type="button" label="Elimina Ticket" icon="pi pi-trash"
+              (click)="deleteTicket()"
+              class="p-button-danger p-button-sm"
+              [disabled]="!canDeleteTicket()">
       </button>
     </div>
   </form>

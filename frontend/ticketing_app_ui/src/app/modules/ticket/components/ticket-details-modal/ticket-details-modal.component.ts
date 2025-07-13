@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Component, EventEmitter, OnInit, Output } from '@angular/core';
 import { DynamicDialogRef, DynamicDialogConfig } from 'primeng/dynamicdialog';
 import { TicketResponseDto } from '../../../../services/models';
@@ -18,20 +19,19 @@ import { FormsModule } from '@angular/forms'; // Cruciale per [(ngModel)]
 
 import { TicketStatus } from '../../../../shared/enums/TicketStatus';
 import { UserRole } from '../../../../shared/enums/UserRole';
+import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
   selector: 'app-ticket-details-modal',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule, // Assicurati che FormsModule sia qui per [(ngModel)]
+    FormsModule, 
     ToastModule,
-    // InputTextModule, // Rimosso
-    // InputTextareaModule, // Rimosso
-    ButtonModule, // Per pButton
-    DropdownModule, // Per pDropdown
-    TagModule, // Per pTag
-    DatePipe // Per la pipe date
+    ButtonModule, 
+    DropdownModule, 
+    TagModule, 
+    DatePipe 
   ],
   templateUrl: './ticket-details-modal.component.html',
   styleUrl: './ticket-details-modal.component.scss',
@@ -40,19 +40,16 @@ import { UserRole } from '../../../../shared/enums/UserRole';
 export class TicketDetailsModalComponent implements OnInit {
   ticket!: TicketResponseDto;
 
-  @Output() ticketDeleted: EventEmitter<void> = new EventEmitter<void>();
-  @Output() openNewTicketModal: EventEmitter<void> = new EventEmitter<void>();
-
+  // Reintrodotte le proprietà relative ai ruoli dell'utente
   isUserRole = false;
-  isAdminOrPm = false;
-  isHelper = false;
-  isReadOnlyMode = false; 
+  isAdminRole = false; // Specifico per Admin
+  isHelperOrPmRole = false; // Per Helper Junior/Senior e PM
+  isAdminOrPmRole = false; // Per Admin e PM
+
+  isReadOnlyMode = false; // Mantenuta per coerenza, ma i campi saranno sempre disabilitati
 
   public TicketStatus = TicketStatus;
   public UserRole = UserRole;
-
-  selectedStatus: TicketStatus | undefined;
-  statusOptions: { label: string, value: TicketStatus }[];
 
   constructor(
     public ref: DynamicDialogRef,
@@ -62,17 +59,13 @@ export class TicketDetailsModalComponent implements OnInit {
     private ticketService: TicketManagementService,
     private messageService: MessageService,
   ) {
-    this.statusOptions = [
-      { label: 'Aperto', value: TicketStatus.OPEN },
-      { label: 'In Risposta', value: TicketStatus.ANSWERED },
-      { label: 'Risolto', value: TicketStatus.SOLVED },
-    ];
   }
 
   ngOnInit(): void {
     if (this.config.data && this.config.data['ticket']) {
       this.ticket = this.config.data['ticket'];
-      this.isReadOnlyMode = this.config.data['isReadOnly'] || false; 
+      // La modale è sempre di sola lettura per i campi del form, ma i pulsanti possono essere attivi
+      this.isReadOnlyMode = true; 
     } else {
       console.error("TicketDetailsModalComponent: Nessun dato ticket trovato nella configurazione della modale.");
       this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Dati ticket non disponibili.' });
@@ -80,71 +73,25 @@ export class TicketDetailsModalComponent implements OnInit {
       return;
     }
 
+    // Sottoscrizione ai ruoli per abilitare/disabilitare i pulsanti
     this.authService.currentUserRoles$.subscribe(roles => {
-      this.isUserRole = roles.includes(UserRole.USER);
-      this.isAdminOrPm = roles.includes(UserRole.ADMIN) || roles.includes(UserRole.PM);
-      this.isHelper = roles.includes(UserRole.HELPER_JUNIOR) || roles.includes(UserRole.HELPER_SENIOR);
+      this.isUserRole = this.authService.isUser();
+      this.isAdminRole = this.authService.isAdmin();
+      this.isHelperOrPmRole = this.authService.isHelperOrPm();
+      this.isAdminOrPmRole = this.authService.isAdminOrPm();
     });
-
-    if (this.ticket && this.ticket.status) {
-      this.selectedStatus = this.ticket.status as TicketStatus;
-      console.log(this.selectedStatus)
-    }
-
-    console.log(this.authService.getUserEmail())
-
   }
 
   /**
-   * Determina se un campo specifico deve essere disabilitato.
-   * @param fieldName Il nome del campo da controllare (es. 'title', 'status').
-   * @returns true se il campo deve essere disabilitato, false altrimenti.
+   * Determina se un campo specifico del form deve essere disabilitato.
+   * restituisce sempre true, rendendo tutti i campi di sola lettura.
    */
   isFieldReadOnly(fieldName: string): boolean {
-    if (!this.ticket) return true;
-
-    if (this.isReadOnlyMode) {
-      return true;
-    }
-
-    // Logica esistente per i ruoli USER (tutti i campi disabilitati)
-    if (this.isUserRole) {
-      return true;
-    }
-
-    // Logica esistente per il campo 'status' quando il ticket è RISOLTO
-    if (fieldName === 'status' && this.ticket.status === TicketStatus.SOLVED) {
-      return true;
-    }
-
-    if (fieldName === 'status' && this.ticket.status === TicketStatus.DRAFT && (this.ticket.userEmail !== this.authService.getUserEmail())) {
-      return true;
-    }
-
-    // Per ADMIN, PM, Helper:
-    // Tutti i campi tranne 'status' sono sempre disabilitati in questa modale.
-    if (fieldName !== 'status') {
-      return true;
-    }
-
-    // Logica specifica per il campo 'status' quando non è SOLVED
-    if (fieldName === 'status') {
-      if (this.isAdminOrPm) {
-        return false; // Admin/PM possono modificare lo stato
-      }
-      if (this.isHelper) {
-        // Helper può modificare lo stato solo se il ticket è assegnato a lui
-        return this.ticket.assignedToId !== this.authService.getUserId();
-      }
-    }
-    
-    return true; // Default: disabilitato
+    return true; // Tutti i campi del form sono sempre di sola lettura in questa modale
   }
 
   /**
    * Restituisce la severità del badge in base allo stato del ticket.
-   * @param status Lo stato del ticket.
-   * @returns La severità del badge.
    */
   statusColor(status: TicketStatus | undefined): 'success' | 'info' | 'warning' | 'danger' | 'help' | 'primary' | 'secondary' | 'contrast' {
     switch (status) {
@@ -158,65 +105,54 @@ export class TicketDetailsModalComponent implements OnInit {
 
   /**
    * Determina se il pulsante "Elimina Ticket" deve essere visualizzato e abilitato.
+   * Segue la logica di showDeleteButton di TicketListComponent.
    * @returns true se il ticket può essere eliminato, false altrimenti.
-   *//* 
+   */
   canDeleteTicket(): boolean {
-    // NUOVO: Se la modale è in modalità di sola lettura, il pulsante è disabilitato.
-    if (this.isReadOnlyMode) {
-      return false;
-    }
-
-    if (!this.ticket || !this.ticket.status || this.ticket.status === TicketStatus.SOLVED) {
-      return false;
+    if (!this.ticket || !this.ticket.status) {
+        return false;
     }
 
     const currentUserId = this.authService.getUserId();
-    // const currentUserEmail = this.authService.getUserEmail(); // Non più usato per isAssociatedByEmail
+    const currentUserEmail = this.authService.getUserEmail();
+    const isOwner = this.ticket.userId === currentUserId;
+    const isAssociatedByEmail = this.ticket.userEmail == currentUserEmail;
+    const isDraft = this.ticket.status === TicketStatus.DRAFT;
+    const isAssignedToMe = this.ticket.assignedToId === currentUserId;
+    const isSolved = this.ticket.status === TicketStatus.SOLVED;
 
-    // Logica per il ruolo USER
-    if (this.isUserRole) {
-      const isOwner = this.ticket.userId === currentUserId;
-      // Per USER, possono eliminare solo le proprie bozze
-      return this.ticket.status === TicketStatus.DRAFT && isOwner;
+    // Admin può eliminare qualsiasi ticket 
+    if (this.isAdminRole) {
+      return true;
+    }
+    // L'owner può eliminare le proprie bozze
+    if (isDraft && isOwner) {
+      return true;
+    }
+    // Helper/PM/Admin (se non sono l'Admin principale) possono eliminare ticket assegnati a loro e non risolti
+    if ((this.isHelperOrPmRole || this.isAdminOrPmRole) && isAssignedToMe && !isSolved) {
+      return true;
     }
 
-    // Logica per i ruoli ADMIN/PM
-    if (this.isAdminOrPm) {
-      return true; // Admin/PM possono eliminare qualsiasi ticket non risolto
+    if (isAssociatedByEmail) {
+      return true;
     }
-
-    // Logica per i ruoli HELPER
-    if (this.isHelper) {
-      const isAssignedToMe = this.ticket.assignedToId === currentUserId;
-      // Helper può eliminare solo ticket assegnati a lui e non risolti
-      return isAssignedToMe;
-    }
-
     return false;
   }
- */
+
   /**
    * Metodo per eliminare il ticket.
    */
   deleteTicket(): void {
-    if (this.isReadOnlyMode) { // Doppia protezione
-      this.messageService.add({ severity: 'warn', summary: 'Non Autorizzato', detail: 'Non puoi eliminare ticket in modalità di sola lettura.' });
-      return;
-    }
-  /*   if (!this.canDeleteTicket()) {
-      this.messageService.add({ severity: 'warn', summary: 'Non Autorizzato', detail: 'Non hai i permessi per eliminare questo ticket.' });
-      return;
-    } */
-
+    //todo aggiungere alert al posto di confirm
     if (confirm('Sei sicuro di voler eliminare questo ticket? Questa azione è irreversibile.')) {
       if (this.ticket && this.ticket.id) {
         this.ticketService.deleteTicket({ ticketId: this.ticket.id }).subscribe({
           next: () => {
             this.messageService.add({ severity: 'success', summary: 'Successo', detail: 'Ticket eliminato con successo!' });
-            this.ticketDeleted.emit(); // Emette l'evento per il padre
             this.ref.close('Deleted'); // Chiude la modale e indica l'eliminazione
           },
-          error: (err) => {
+          error: (err: HttpErrorResponse) => {
             console.error('Errore durante l\'eliminazione del ticket:', err);
             this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Errore durante l\'eliminazione del ticket: ' + (err.error?.message || err.message) });
           }
@@ -226,50 +162,12 @@ export class TicketDetailsModalComponent implements OnInit {
   }
 
   /**
-   * Metodo per aggiornare lo stato del ticket.
-   */
-  updateTicketStatus(): void {
-    if (!this.ticket || !this.ticket.id || !this.selectedStatus) {
-      this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Dati del ticket o stato non validi.' });
-      return;
-    }
-
-    if (this.isReadOnlyMode) { // Doppia protezione
-      this.messageService.add({ severity: 'warn', summary: 'Non Autorizzato', detail: 'Non puoi modificare lo stato in modalità di sola lettura.' });
-      return;
-    }
-
-    if (this.isFieldReadOnly('status')) { // Usa la funzione per controllare i permessi specifici del campo
-      this.messageService.add({ severity: 'warn', summary: 'Non Autorizzato', detail: 'Non puoi modificare lo stato di questo ticket.' });
-      return;
-    }
-
-    if (this.selectedStatus === this.ticket.status) {
-      this.messageService.add({ severity: 'info', summary: 'Info', detail: 'Lo stato è già quello selezionato.' });
-      return;
-    }
-
-    this.ticketService.updateTicketStatus({ ticketId: this.ticket.id, newStatus: this.selectedStatus }).subscribe({
-      next: (updatedTicket) => {
-        this.ticket = updatedTicket;
-        this.messageService.add({ severity: 'success', summary: 'Successo', detail: 'Stato ticket aggiornato con successo!' });
-        this.ref.close('StatusUpdated');
-      },
-      error: (err) => {
-              console.error('Errore durante l\'aggiornamento dello stato:', err);
-        this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Errore durante l\'aggiornamento dello stato: ' + (err.error?.message || err.message) });
-      }
-    });
-  }
-
-  /**
    * Metodo per aprire la modale di creazione di un nuovo ticket.
-   * Questo metodo emette un evento al componente padre (dashboard)
-   * che sarà responsabile di aprire la nuova modale.
+   * Questo metodo chiude la modale corrente e naviga alla pagina delle categorie.
    */
   createNewTicket(): void {
-    this.ref.close('OpenNewTicket');
-    this.openNewTicketModal.emit();
+    this.ref.close('OpenNewTicket'); // Chiude la modale attuale
+    this.router.navigate(['/categories']); // Naviga alla pagina di selezione categoria
   }
 
   /**
