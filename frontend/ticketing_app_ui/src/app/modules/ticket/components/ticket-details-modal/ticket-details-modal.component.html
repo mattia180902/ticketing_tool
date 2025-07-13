@@ -13,7 +13,7 @@
       <div class="w-full md:w-1/2 px-2 double-line ">
         <div class="form-field">
           <label for="description" class="form-label">Descrizione</label>
-          <textarea id="description" rows="3" class="form-input" [ngModel]="ticket.description" [disabled]="isFieldReadOnly('description')" name="description"></textarea>
+          <textarea id="description" rows="1" class="form-input" [ngModel]="ticket.description" [disabled]="isFieldReadOnly('description')" name="description"></textarea>
         </div>
       </div>
 
@@ -121,7 +121,6 @@
     <div class="flex justify-between items-center mt-6">
       <button pButton type="button" label="Elimina Ticket" icon="pi pi-trash"
               (click)="deleteTicket()"
-              [disabled]="!canDeleteTicket()"
               class="p-button-danger p-button-sm">
       </button>
 

@@ -168,23 +168,49 @@ public TicketResponseDTO createOrUpdateTicket(TicketRequestDTO dto, Authenticati
 
 
     // --- 1. Determinazione dell'Owner del Ticket ---
-    // NUOVA LOGICA: L'email è obbligatoria solo se il ticket non è una bozza O se l'utente è un USER_ONLY
-    if ((dto.getStatus() != TicketStatus.DRAFT || isUserOnlyRole) && (dto.getEmail() == null || dto.getEmail().isEmpty())) {
-        throw new IllegalArgumentException("L'email dell'utente proprietario del ticket è obbligatoria.");
-    }
-    
+    // L'email è obbligatoria solo se il ticket non è una bozza O se l'utente è un USER_ONLY
     // Se è un Admin/PM/Helper che crea una bozza e l'email non è stata specificata, usa la propria email come owner temporaneo
     if (isNewTicketRequest && dto.getStatus() == TicketStatus.DRAFT && isHelperOrPmOrAdmin && (dto.getEmail() == null || dto.getEmail().isEmpty())) {
         ownerUser = currentUser; // L'Admin/PM/Helper è il proprietario della bozza
         dto.setEmail(currentUserEmail); // Aggiorna il DTO con l'email dell'utente corrente
         log.info("createOrUpdateTicket: Admin/PM/Helper creating DRAFT with no specified email. Setting current user ({}) as owner.", currentUserEmail);
     } else {
+        // Se l'email è nulla o vuota e non è il caso di una nuova bozza da Admin/PM/Helper
+        if (dto.getEmail() == null || dto.getEmail().isEmpty()) {
+             throw new IllegalArgumentException("L'email dell'utente proprietario del ticket è obbligatoria.");
+        }
         ownerUser = userService.findUserByEmail(dto.getEmail())
                 .orElseThrow(() -> new UserProfileNotFoundException("Utente con email " + dto.getEmail() + " non trovato nel sistema. Non è possibile creare un ticket per un utente inesistente."));
         log.info("createOrUpdateTicket: Ticket owner set to: {}", ownerUser.getEmail());
 
-        // NUOVA VALIDAZIONE: Se l'utente corrente non è un USER_ONLY, l'owner del ticket deve essere un USER
-        if (!isUserOnlyRole && ownerUser.getRole() != UserRole.USER) {
+        // NUOVA VALIDAZIONE: Se l'utente corrente non è un USER_ONLY, l'owner del ticket deve essere un USER.
+        // Questa validazione deve essere saltata se:
+        // 1. Stiamo AGGIORNANDO una bozza esistente di cui l'Admin/PM/Helper è il proprietario.
+        // 2. Stiamo CREANDO una NUOVA bozza di cui l'Admin/PM/Helper è il proprietario.
+        
+        Ticket existingTicket = null;
+        if (!isNewTicketRequest) {
+            existingTicket = ticketRepository.findById(ticketId).orElse(null);
+        }
+
+        boolean isUpdatingOwnDraftAsAdminPmHelper = !isNewTicketRequest &&
+                                                    existingTicket != null &&
+                                                    existingTicket.getStatus() == TicketStatus.DRAFT &&
+                                                    existingTicket.getOwner().getId().equals(currentUserId) &&
+                                                    isHelperOrPmOrAdmin;
+
+        // NUOVA CONDIZIONE: Per bypassare la validazione per le NUOVE bozze create da Admin/PM/Helper
+        boolean isNewDraftByAdminPmHelper = isNewTicketRequest &&
+                                            dto.getStatus() == TicketStatus.DRAFT &&
+                                            ownerUser.getId().equals(currentUserId) && // ownerUser è già stato determinato
+                                            isHelperOrPmOrAdmin;
+
+        // La validazione si applica SOLO se:
+        // - L'utente corrente NON è un USER_ONLY (quindi è Admin/PM/Helper)
+        // - L'owner del ticket NON è un USER
+        // - E NON stiamo aggiornando una bozza propria di Admin/PM/Helper
+        // - E NON stiamo creando una NUOVA bozza propria di Admin/PM/Helper
+        if (!isUserOnlyRole && ownerUser.getRole() != UserRole.USER && !isUpdatingOwnDraftAsAdminPmHelper && !isNewDraftByAdminPmHelper) {
             throw new InvalidTicketOwnerException("Un ticket creato da un Admin/PM/Helper deve avere come proprietario un utente con ruolo USER.");
         }
     }

@@ -1,48 +1,64 @@
 <!-- eslint-disable @angular-eslint/template/elements-content -->
-<p-card class="mb-4 filter-card">
-    <div class="grid formgrid p-nogutter">
-      <div class="col-12 md:col-4 field p-fluid">
-        <label for="statusFilter" class="block text-900 font-medium mb-2">Stato</label>
-        <p-dropdown
-          id="statusFilter"
-          [options]="statusOptions"
-          [(ngModel)]="selectedStatusFilter"
-          optionLabel="label"
-          optionValue="value"
-          (onChange)="onStatusFilterChange()"
-          placeholder="Seleziona Stato"
-          [showClear]="true"
-          [disabled]="disableStatusFilter" ></p-dropdown>
-      </div>
-  
-      <div class="col-12 md:col-4 field p-fluid">
-        <label for="priorityFilter" class="block text-900 font-medium mb-2">Priorità</label>
-        <p-dropdown
-          id="priorityFilter"
-          [options]="priorityOptions"
-          [(ngModel)]="selectedPriorityFilter"
-          optionLabel="label"
-          optionValue="value"
-          (onChange)="onPriorityFilterChange()"
-          placeholder="Seleziona Priorità"
-          [showClear]="true"
-        ></p-dropdown>
-      </div>
-  
-      <div class="col-12 md:col-4 field p-fluid">
-        <label for="search" class="block text-900 font-medium mb-2">Ricerca</label>
-        <input
-          pInputText
-          id="search"
-          type="text"
-          [formControl]="searchFormControl"
-          (input)="onSearchInput()"
-          placeholder="Cerca per oggetto o descrizione"
-        />
-      </div>
+<!-- src/app/modules/ticket/components/ticket-filters/ticket-filter.component.html -->
+
+<p-card class="filter-card">
+  <div class="grid formgrid p-nogutter">
+    <div class="col-12 md:col-4 field p-fluid">
+      <label for="statusFilter" class="block text-900 font-medium mb-2">Stato</label>
+      <p-dropdown
+        id="statusFilter"
+        [options]="statusOptions"
+        [(ngModel)]="selectedStatusFilter"
+        optionLabel="label"
+        optionValue="value"
+        (onChange)="onStatusFilterChange()"
+        placeholder="Seleziona Stato"
+        [showClear]="true"
+        [disabled]="disableStatusFilter" ></p-dropdown>
     </div>
-    <div class="flex justify-content-end mt-3">
-      <button pButton type="button" label="Reset Filtri" icon="pi pi-times" class="p-button-secondary" (click)="clearFilters()"></button>
+
+    <div class="col-12 md:col-4 field p-fluid">
+      <label for="priorityFilter" class="block text-900 font-medium mb-2">Priorità</label>
+      <p-dropdown
+        id="priorityFilter"
+        [options]="priorityOptions"
+        [(ngModel)]="selectedPriorityFilter"
+        optionLabel="label"
+        optionValue="value"
+        (onChange)="onPriorityFilterChange()"
+        placeholder="Seleziona Priorità"
+        [showClear]="true"
+      ></p-dropdown>
     </div>
-  </p-card>
-  
+
+    <div class="col-12 md:col-4 field p-fluid">
+      <label for="search" class="block text-900 font-medium mb-2">Ricerca</label>
+      <input
+        pInputText
+        id="search"
+        type="text"
+        [formControl]="searchFormControl"
+        (input)="onSearchInput()"
+        placeholder="Cerca per oggetto o descrizione"
+      />
+    </div>
+  </div>
+  <div class="flex justify-content-end mt-3">
+    <button 
+      pButton 
+      type="button" 
+      label="Reset Filtri" 
+      icon="" 
+      class="p-button-secondary" 
+      (click)="clearFilters()"
+      [disabled]="
+        selectedPriorityFilter === 'ALL' && 
+        searchTerm === '' &&
+        (
+          (disableStatusFilter && selectedStatusFilter === initialStatusFilter) || 
+          (!disableStatusFilter && selectedStatusFilter === 'ALL')
+        )
+      "
+    ></button>
+  </div>
+</p-card>

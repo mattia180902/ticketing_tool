@@ -46,6 +46,7 @@ export class TicketDetailsModalComponent implements OnInit {
   isUserRole = false;
   isAdminOrPm = false;
   isHelper = false;
+  isReadOnlyMode = false; 
 
   public TicketStatus = TicketStatus;
   public UserRole = UserRole;
@@ -59,7 +60,7 @@ export class TicketDetailsModalComponent implements OnInit {
     private authService: AuthService,
     private router: Router,
     private ticketService: TicketManagementService,
-    private messageService: MessageService
+    private messageService: MessageService,
   ) {
     this.statusOptions = [
       { label: 'Aperto', value: TicketStatus.OPEN },
@@ -71,6 +72,7 @@ export class TicketDetailsModalComponent implements OnInit {
   ngOnInit(): void {
     if (this.config.data && this.config.data['ticket']) {
       this.ticket = this.config.data['ticket'];
+      this.isReadOnlyMode = this.config.data['isReadOnly'] || false; 
     } else {
       console.error("TicketDetailsModalComponent: Nessun dato ticket trovato nella configurazione della modale.");
       this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Dati ticket non disponibili.' });
@@ -86,7 +88,11 @@ export class TicketDetailsModalComponent implements OnInit {
 
     if (this.ticket && this.ticket.status) {
       this.selectedStatus = this.ticket.status as TicketStatus;
+      console.log(this.selectedStatus)
     }
+
+    console.log(this.authService.getUserEmail())
+
   }
 
   /**
@@ -97,19 +103,26 @@ export class TicketDetailsModalComponent implements OnInit {
   isFieldReadOnly(fieldName: string): boolean {
     if (!this.ticket) return true;
 
-    // Tutti i campi sono sempre disabilitati per l'utente con ruolo 'USER'
+    if (this.isReadOnlyMode) {
+      return true;
+    }
+
+    // Logica esistente per i ruoli USER (tutti i campi disabilitati)
     if (this.isUserRole) {
       return true;
     }
 
-    // Se il ticket è RISOLTO, il campo 'status' è sempre disabilitato per tutti
+    // Logica esistente per il campo 'status' quando il ticket è RISOLTO
     if (fieldName === 'status' && this.ticket.status === TicketStatus.SOLVED) {
       return true;
     }
 
+    if (fieldName === 'status' && this.ticket.status === TicketStatus.DRAFT && (this.ticket.userEmail !== this.authService.getUserEmail())) {
+      return true;
+    }
+
     // Per ADMIN, PM, Helper:
-    // Solo il campo 'status' può essere modificabile sotto certe condizioni.
-    // Tutti gli altri campi sono disabilitati.
+    // Tutti i campi tranne 'status' sono sempre disabilitati in questa modale.
     if (fieldName !== 'status') {
       return true;
     }
@@ -117,14 +130,15 @@ export class TicketDetailsModalComponent implements OnInit {
     // Logica specifica per il campo 'status' quando non è SOLVED
     if (fieldName === 'status') {
       if (this.isAdminOrPm) {
-        return false;
+        return false; // Admin/PM possono modificare lo stato
       }
       if (this.isHelper) {
+        // Helper può modificare lo stato solo se il ticket è assegnato a lui
         return this.ticket.assignedToId !== this.authService.getUserId();
       }
     }
     
-    return true;
+    return true; // Default: disabilitato
   }
 
   /**
@@ -145,58 +159,69 @@ export class TicketDetailsModalComponent implements OnInit {
   /**
    * Determina se il pulsante "Elimina Ticket" deve essere visualizzato e abilitato.
    * @returns true se il ticket può essere eliminato, false altrimenti.
-   */
+   *//* 
   canDeleteTicket(): boolean {
+    // NUOVO: Se la modale è in modalità di sola lettura, il pulsante è disabilitato.
+    if (this.isReadOnlyMode) {
+      return false;
+    }
+
     if (!this.ticket || !this.ticket.status || this.ticket.status === TicketStatus.SOLVED) {
       return false;
     }
 
     const currentUserId = this.authService.getUserId();
-    const currentUserEmail = this.authService.getUserEmail();
+    // const currentUserEmail = this.authService.getUserEmail(); // Non più usato per isAssociatedByEmail
 
     // Logica per il ruolo USER
     if (this.isUserRole) {
       const isOwner = this.ticket.userId === currentUserId;
-      const isAssociatedByEmail = this.ticket.userEmail === currentUserEmail;
-      return (isOwner || isAssociatedByEmail);
+      // Per USER, possono eliminare solo le proprie bozze
+      return this.ticket.status === TicketStatus.DRAFT && isOwner;
     }
 
     // Logica per i ruoli ADMIN/PM
     if (this.isAdminOrPm) {
-      return true;
+      return true; // Admin/PM possono eliminare qualsiasi ticket non risolto
     }
 
     // Logica per i ruoli HELPER
     if (this.isHelper) {
       const isAssignedToMe = this.ticket.assignedToId === currentUserId;
+      // Helper può eliminare solo ticket assegnati a lui e non risolti
       return isAssignedToMe;
     }
 
     return false;
   }
-
+ */
   /**
    * Metodo per eliminare il ticket.
    */
   deleteTicket(): void {
-    if (this.canDeleteTicket()) {
-      if (confirm('Sei sicuro di voler eliminare questo ticket? Questa azione è irreversibile.')) {
-        if (this.ticket && this.ticket.id) {
-          this.ticketService.deleteTicket({ ticketId: this.ticket.id }).subscribe({
-            next: () => {
-              this.messageService.add({ severity: 'success', summary: 'Successo', detail: 'Ticket eliminato con successo!' });
-              this.ticketDeleted.emit();
-              this.ref.close('Deleted');
-            },
-            error: (err) => {
-              console.error('Errore durante l\'eliminazione del ticket:', err);
-              this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Errore durante l\'eliminazione del ticket: ' + (err.error?.message || err.message) });
-            }
-          });
-        }
-      }
-    } else {
+    if (this.isReadOnlyMode) { // Doppia protezione
+      this.messageService.add({ severity: 'warn', summary: 'Non Autorizzato', detail: 'Non puoi eliminare ticket in modalità di sola lettura.' });
+      return;
+    }
+  /*   if (!this.canDeleteTicket()) {
       this.messageService.add({ severity: 'warn', summary: 'Non Autorizzato', detail: 'Non hai i permessi per eliminare questo ticket.' });
+      return;
+    } */
+
+    if (confirm('Sei sicuro di voler eliminare questo ticket? Questa azione è irreversibile.')) {
+      if (this.ticket && this.ticket.id) {
+        this.ticketService.deleteTicket({ ticketId: this.ticket.id }).subscribe({
+          next: () => {
+            this.messageService.add({ severity: 'success', summary: 'Successo', detail: 'Ticket eliminato con successo!' });
+            this.ticketDeleted.emit(); // Emette l'evento per il padre
+            this.ref.close('Deleted'); // Chiude la modale e indica l'eliminazione
+          },
+          error: (err) => {
+            console.error('Errore durante l\'eliminazione del ticket:', err);
+            this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Errore durante l\'eliminazione del ticket: ' + (err.error?.message || err.message) });
+          }
+        });
+      }
     }
   }
 
@@ -209,7 +234,12 @@ export class TicketDetailsModalComponent implements OnInit {
       return;
     }
 
-    if (this.isFieldReadOnly('status')) {
+    if (this.isReadOnlyMode) { // Doppia protezione
+      this.messageService.add({ severity: 'warn', summary: 'Non Autorizzato', detail: 'Non puoi modificare lo stato in modalità di sola lettura.' });
+      return;
+    }
+
+    if (this.isFieldReadOnly('status')) { // Usa la funzione per controllare i permessi specifici del campo
       this.messageService.add({ severity: 'warn', summary: 'Non Autorizzato', detail: 'Non puoi modificare lo stato di questo ticket.' });
       return;
     }

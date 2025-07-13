@@ -74,17 +74,21 @@ export class NewTicketComponent implements OnInit, OnDestroy {
   currentTicket: TicketResponseDto | null = null;
   
   assignableUsers: UserDto[] = [];
-  usersWithUserRole: UserDto[] = [];
+  usersWithUserRole: UserDto[] = []; //Lista di utenti con ruolo USER per il dropdown dell'email
 
   isSaving = false;
+  disableAutoSaveAfterEmailChange = false; // lag per disabilitare l'auto-salvataggio dopo il cambio email
+  isUserOwnerSelected = false; //Indica se l'email selezionata è di un utente USER
 
   private destroy$ = new Subject<void>();
   private currentUserId = '';
   private formSubscription: Subscription | undefined;
+  private currentUserEmail = '';
 
   public isUserRole = false;
   public isHelperOrPmRole = false;
   public isAdminRole = false;
+  public isAdminOrPmRole = false;
 
   public UserRole = UserRole;
   public TicketStatus = TicketStatus;
@@ -115,8 +119,8 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       supportServiceId: [null, Validators.required],
       priority: [TicketPriority.MEDIUM, Validators.required],
       email: ['', [Validators.required, Validators.email]], 
-      fiscalCode: [''],
-      phoneNumber: [''],
+      fiscalCode: ['',Validators.required],
+      phoneNumber: ['',Validators.required],
       assignedToId: [null]
     });
 
@@ -135,17 +139,18 @@ export class NewTicketComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.currentUserId = this.authService.getUserId();
+    this.currentUserEmail = this.authService.getUserEmail();
     this.isUserRole = this.authService.isUser();
     this.isHelperOrPmRole = this.authService.isHelperOrPm();
     this.isAdminRole = this.authService.isAdmin();
+    this.isAdminOrPmRole = this.authService.isAdminOrPm();
 
-    console.log('NGONINIT: ticketId=', this.ticketId, 'isEditMode=', this.isEditMode, 'isDraft=', this.isDraft);
-
+    console.log('NGONINIT: ticketId=', this.ticketId, 'isEditMode=', this.isEditMode, 'isDraft=', this.isDraft, 'isReadOnly=', this.isReadOnly);
 
     this.loadCategories();
     this.loadAllSupportServices();
     this.loadAssignableUsers();
-    this.loadUsersWithUserRole();
+    this.loadUsersWithUserRole(); 
 
     if (!this.ticketId && !this.config?.data?.ticketId) {
       const routeSnapshot = this.route.snapshot;
@@ -156,6 +161,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       if (typeof idFromQueryParams === 'number' && idFromQueryParams !== null) {
         this.ticketId = idFromQueryParams;
         this.isEditMode = true;
+        this.isReadOnly = false; 
         this.loadTicketDetails(this.ticketId!);
       } else {
         this.initializeNewTicketForm();
@@ -173,7 +179,6 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Modificata la condizione per l'auto-salvataggio
     if (!this.isReadOnly && (this.isUserRole || this.isHelperOrPmRole || this.isAdminRole)) {
       this.setupAutoSave();
     }
@@ -182,6 +187,14 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$)
     ).subscribe(selectedCategoryId => {
       this.onCategoryChange(selectedCategoryId);
+    });
+
+    this.ticketForm.get('email')?.valueChanges.pipe(
+      takeUntil(this.destroy$),
+      filter(() => !this.isUserRole && !this.isReadOnly), 
+      distinctUntilChanged() 
+    ).subscribe(newEmail => {
+      this.onEmailFieldChange(newEmail);
     });
   }
 
@@ -202,7 +215,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
   /**
    * Inizializza il form per un nuovo ticket.
    * Pre-compila l'email, codice fiscale e numero di telefono dell'utente corrente se è un USER.
-   * Queste informazioni vengono recuperate dal backend tramite UserManagementService.getMe().
+   * Per Admin/Helper/PM, pre-compila l'email con la propria e abilita la modifica.
    */
   initializeNewTicketForm(): void {
     console.log('initializeNewTicketForm called: Resetting form state.');
@@ -211,8 +224,13 @@ export class NewTicketComponent implements OnInit, OnDestroy {
     this.isReadOnly = false;
     this.ticketId = null;
     this.currentTicket = null;
+    this.disableAutoSaveAfterEmailChange = false; 
+    this.isUserOwnerSelected = false; // Inizialmente false per Admin/PM/Helper
     this.ticketForm.reset(); 
-    this.ticketForm.enable();
+    this.ticketForm.enable(); 
+
+    this.ticketForm.get('email')?.setValidators([Validators.required, Validators.email]);
+    this.ticketForm.get('assignedToId')?.clearValidators(); 
 
     if (this.isUserRole) {
       this.userService.getMe().pipe(
@@ -228,14 +246,29 @@ export class NewTicketComponent implements OnInit, OnDestroy {
           fiscalCode: userProfile?.fiscalCode || '', 
           phoneNumber: userProfile?.phoneNumber || '' 
         });
-        this.ticketForm.get('email')?.disable();
+        this.ticketForm.get('email')?.disable(); 
+        this.ticketForm.get('email')?.clearValidators(); 
+        this.ticketForm.get('email')?.updateValueAndValidity();
+        this.isUserOwnerSelected = true; // Per USER, l'owner è sempre un USER
       });
-    } else {
-      this.ticketForm.get('email')?.enable();
+    } else { // Admin/PM/Helper
+      this.ticketForm.patchValue({
+        email: this.currentUserEmail, 
+        fiscalCode: '',
+        phoneNumber: ''
+      });
+      this.ticketForm.get('email')?.enable(); 
+      // All'inizio, l'email è quella dell'Admin/PM/Helper, quindi isUserOwnerSelected è false
+      this.isUserOwnerSelected = false; 
+      // Disabilita i campi dettagli proprietario e assegnatario inizialmente
+      this.ticketForm.get('fiscalCode')?.disable();
+      this.ticketForm.get('phoneNumber')?.disable();
+      this.ticketForm.get('assignedToId')?.disable();
     }
     this.ticketForm.get('priority')?.setValue(TicketPriority.MEDIUM);
     this.ticketForm.get('assignedToId')?.setValue(null);
     this.filteredSupportServices = [];
+    this.ticketForm.updateValueAndValidity(); 
   }
 
   /**
@@ -246,7 +279,9 @@ export class NewTicketComponent implements OnInit, OnDestroy {
     console.log('loadTicketDetails called for ID:', id);
     this.ticketId = id;
     this.isEditMode = true;
-    
+    this.disableAutoSaveAfterEmailChange = false; 
+    this.isUserOwnerSelected = false; // Reset iniziale
+
     this.ticketService.getTicketDetails({ ticketId: id }).pipe(
       takeUntil(this.destroy$),
       catchError(err => {
@@ -265,11 +300,51 @@ export class NewTicketComponent implements OnInit, OnDestroy {
           this.currentTicket = ticket;
           this.isDraft = ticket.status === TicketStatus.DRAFT;
 
-          this.isReadOnly = this.determineReadOnlyStatus(ticket);
-          if (this.isReadOnly) {
-            this.ticketForm.disable();
+          if (this.config && typeof this.config.data.isReadOnly === 'boolean') {
+            this.isReadOnly = this.config.data.isReadOnly;
           } else {
-            this.ticketForm.enable();
+            this.isReadOnly = this.determineReadOnlyStatus(ticket);
+          }
+          
+          if (this.isReadOnly) {
+            this.ticketForm.disable(); 
+            this.ticketForm.get('email')?.clearValidators(); 
+            this.ticketForm.get('assignedToId')?.clearValidators(); 
+            this.isUserOwnerSelected = false; // Se readOnly, i campi dettagli proprietario sono disabilitati
+          } else {
+            this.ticketForm.enable(); 
+            if (this.isUserRole) {
+              this.ticketForm.get('email')?.disable(); 
+              this.ticketForm.get('email')?.clearValidators(); 
+              this.ticketForm.get('assignedToId')?.clearValidators(); 
+              this.isUserOwnerSelected = true; // Per USER, l'owner è sempre un USER
+            } else { // Admin/PM/Helper
+              this.ticketForm.get('email')?.enable(); 
+              this.ticketForm.get('email')?.setValidators([Validators.required, Validators.email]); 
+              
+              // Determina isUserOwnerSelected basandosi sull'email del ticket caricato
+              const ownerUserDto = this.usersWithUserRole.find(u => u.email === ticket.userEmail);
+              this.isUserOwnerSelected = ownerUserDto?.role?.includes(UserRole.USER) || false;
+
+              // Abilita/disabilita i campi dettagli proprietario e assegnatario in base a isUserOwnerSelected
+              if (this.isUserOwnerSelected) {
+                this.ticketForm.get('fiscalCode')?.enable();
+                this.ticketForm.get('phoneNumber')?.enable();
+                // Assegnatario abilitato solo se non è una bozza
+                if (!this.isDraft) {
+                  this.ticketForm.get('assignedToId')?.enable();
+                  this.ticketForm.get('assignedToId')?.setValidators(Validators.required);
+                } else {
+                  this.ticketForm.get('assignedToId')?.disable();
+                  this.ticketForm.get('assignedToId')?.clearValidators();
+                }
+              } else {
+                this.ticketForm.get('fiscalCode')?.disable();
+                this.ticketForm.get('phoneNumber')?.disable();
+                this.ticketForm.get('assignedToId')?.disable();
+                this.ticketForm.get('assignedToId')?.clearValidators();
+              }
+            }
           }
 
           this.ticketForm.patchValue({
@@ -277,7 +352,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
             description: ticket.description,
             categoryId: ticket.categoryId,
             priority: ticket.priority,
-            email: ticket.userEmail,
+            email: ticket.userEmail, 
             fiscalCode: ticket.userFiscalCode,
             phoneNumber: ticket.userPhoneNumber,
             assignedToId: ticket.assignedToId
@@ -287,16 +362,12 @@ export class NewTicketComponent implements OnInit, OnDestroy {
             this.ticketForm.get('supportServiceId')?.setValue(ticket.supportServiceId);
           });
 
-          // Gestione del campo email dopo il caricamento
-          if (this.isUserRole && (ticket.userId === this.currentUserId || ticket.userEmail === this.authService.getUserEmail())) {
-            this.ticketForm.get('email')?.disable();
-          } else if (this.isAdminRole || this.isHelperOrPmRole) {
-            // Se Admin/Helper/PM caricano un ticket, l'email deve essere selezionabile dal dropdown
-            this.ticketForm.get('email')?.enable();
-          } else {
-            this.ticketForm.get('email')?.disable(); // Per altri ruoli o se readOnly
+          if (this.isDraft && (this.isAdminOrPmRole || this.isHelperOrPmRole) && ticket.userEmail !== this.currentUserEmail) {
+            this.disableAutoSaveAfterEmailChange = true;
+            this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'L\'auto-salvataggio è disabilitato perché il proprietario del ticket è un altro utente. Finalizza per salvare le modifiche.' });
           }
-          console.log('loadTicketDetails: Ticket loaded. ticketId=', this.ticketId, 'isEditMode=', this.isEditMode, 'isDraft=', this.isDraft);
+          this.ticketForm.updateValueAndValidity(); 
+          console.log('loadTicketDetails: Ticket loaded. ticketId=', this.ticketId, 'isEditMode=', this.isEditMode, 'isDraft=', this.isDraft, 'isReadOnly=', this.isReadOnly);
         }
       }
     });
@@ -304,21 +375,74 @@ export class NewTicketComponent implements OnInit, OnDestroy {
 
   /**
    * Determina se il form deve essere in sola lettura in base al ruolo e allo stato del ticket.
+   * Questa logica viene usata se isReadOnly non è esplicitamente passato dalla config.
    * @param ticket Il DTO del ticket.
    * @returns True se il form deve essere in sola lettura, false altrimenti.
    */
   private determineReadOnlyStatus(ticket: TicketResponseDto): boolean {
-    if (this.isAdminRole || this.isHelperOrPmRole) {
-      // NUOVO: Se Admin/PM/Helper visualizzano una bozza NON loro, è read-only.
-      if (ticket.status === TicketStatus.DRAFT && ticket.userId !== this.currentUserId) {
+    const isOwner = ticket.userId === this.currentUserId;
+
+    if (this.isAdminOrPmRole || this.isHelperOrPmRole) {
+      if ((ticket.status === TicketStatus.DRAFT && !isOwner) || ticket.status === TicketStatus.SOLVED) {
         return true;
       }
-      return ticket.status === TicketStatus.SOLVED;
+      return false; 
     } else if (this.isUserRole) {
-      const isOwner = ticket.userId === this.currentUserId;
       return !(ticket.status === TicketStatus.DRAFT && isOwner);
     }
-    return true;
+    return true; 
+  }
+
+  /**
+   * Listener per il cambio del valore nel campo email.
+   * Abilita/Disabilita l'auto-salvataggio e i campi dettagli proprietario in base al proprietario.
+   * @param newEmail La nuova email selezionata/inserita.
+   */
+  onEmailFieldChange(newEmail: string): void {
+    if (this.isUserRole || this.isReadOnly) {
+      return; 
+    }
+
+    // Trova l'utente selezionato dalla lista degli utenti USER
+    const selectedUser = this.usersWithUserRole.find(u => u.email === newEmail);
+    // Imposta isUserOwnerSelected in base al ruolo dell'utente selezionato
+    this.isUserOwnerSelected = selectedUser?.role?.includes(UserRole.USER) || false;
+
+    // Logica per disabilitare auto-salvataggio
+    if ((this.isAdminOrPmRole || this.isHelperOrPmRole) && this.isDraft && newEmail !== this.currentUserEmail) {
+      this.disableAutoSaveAfterEmailChange = true;
+      this.messageService.add({ severity: 'warn', summary: 'Auto-salvataggio Disabilitato', detail: 'Il proprietario del ticket è stato cambiato. L\'auto-salvataggio è disabilitato. Finalizza il ticket per salvare le modifiche.' });
+    } else {
+      this.disableAutoSaveAfterEmailChange = false;
+    }
+
+    // Logica per abilitare/disabilitare campi dettagli proprietario e assegnatario
+    if (this.isUserOwnerSelected) {
+      this.ticketForm.get('fiscalCode')?.enable();
+      this.ticketForm.get('phoneNumber')?.enable();
+      // Assegnatario abilitato solo se non è una bozza
+      if (!this.isDraft) {
+        this.ticketForm.get('assignedToId')?.enable();
+        this.ticketForm.get('assignedToId')?.setValidators(Validators.required);
+      } else {
+        this.ticketForm.get('assignedToId')?.disable();
+        this.ticketForm.get('assignedToId')?.clearValidators();
+      }
+    } else {
+      // Se l'email selezionata non è di un USER o è la propria (Admin/PM/Helper)
+      // Disabilita i campi e pulisci i loro valori se non sono già disabilitati globalmente
+      if (!this.isReadOnly) {
+        this.ticketForm.get('fiscalCode')?.disable();
+        this.ticketForm.get('fiscalCode')?.setValue(''); // Pulisci il valore
+        this.ticketForm.get('phoneNumber')?.disable();
+        this.ticketForm.get('phoneNumber')?.setValue(''); // Pulisci il valore
+        this.ticketForm.get('assignedToId')?.disable();
+        this.ticketForm.get('assignedToId')?.clearValidators(); // Rimuovi validatori
+        this.ticketForm.get('assignedToId')?.setValue(null); // Pulisci il valore
+      }
+    }
+    this.ticketForm.get('assignedToId')?.updateValueAndValidity(); // Forza ricalcolo validità assegnatario
+    this.ticketForm.updateValueAndValidity(); // Forza ricalcolo validità del form
   }
 
   /**
@@ -334,7 +458,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)),
       takeUntil(this.destroy$)
     ).subscribe(() => {
-      if (!this.isReadOnly && !this.isSaving) { // La condizione sul ruolo è ora gestita da ngOnInit
+      if (!this.isReadOnly && !this.isSaving && !this.disableAutoSaveAfterEmailChange) {
         this.autoSaveDraft();
       }
     });
@@ -344,8 +468,8 @@ export class NewTicketComponent implements OnInit, OnDestroy {
    * Salva automaticamente il ticket come bozza.
    */
   autoSaveDraft(): void {
-    if (this.isSaving) {
-      console.log('autoSaveDraft: Save already in progress, skipping.');
+    if (this.isSaving || this.disableAutoSaveAfterEmailChange) {
+      console.log('autoSaveDraft: Save already in progress or auto-save disabled, skipping.');
       return;
     }
     this.isSaving = true;
@@ -450,7 +574,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
    * Utilizzato per il dropdown di selezione email per Admin/PM/Helper.
    */
   loadUsersWithUserRole(): void {
-    if (this.isAdminRole || this.isHelperOrPmRole) {
+    if (this.isAdminOrPmRole || this.isHelperOrPmRole) {
       this.userService.getUsersByRole({ roleName: UserRole.USER }).pipe(
         takeUntil(this.destroy$),
         catchError(err => {
@@ -517,11 +641,6 @@ export class NewTicketComponent implements OnInit, OnDestroy {
    * @returns True se il form è valido, false altrimenti.
    */
   isFormValidForFinalization(): boolean {
-    if (!this.isUserRole && !this.isDraft && !this.ticketForm.get('assignedToId')?.value) {
-      this.ticketForm.get('assignedToId')?.setErrors({ required: true });
-    } else {
-      this.ticketForm.get('assignedToId')?.setErrors(null);
-    }
     return this.ticketForm.valid;
   }
 
@@ -605,6 +724,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
 
   /**
    * Apre la modale per selezionare una bozza esistente.
+   * Ora filtra per le bozze dell'utente corrente, indipendentemente dal ruolo.
    */
   openDraftSelectionModal(): void {
     this.refDraftSelection = this.dialogService.open(TicketListComponent, {
@@ -615,7 +735,8 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       baseZIndex: 10000,
       data: {
         filterStatus: TicketStatus.DRAFT, 
-        isModalSelection: true 
+        isModalSelection: true,
+        filterOwnerId: this.currentUserId // Filtra per l'ID dell'utente corrente
       }
     });
 

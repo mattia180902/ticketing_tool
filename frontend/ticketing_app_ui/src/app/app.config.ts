@@ -3,10 +3,10 @@ import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 import { HttpClientModule, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { KeycloakService } from './utils/keycloak/keycloak.service';
-import { keycloakHttpInterceptor } from './utils/http/keycloak-http.interceptor';
 import { BrowserAnimationsModule, provideAnimations } from '@angular/platform-browser/animations';
 import { DialogService, DynamicDialogModule } from 'primeng/dynamicdialog';
 import { ConfirmationService, MessageService } from 'primeng/api';
+import { keycloakHttpInterceptor } from './utils/http/keycloak-http.interceptor';
 
 
 

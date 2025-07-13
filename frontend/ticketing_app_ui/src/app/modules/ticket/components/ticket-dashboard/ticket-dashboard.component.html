@@ -106,9 +106,9 @@
               <button
                 pButton
                 type="button"
-                [label]="ticket.status === TicketStatus.DRAFT && hasRole(UserRole.USER) && ticket.userId === authService.getUserId() ? 'Modifica' : 'Dettagli'"
-                [icon]="ticket.status === TicketStatus.DRAFT && hasRole(UserRole.USER) && ticket.userId === authService.getUserId() ? 'pi pi-pencil' : 'pi pi-eye'"
-                [class]="ticket.status === TicketStatus.DRAFT && hasRole(UserRole.USER) && ticket.userId === authService.getUserId() ? 'p-button-primary' : 'p-button-info'"
+                [label]="ticket.status === TicketStatus.DRAFT  && ticket.userId === authService.getUserId() ? 'Modifica' : 'Dettagli'"
+                [icon]="ticket.status === TicketStatus.DRAFT  && ticket.userId === authService.getUserId() ? 'pi pi-pencil' : 'pi pi-eye'"
+                [class]="ticket.status === TicketStatus.DRAFT  && ticket.userId === authService.getUserId() ? 'p-button-primary' : 'p-button-info'"
                 class="p-button-sm"
                 (click)="handleRecentTicketDetails(ticket)"
               ></button>

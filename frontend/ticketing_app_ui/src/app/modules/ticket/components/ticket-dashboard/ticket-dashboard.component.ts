@@ -250,7 +250,7 @@ export class TicketDashboardComponent implements OnInit, OnDestroy {
   handleRecentTicketDetails(ticket: TicketResponseDto): void {
     const isOwner = ticket.userId === this.authService.getUserId();
     
-    if (this.authService.isUser() && ticket.status === TicketStatus.DRAFT && isOwner) {
+    if (ticket.status === TicketStatus.DRAFT && isOwner) {
       this.openDraftEditModal(ticket.id!); // Usa il nuovo metodo per aprire la modale di modifica bozza
     } else {
       this.openTicketDetailsModal(ticket);

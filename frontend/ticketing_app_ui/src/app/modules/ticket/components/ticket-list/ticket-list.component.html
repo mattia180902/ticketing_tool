@@ -1,13 +1,10 @@
 <!-- eslint-disable @angular-eslint/template/elements-content -->
-<!-- src/app/modules/ticket/components/ticket-list/ticket-list.component.html -->
-
 <p-toast></p-toast>
 <p-confirmDialog></p-confirmDialog>
 
 <div class="ticket-list-container p-fluid">
   <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-6 text-center">Lista Ticket</h1>
 
-  <!-- Includi il nuovo componente per i filtri -->
   <app-ticket-filter
     [initialStatusFilter]="initialFilterStatusForChild"
     [initialPriorityFilter]="initialFilterPriorityForChild"
@@ -37,7 +34,8 @@
         <th>Stato</th>
         <th>Priorità</th>
         <th>Servizio</th>
-        <th>Proprietario</th>
+        <th>Creato da</th>
+        <th>Intestato a</th>
         <th>Assegnato a</th>
         <th>Creato il</th>
         <th>Azioni</th>
@@ -56,7 +54,8 @@
         </td>
         <td>{{ ticket.priority }}</td>
         <td>{{ ticket.supportServiceName || 'N/A' }}</td>
-        <td>{{ ticket.userFirstName }} {{ ticket.userLastName }} ({{ ticket.userEmail }})</td>
+        <td>{{ ticket.userFirstName }} {{ ticket.userLastName }}</td>
+        <td>{{ ticket.userEmail}}</td>
         <td>{{ ticket.assignedToName || 'N/A' }}</td>
         <td>{{ ticket.createdOn | date:'dd/MM/yyyy HH:mm' }}</td>
         <td>
@@ -68,21 +67,32 @@
               label="Carica"
               icon="pi pi-download"
               class="p-button-success p-button-sm"
-              (click)="handleRowDetails(ticket)"
-              *ngIf="isModalSelectionMode && ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId()"
+              (click)="handleTicketAction(ticket)"
+              *ngIf="isModalSelectionMode && ticket.status === TicketStatus.DRAFT && isTicketOwner(ticket)"
             ></button>
 
             <!-- Pulsanti standard (non in modalità selezione bozza) -->
             <ng-container *ngIf="!isModalSelectionMode">
-              <!-- Pulsante Dettagli/Modifica (ora apre DraftEditComponent per bozze) -->
+              <!-- Pulsante Modifica (per bozze proprie di qualsiasi ruolo) -->
               <button
                 pButton
                 type="button"
-                [label]="ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId() ? 'Modifica' : 'Dettagli'"
-                [icon]="ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId() ? 'pi pi-pencil' : 'pi pi-eye'"
-                [class]="ticket.status === TicketStatus.DRAFT && authService.isUser() && ticket.userId === authService.getUserId() ? 'p-button-primary' : 'p-button-info'"
-                class="p-button-sm"
-                (click)="handleRowDetails(ticket)"
+                label="Modifica"
+                icon="pi pi-pencil"
+                class="p-button-primary p-button-sm"
+                (click)="handleTicketAction(ticket)"
+                *ngIf="showEditButton(ticket)"
+              ></button>
+
+              <!-- Pulsante Dettagli (per tutti gli altri ticket non modificabili direttamente da questo pulsante) -->
+              <button
+                pButton
+                type="button"
+                label="Dettagli"
+                icon="pi pi-eye"
+                class="p-button-info p-button-sm"
+                (click)="handleTicketAction(ticket)"
+                *ngIf="showDetailsButton(ticket)"
               ></button>
 
               <!-- Pulsante Accetta -->
@@ -129,6 +139,17 @@
                 *ngIf="showSolveButton(ticket)"
               ></button>
 
+              <!-- Pulsante Assegna (solo per Admin/PM) -->
+              <button
+                pButton
+                type="button"
+                label="Assegna"
+                icon="pi pi-user-plus"
+                class="p-button-secondary p-button-sm"
+                (click)="showAssignButton(ticket)"
+                *ngIf="showAssignButton(ticket)"
+              ></button>
+
               <!-- Pulsante Elimina -->
               <button
                 pButton
@@ -146,7 +167,7 @@
     </ng-template>
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td [attr.colspan]="8">Nessun ticket trovato con i filtri selezionati.</td>
+        <td [attr.colspan]="9">Nessun ticket trovato con i filtri selezionati.</td>
       </tr>
     </ng-template>
   </p-table>

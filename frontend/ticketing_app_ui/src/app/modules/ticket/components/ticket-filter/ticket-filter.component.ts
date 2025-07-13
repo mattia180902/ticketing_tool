@@ -136,7 +136,13 @@ export class TicketFilterComponent implements OnInit, OnDestroy {
    * Resetta tutti i filtri e notifica il componente padre.
    */
   clearFilters(): void {
-    this.selectedStatusFilter = 'ALL';
+    // Se il filtro di stato è disabilitato, mantiene il suo valore iniziale.
+    // Altrimenti, lo resetta a 'ALL'.
+    if (this.disableStatusFilter) {
+      this.selectedStatusFilter = this.initialStatusFilter;
+    } else {
+      this.selectedStatusFilter = 'ALL';
+    }
     this.selectedPriorityFilter = 'ALL';
     this.searchTerm = '';
     this.searchFormControl.setValue('', { emitEvent: false }); // Resetta FormControl senza innescare l'evento

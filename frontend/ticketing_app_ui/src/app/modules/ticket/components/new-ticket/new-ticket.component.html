@@ -1,17 +1,35 @@
 <!-- eslint-disable @angular-eslint/template/elements-content -->
+
 <p-toast></p-toast>
 <p-confirmDialog></p-confirmDialog>
 
 <div class="new-ticket-container">
-  <p-card [header]="isEditMode ? (isDraft ? 'Modifica Bozza' : 'Dettagli Ticket') : 'Crea Nuovo Ticket'">
+  <p-card
+    [header]="
+      isEditMode
+        ? isDraft
+          ? 'Modifica Bozza'
+          : 'Dettagli Ticket'
+        : 'Crea Nuovo Ticket'
+    "
+  >
     <form [formGroup]="ticketForm" (ngSubmit)="finalizeTicket()">
       <div class="p-fluid grid">
         <!-- Titolo -->
         <div class="field col-12">
           <label for="title">Oggetto</label>
-          <input id="title" type="text" pInputText formControlName="title" />
+          <input
+            id="title"
+            type="text"
+            pInputText
+            formControlName="title"
+            [readOnly]="isReadOnly"
+          />
           <small
-            *ngIf="ticketForm.get('title')?.invalid && ticketForm.get('title')?.touched"
+            *ngIf="
+              ticketForm.get('title')?.invalid &&
+              ticketForm.get('title')?.touched
+            "
             class="p-error"
             >L'oggetto è obbligatorio.</small
           >
@@ -25,9 +43,13 @@
             rows="5"
             pInputTextarea
             formControlName="description"
+            [disabled]="isReadOnly"
           ></textarea>
           <small
-            *ngIf="ticketForm.get('description')?.invalid && ticketForm.get('description')?.touched"
+            *ngIf="
+              ticketForm.get('description')?.invalid &&
+              ticketForm.get('description')?.touched
+            "
             class="p-error"
             >La descrizione è obbligatoria.</small
           >
@@ -45,9 +67,13 @@
             placeholder="Seleziona una categoria"
             [filter]="true"
             filterBy="name"
+            [disabled]="isReadOnly"
           ></p-dropdown>
           <small
-            *ngIf="ticketForm.get('categoryId')?.invalid && ticketForm.get('categoryId')?.touched"
+            *ngIf="
+              ticketForm.get('categoryId')?.invalid &&
+              ticketForm.get('categoryId')?.touched
+            "
             class="p-error"
             >La categoria è obbligatoria.</small
           >
@@ -68,7 +94,10 @@
             [disabled]="!ticketForm.get('categoryId')?.value || isReadOnly"
           ></p-dropdown>
           <small
-            *ngIf="ticketForm.get('supportServiceId')?.invalid && ticketForm.get('supportServiceId')?.touched"
+            *ngIf="
+              ticketForm.get('supportServiceId')?.invalid &&
+              ticketForm.get('supportServiceId')?.touched
+            "
             class="p-error"
             >Il servizio di supporto è obbligatorio.</small
           >
@@ -85,25 +114,40 @@
             [disabled]="isReadOnly"
           ></p-dropdown>
           <small
-            *ngIf="ticketForm.get('priority')?.invalid && ticketForm.get('priority')?.touched"
+            *ngIf="
+              ticketForm.get('priority')?.invalid &&
+              ticketForm.get('priority')?.touched
+            "
             class="p-error"
             >La priorità è obbligatoria.</small
           >
         </div>
 
-        <!-- Email (Condizionale: Input per USER, Dropdown per Admin/PM/Helper) -->
+        <!-- Email (Condizionale: Input per USER o ReadOnly, Dropdown per Admin/PM/Helper) -->
         <div class="field col-12 md:col-6">
-          <ng-container *ngIf="isUserRole; else adminHelperPmEmailInput">
-            <label for="email">Email</label>
-            <input id="email" type="email" pInputText formControlName="email" [readOnly]="isReadOnly" />
+          <!-- Se USER o in modalità sola lettura, mostra un input disabilitato -->
+          <ng-container *ngIf="isUserRole || isReadOnly">
+            <label for="email">Email Proprietario</label>
+            <input
+              id="email"
+              type="email"
+              pInputText
+              formControlName="email"
+              [readOnly]="true"
+              [disabled]="true"
+            />
             <small
-              *ngIf="ticketForm.get('email')?.invalid && ticketForm.get('email')?.touched"
+              *ngIf="
+                ticketForm.get('email')?.invalid &&
+                ticketForm.get('email')?.touched
+              "
               class="p-error"
               >Inserisci un'email valida.</small
             >
           </ng-container>
-          <ng-template #adminHelperPmEmailInput>
-            <label for="userEmailSelect">Email Utente</label>
+          <!-- Se Admin/Helper/PM e non in sola lettura, mostra un dropdown -->
+          <ng-container *ngIf="!isUserRole && !isReadOnly">
+            <label for="userEmailSelect">Email Proprietario</label>
             <p-dropdown
               id="userEmailSelect"
               [options]="usersWithUserRole"
@@ -113,17 +157,21 @@
               placeholder="Seleziona l'email dell'utente"
               [filter]="true"
               filterBy="email"
-              [disabled]="isReadOnly"
               [showClear]="true"
+              (onChange)="onEmailFieldChange($event.value)"
             ></p-dropdown>
             <small
-              *ngIf="ticketForm.get('email')?.invalid && ticketForm.get('email')?.touched"
+              *ngIf="
+                ticketForm.get('email')?.invalid &&
+                ticketForm.get('email')?.touched
+              "
               class="p-error"
-              >L'email dell'utente è obbligatoria.</small>
-          </ng-template>
+              >L'email del proprietario è obbligatoria.</small
+            >
+          </ng-container>
         </div>
 
-        <!-- Codice Fiscale -->
+        <!-- Codice Fiscale - Abilitato solo se isUserOwnerSelected è true (per Admin/PM/Helper) o se è un USER -->
         <div class="field col-12 md:col-6">
           <label for="fiscalCode">Codice Fiscale</label>
           <input
@@ -132,10 +180,11 @@
             pInputText
             formControlName="fiscalCode"
             [readOnly]="isReadOnly"
+            [disabled]="isReadOnly || (!isUserRole && !isUserOwnerSelected)"
           />
         </div>
 
-        <!-- Numero di Telefono -->
+        <!-- Numero di Telefono - Abilitato solo se isUserOwnerSelected è true (per Admin/PM/Helper) o se è un USER -->
         <div class="field col-12 md:col-6">
           <label for="phoneNumber">Numero di Telefono</label>
           <input
@@ -143,12 +192,16 @@
             type="text"
             pInputText
             formControlName="phoneNumber"
-            [readOnly]="isReadOnly"
+            [disabled]="isReadOnly"
+            [disabled]="isReadOnly || (!isUserRole && !isUserOwnerSelected)"
           />
         </div>
 
-        <!-- Assegnato a (visibile solo per Helper, PM, Admin) -->
-        <div class="field col-12 md:col-6" *ngIf="isHelperOrPmRole || isAdminRole">
+        <!-- Assegnato a (visibile solo per Helper, PM, Admin) - Abilitato solo se isUserOwnerSelected è true e non è una bozza -->
+        <div
+          class="field col-12 md:col-6"
+          *ngIf="isHelperOrPmRole || isAdminOrPmRole"
+        >
           <label for="assignedTo">Assegnato a</label>
           <p-dropdown
             id="assignedTo"
@@ -160,17 +213,32 @@
             [filter]="true"
             filterBy="fullName"
             [showClear]="true"
-            [disabled]="isReadOnly"
-          ></p-dropdown>
+            [disabled]="
+              isReadOnly ||
+              (!isUserOwnerSelected && isDraft) ||
+              (!isUserOwnerSelected && !isDraft) ||
+              (isDraft && !isUserOwnerSelected)
+            "
+          >
+            <!-- Logica di disabilitazione per assegnatario: -->
+            <!-- 1. Se isReadOnly è true (sempre disabilitato) -->
+            <!-- 2. Se NON è un USER e isUserOwnerSelected è FALSE (cioè l'owner è Admin/PM/Helper stesso) -->
+            <!--    allora è disabilitato, indipendentemente dallo stato della bozza. -->
+            <!--    Questo copre sia le nuove bozze che le bozze proprie modificate. -->
+          </p-dropdown>
           <small
-            *ngIf="ticketForm.get('assignedToId')?.invalid && ticketForm.get('assignedToId')?.touched"
+            *ngIf="
+              ticketForm.get('assignedToId')?.invalid &&
+              ticketForm.get('assignedToId')?.touched
+            "
             class="p-error"
-            >L'assegnatario è obbligatorio per i ticket non bozza.</small>
+            >L'assegnatario è obbligatorio per i ticket non bozza.</small
+          >
         </div>
       </div>
 
       <div class="flex justify-content-end gap-2 mt-4">
-        <!-- Pulsante "Carica Bozza" - visibile solo per USER quando non in modifica e non in sola lettura -->
+        <!-- Pulsante "Carica Bozza" - visibile quando non in modifica e non in sola lettura -->
         <button
           pButton
           type="button"
@@ -178,7 +246,7 @@
           icon="pi pi-folder-open"
           class="p-button-secondary load-draft-button"
           (click)="openDraftSelectionModal()"
-          *ngIf="isUserRole && !isEditMode && !isReadOnly"
+          *ngIf="!isEditMode && !isReadOnly"
           [disabled]="isSaving"
         ></button>
 
@@ -194,27 +262,25 @@
           [disabled]="isSaving"
         ></button>
 
-        <!-- Pulsante "Crea Ticket" / "Finalizza Bozza" / "Salva Modifiche" -->
+        <!-- Pulsante "Finalizza Ticket" (o "Salva Modifiche" o "Crea Ticket") -->
         <button
           pButton
           type="submit"
-          [label]="isDraft ? 'Finalizza Bozza' : (isEditMode ? 'Salva Modifiche' : 'Crea Ticket')"
-          [icon]="isDraft ? 'pi pi-check' : (isEditMode ? 'pi pi-save' : 'pi pi-plus')"
-          [disabled]="ticketForm.invalid || isReadOnly || isSaving"
-          [class]="isEditMode && !isDraft ? 'p-button-primary' : 'p-button-success'"
+          [label]="
+            isDraft
+              ? 'Finalizza Bozza in Ticket'
+              : isEditMode
+              ? 'Salva Modifiche'
+              : 'Crea Ticket'
+          "
+          [icon]="
+            isDraft ? 'pi pi-check' : isEditMode ? 'pi pi-save' : 'pi pi-plus'
+          "
+          [disabled]="isReadOnly || isSaving || !isFormValidForFinalization()"
+          [class]="
+            isEditMode && !isDraft ? 'p-button-primary' : 'p-button-success'
+          "
           *ngIf="!isReadOnly"
-        ></button>
-
-        <!-- Pulsante "Chiudi" (solo se in modalità modale) -->
-        <button
-          pButton
-          type="button"
-          label="Chiudi"
-          icon="pi pi-times"
-          class="p-button-text p-button-secondary"
-          (click)="ref.close()"
-          *ngIf="ref"
-          [disabled]="isSaving"
         ></button>
       </div>
     </form>
