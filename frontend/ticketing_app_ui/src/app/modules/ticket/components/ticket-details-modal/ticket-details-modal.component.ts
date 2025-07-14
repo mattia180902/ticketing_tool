@@ -114,9 +114,9 @@ export class TicketDetailsModalComponent implements OnInit {
     const isAssociatedByEmail = this.ticket.userEmail == currentUserEmail;
     const isSolved = this.ticket.status === TicketStatus.SOLVED;
 
-    // Se il ticket è SOLVED, NON può essere eliminato da questa modale.
+    // Se il ticket è SOLVED, può essere eliminato da questa modale.
     if (isSolved) {
-      return false;
+      return true;
     }
 
     // Altre regole per i ticket NON SOLVED:

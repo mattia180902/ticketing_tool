@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable prefer-const */
-// src/app/modules/ticket/components/draft-edit/draft-edit.component.ts
 
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -78,9 +77,9 @@ export class DraftEditComponent implements OnInit, OnDestroy {
   isUserOwnerSelected = false; 
 
   private destroy$ = new Subject<void>();
-  private currentUserId = '';
   private formSubscription: Subscription | undefined;
-  private currentUserEmail = ''; 
+  private currentUserId = '';
+  private autoSaveMessageShown = false; //Flag per tracciare il messaggio di auto-salvataggio
 
   public isUserRole = false;
   public isHelperOrPmRole = false;
@@ -128,7 +127,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.currentUserId = this.authService.getUserId();
-    this.currentUserEmail = this.authService.getUserEmail(); 
     this.isUserRole = this.authService.isUser();
     this.isHelperOrPmRole = this.authService.isHelperOrPm();
     this.isAdminRole = this.authService.isAdmin();
@@ -167,7 +165,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       }
 
       // Configura l'auto-salvataggio solo dopo il caricamento iniziale e se non è readOnly
-      // La logica di disableAutoSaveAfterEmailChange sarà impostata in loadTicketDetails o onEmailFieldChange
       if (!this.isReadOnly && (this.isUserRole || this.isHelperOrPmRole || this.isAdminRole)) {
         this.setupAutoSave();
       }
@@ -240,7 +237,7 @@ export class DraftEditComponent implements OnInit, OnDestroy {
                 return of(null);
               })
             ).subscribe(userProfile => {
-              console.log('USER Profile for pre-fill:', userProfile); // LOG DI DEBUG
+              console.log('USER Profile for pre-fill:', userProfile); 
               this.ticketForm.patchValue({
                 fiscalCode: userProfile?.fiscalCode || '', 
                 phoneNumber: userProfile?.phoneNumber || '' 
@@ -255,14 +252,12 @@ export class DraftEditComponent implements OnInit, OnDestroy {
             this.ticketForm.get('fiscalCode')?.enable(); 
             this.ticketForm.get('phoneNumber')?.enable(); 
 
-          } else { // Admin/PM/Helper
+          } else { 
             this.ticketForm.get('email')?.enable(); 
             
             const ownerUserDto = this.usersWithUserRole.find(u => u.email === ticket.userEmail);
             this.isUserOwnerSelected = ownerUserDto?.role?.includes(UserRole.USER) || false;
 
-            // Chiamata cruciale per impostare correttamente lo stato iniziale dei campi dipendenti
-            // e la validazione, oltre che l'auto-salvataggio.
             this.onEmailFieldChange(ticket.userEmail!); 
           }
 
@@ -297,16 +292,27 @@ export class DraftEditComponent implements OnInit, OnDestroy {
     }
 
     const selectedUser = this.usersWithUserRole.find(u => u.email === newEmail);
+    const wasUserOwnerSelected = this.isUserOwnerSelected; // Salva lo stato precedente
     this.isUserOwnerSelected = selectedUser?.role?.includes(UserRole.USER) || false;
 
-    // Logica per disabilitare auto-salvataggio:
-    // Disabilita l'auto-salvataggio se l'owner selezionato è un USER (per Admin/PM/Helper)
-    if (this.isUserOwnerSelected && (this.isAdminOrPmRole || this.isHelperOrPmRole)) {
-      this.disableAutoSaveAfterEmailChange = true;
-      this.messageService.add({ severity: 'warn', summary: 'Auto-salvataggio Disabilitato', detail: 'Il proprietario del ticket è un utente USER. Finalizza per salvare le modifiche.' });
-    } else {
-      this.disableAutoSaveAfterEmailChange = false;
+    // Determina il nuovo stato di disableAutoSaveAfterEmailChange
+    const newDisableAutoSaveState = (this.isUserOwnerSelected && (this.isAdminOrPmRole || this.isHelperOrPmRole)) || (!newEmail && (this.isAdminOrPmRole || this.isHelperOrPmRole));
+
+    // Solo se lo stato di disabilitazione dell'auto-salvataggio cambia O se l'email è stata appena pulita
+    if (newDisableAutoSaveState !== this.disableAutoSaveAfterEmailChange || (newDisableAutoSaveState && !this.autoSaveMessageShown)) {
+      this.disableAutoSaveAfterEmailChange = newDisableAutoSaveState;
+      if (this.disableAutoSaveAfterEmailChange) {
+        this.messageService.add({ severity: 'warn', summary: 'Auto-salvataggio Disabilitato', detail: 'Il proprietario del ticket è un utente USER o l\'email è stata pulita. Finalizza per salvare le modifiche.' });
+        this.autoSaveMessageShown = true; // Imposta il flag a true
+      } else {
+        // Se l'auto-salvataggio viene riabilitato, possiamo resettare il flag
+        this.autoSaveMessageShown = false; 
+      }
+    } else if (!newDisableAutoSaveState) {
+      // Se l'auto-salvataggio è abilitato, assicurarsi che il flag sia false
+      this.autoSaveMessageShown = false;
     }
+
 
     if (this.isUserOwnerSelected) {
       this.ticketForm.get('fiscalCode')?.enable();
@@ -347,7 +353,7 @@ export class DraftEditComponent implements OnInit, OnDestroy {
     }
     this.formSubscription = this.ticketForm.valueChanges.pipe(
       debounceTime(1500),
-      filter(() => this.ticketForm.dirty && (this.ticketForm.get('title')?.value || this.ticketForm.get('description')?.value)),
+      filter(() => this.ticketForm.dirty && (this.ticketForm.get('email')?.valid ?? false)),
       distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)),
       takeUntil(this.destroy$)
     ).subscribe(() => {
@@ -520,7 +526,7 @@ export class DraftEditComponent implements OnInit, OnDestroy {
     }
 
     // Per Admin/Helper/PM:
-    // 1. Se l'owner selezionato NON è un USER (cioè Admin/Helper/PM stesso),
+    //    Se l'owner selezionato NON è un USER (cioè Admin/Helper/PM stesso),
     //    il pulsante "Finalizza Bozza" deve essere SEMPRE DISABLED.
     //    Non possono finalizzare una bozza che non è di un USER.
     if (!this.isUserOwnerSelected) {
@@ -549,7 +555,7 @@ export class DraftEditComponent implements OnInit, OnDestroy {
     if (phoneNumberControl?.enabled && !phoneNumberControl?.valid) return false;
     if (assignedToIdControl?.enabled && !assignedToIdControl?.valid) return false;
 
-    return true; // Tutti i controlli richiesti sono validi o non applicabili
+    return true; 
   }
 
 
@@ -561,9 +567,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'Un\'operazione di salvataggio è già in corso. Attendi.' });
       return;
     }
-
-    // Qui la validazione viene gestita dal metodo isFormValidForFinalization
-    // Applica temporaneamente i validatori per il controllo finale prima del submit
     
     const fiscalCodeControl = this.ticketForm.get('fiscalCode');
     const phoneNumberControl = this.ticketForm.get('phoneNumber');
@@ -573,7 +576,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
     const originalPhoneNumberValidators = phoneNumberControl?.validator ?? null;
     const originalAssignedToIdValidators = assignedToIdControl?.validator ?? null;
 
-    // Applica i validatori richiesti per la finalizzazione
     if (this.isUserOwnerSelected) {
         fiscalCodeControl?.setValidators(Validators.required);
         phoneNumberControl?.setValidators(Validators.required);
@@ -596,7 +598,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Compila tutti i campi obbligatori per finalizzare la bozza.' });
       this.ticketForm.markAllAsTouched(); 
       
-      // Ripristina i validatori originali dopo la validazione fallita
       fiscalCodeControl?.setValidators(originalFiscalCodeValidators);
       phoneNumberControl?.setValidators(originalPhoneNumberValidators);
       assignedToIdControl?.setValidators(originalAssignedToIdValidators);
@@ -608,7 +609,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Ripristina i validatori originali prima di procedere con il salvataggio
     fiscalCodeControl?.setValidators(originalFiscalCodeValidators);
     phoneNumberControl?.setValidators(originalPhoneNumberValidators);
     assignedToIdControl?.setValidators(originalAssignedToIdValidators);
