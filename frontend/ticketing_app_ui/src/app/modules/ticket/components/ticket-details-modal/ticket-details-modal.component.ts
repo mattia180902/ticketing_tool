@@ -7,16 +7,12 @@ import { Router } from '@angular/router';
 import { TicketManagementService } from '../../../../services/services';
 import { MessageService } from 'primeng/api';
 
-// Importazioni dei moduli PrimeNG necessari per il template
 import { ToastModule } from 'primeng/toast';
 import { CommonModule, DatePipe } from '@angular/common';
-// import { InputTextModule } from 'primeng/inputtext'; // Rimosso
-// import { InputTextareaModule }m 'primeng/inputtextarea'; // Rimosso
 import { ButtonModule } from 'primeng/button'; // Per pButton
 import { DropdownModule } from 'primeng/dropdown'; // Per pDropdown
-import { TagModule } from 'primeng/tag'; // Per pTag (se lo usi)
+import { TagModule } from 'primeng/tag'; // Per pTag 
 import { FormsModule } from '@angular/forms'; // Cruciale per [(ngModel)]
-
 import { TicketStatus } from '../../../../shared/enums/TicketStatus';
 import { UserRole } from '../../../../shared/enums/UserRole';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -40,13 +36,12 @@ import { HttpErrorResponse } from '@angular/common/http';
 export class TicketDetailsModalComponent implements OnInit {
   ticket!: TicketResponseDto;
 
-  // Reintrodotte le proprietà relative ai ruoli dell'utente
   isUserRole = false;
-  isAdminRole = false; // Specifico per Admin
-  isHelperOrPmRole = false; // Per Helper Junior/Senior e PM
-  isAdminOrPmRole = false; // Per Admin e PM
+  isAdminRole = false;
+  isHelperOrPmRole = false;
+  isAdminOrPmRole = false;
 
-  isReadOnlyMode = false; // Mantenuta per coerenza, ma i campi saranno sempre disabilitati
+  isReadOnlyMode = false; 
 
   public TicketStatus = TicketStatus;
   public UserRole = UserRole;
@@ -64,7 +59,6 @@ export class TicketDetailsModalComponent implements OnInit {
   ngOnInit(): void {
     if (this.config.data && this.config.data['ticket']) {
       this.ticket = this.config.data['ticket'];
-      // La modale è sempre di sola lettura per i campi del form, ma i pulsanti possono essere attivi
       this.isReadOnlyMode = true; 
     } else {
       console.error("TicketDetailsModalComponent: Nessun dato ticket trovato nella configurazione della modale.");
@@ -73,7 +67,6 @@ export class TicketDetailsModalComponent implements OnInit {
       return;
     }
 
-    // Sottoscrizione ai ruoli per abilitare/disabilitare i pulsanti
     this.authService.currentUserRoles$.subscribe(roles => {
       this.isUserRole = this.authService.isUser();
       this.isAdminRole = this.authService.isAdmin();
@@ -105,7 +98,7 @@ export class TicketDetailsModalComponent implements OnInit {
 
   /**
    * Determina se il pulsante "Elimina Ticket" deve essere visualizzato e abilitato.
-   * Segue la logica di showDeleteButton di TicketListComponent.
+   * Il requisito principale è che i ticket SOLVED non possono essere eliminati da questa modale.
    * @returns true se il ticket può essere eliminato, false altrimenti.
    */
   canDeleteTicket(): boolean {
@@ -116,41 +109,47 @@ export class TicketDetailsModalComponent implements OnInit {
     const currentUserId = this.authService.getUserId();
     const currentUserEmail = this.authService.getUserEmail();
     const isOwner = this.ticket.userId === currentUserId;
-    const isAssociatedByEmail = this.ticket.userEmail == currentUserEmail;
     const isDraft = this.ticket.status === TicketStatus.DRAFT;
     const isAssignedToMe = this.ticket.assignedToId === currentUserId;
+    const isAssociatedByEmail = this.ticket.userEmail == currentUserEmail;
     const isSolved = this.ticket.status === TicketStatus.SOLVED;
 
-    // Admin può eliminare qualsiasi ticket 
+    // Se il ticket è SOLVED, NON può essere eliminato da questa modale.
+    if (isSolved) {
+      return false;
+    }
+
+    // Altre regole per i ticket NON SOLVED:
+    // Admin può eliminare qualsiasi ticket NON SOLVED
     if (this.isAdminRole) {
       return true;
     }
-    // L'owner può eliminare le proprie bozze
+    // L'owner può eliminare le proprie bozze (che per definizione non sono SOLVED)
     if (isDraft && isOwner) {
       return true;
     }
-    // Helper/PM/Admin (se non sono l'Admin principale) possono eliminare ticket assegnati a loro e non risolti
-    if ((this.isHelperOrPmRole || this.isAdminOrPmRole) && isAssignedToMe && !isSolved) {
+    // Helper/PM/Admin possono eliminare ticket assegnati a loro e NON SOLVED
+    if ((this.isHelperOrPmRole || this.isAdminOrPmRole) && isAssignedToMe) { 
       return true;
     }
 
     if (isAssociatedByEmail) {
       return true;
-    }
-    return false;
+   }
+    
+    return false; // Default: non eliminabile
   }
 
   /**
    * Metodo per eliminare il ticket.
    */
   deleteTicket(): void {
-    //todo aggiungere alert al posto di confirm
     if (confirm('Sei sicuro di voler eliminare questo ticket? Questa azione è irreversibile.')) {
       if (this.ticket && this.ticket.id) {
         this.ticketService.deleteTicket({ ticketId: this.ticket.id }).subscribe({
           next: () => {
             this.messageService.add({ severity: 'success', summary: 'Successo', detail: 'Ticket eliminato con successo!' });
-            this.ref.close('Deleted'); // Chiude la modale e indica l'eliminazione
+            this.ref.close('Deleted');
           },
           error: (err: HttpErrorResponse) => {
             console.error('Errore durante l\'eliminazione del ticket:', err);
@@ -166,8 +165,8 @@ export class TicketDetailsModalComponent implements OnInit {
    * Questo metodo chiude la modale corrente e naviga alla pagina delle categorie.
    */
   createNewTicket(): void {
-    this.ref.close('OpenNewTicket'); // Chiude la modale attuale
-    this.router.navigate(['/categories']); // Naviga alla pagina di selezione categoria
+    this.ref.close('OpenNewTicket');
+    this.router.navigate(['/categories']);
   }
 
   /**

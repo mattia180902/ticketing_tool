@@ -1,4 +1,5 @@
 <!-- eslint-disable @angular-eslint/template/elements-content -->
+
 <p-toast></p-toast>
 <p-confirmDialog></p-confirmDialog>
 
@@ -117,6 +118,17 @@
                 *ngIf="showRejectButton(ticket)"
               ></button>
 
+              <!-- Pulsante Assegna (solo per Admin/PM) -->
+              <button
+                pButton
+                type="button"
+                label="Riassegnare"
+                icon="pi pi-user-plus"
+                class="p-button-secondary p-button-sm"
+                (click)="showAssignDialog(ticket)"
+                *ngIf="showAssignButton(ticket)"
+              ></button>
+
               <!-- Pulsante Escala -->
               <button
                 pButton
@@ -137,17 +149,6 @@
                 class="p-button-info p-button-sm"
                 (click)="updateTicketStatus(ticket, TicketStatus.SOLVED)"
                 *ngIf="showSolveButton(ticket)"
-              ></button>
-
-              <!-- Pulsante Assegna (solo per Admin/PM) -->
-              <button
-                pButton
-                type="button"
-                label="Assegna"
-                icon="pi pi-user-plus"
-                class="p-button-secondary p-button-sm"
-                (click)="showAssignButton(ticket)"
-                *ngIf="showAssignButton(ticket)"
               ></button>
 
               <!-- Pulsante Elimina -->
@@ -187,20 +188,21 @@
     <div class="field mt-4">
       <label for="assignee" class="block text-900 font-medium mb-2">Seleziona Assegnatario</label>
       <p-dropdown
+        *ngIf="displayActionDialog" 
         id="assignee"
         [options]="availableUsersForAssignment"
         [(ngModel)]="selectedAssigneeId"
         optionLabel="fullName"
         optionValue="id"
         placeholder="Seleziona un utente"
-        [filter]="true"
-        filterBy="fullName"
-        [showClear]="true"
+        [filter]="true"    
+        filterBy="fullName"   
+        [showClear]="true"   
+        appendTo="body"       
       ></p-dropdown>
     </div>
   </div>
   <ng-template pTemplate="footer">
-    <p-button label="Annulla" icon="pi pi-times" styleClass="p-button-text" (click)="displayActionDialog = false"></p-button>
     <p-button label="Conferma" icon="pi pi-check" (click)="performAction()" [disabled]="!selectedAssigneeId"></p-button>
   </ng-template>
 </p-dialog>

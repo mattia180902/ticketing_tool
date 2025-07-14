@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/app/modules/ticket/components/ticket-list/ticket-list.component.ts
 
 import { Component, OnInit, OnDestroy, inject, Optional, ViewChild } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
@@ -18,8 +17,8 @@ import { BadgeModule } from 'primeng/badge';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CardModule } from 'primeng/card';
 
-import { Subject, of, combineLatest, Observable } from 'rxjs'; // Aggiunto Observable
-import { takeUntil, catchError, take, filter } from 'rxjs/operators';
+import { Subject, of, Observable } from 'rxjs'; 
+import { takeUntil, catchError, switchMap } from 'rxjs/operators';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 
@@ -30,13 +29,17 @@ import { TicketStatus } from '../../../../shared/enums/TicketStatus';
 import { TicketPriority } from '../../../../shared/enums/TicketPriority';
 import { UserRole } from '../../../../shared/enums/UserRole';
 import { AuthService } from '../../service/auth.service';
-import { NewTicketComponent } from '../new-ticket/new-ticket.component';
 import { TicketDetailsModalComponent } from '../ticket-details-modal/ticket-details-modal.component';
 
 import { TicketFilterComponent, TicketFilterParams } from '../ticket-filter/ticket-filter.component';
 import { DialogModule } from 'primeng/dialog';
+import { DraftEditComponent } from '../draft-edit/draft-edit.component';
 
 type BadgeSeverity = 'success' | 'info' | 'warning' | 'danger' | 'help' | 'primary' | 'secondary' | 'contrast';
+
+export interface AssignableUser extends UserDto {
+  fullName: string;
+}
 
 @Component({
   selector: 'app-ticket-list',
@@ -57,7 +60,7 @@ type BadgeSeverity = 'success' | 'info' | 'warning' | 'danger' | 'help' | 'prima
     DialogModule,
     CardModule,
     DatePipe,
-    TicketFilterComponent
+    TicketFilterComponent 
   ],
   templateUrl: './ticket-list.component.html',
   styleUrl: './ticket-list.component.scss',
@@ -89,7 +92,11 @@ export class TicketListComponent implements OnInit, OnDestroy {
   displayActionDialog = false;
   actionType: 'assign' | 'reject' | 'escalate' | null = null;
   selectedTicketForAction: TicketResponseDto | null = null;
-  availableUsersForAssignment: UserDto[] = [];
+  
+
+  private _allAssignableUsers: AssignableUser[] = []; 
+  availableUsersForAssignment: AssignableUser[] = []; 
+
   selectedAssigneeId: string | null = null;
   actionDialogHeader = '';
   actionDialogMessage = '';
@@ -111,8 +118,10 @@ export class TicketListComponent implements OnInit, OnDestroy {
   currentUserId = '';
   currentUserEmail = '';
   isUserRole = false;
-  isHelperOrPmRole = false;
+  isHelperRole = false; 
+  isPmRole = false; 
   isAdminRole = false;
+  isHelperOrPmRole = false;
   isAdminOrPmRole = false;
 
   constructor(
@@ -124,26 +133,25 @@ export class TicketListComponent implements OnInit, OnDestroy {
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
     public dialogService: DialogService,
-    @Optional() public dialogConfig: DynamicDialogConfig // Assicurati che sia Optional
+    @Optional() public dialogConfig: DynamicDialogConfig 
   ) {}
 
   ngOnInit(): void {
     this.currentUserId = this.authService.getUserId();
     this.currentUserEmail = this.authService.getUserEmail();
     this.isUserRole = this.authService.isUser();
-    this.isHelperOrPmRole = this.authService.isHelperOrPm();
+    this.isHelperRole = this.authService.hasRole([UserRole.HELPER_JUNIOR, UserRole.HELPER_SENIOR]); 
+    this.isPmRole = this.authService.hasRole(UserRole.PM); 
     this.isAdminRole = this.authService.isAdmin();
+    this.isHelperOrPmRole = this.authService.isHelperOrPm();
     this.isAdminOrPmRole = this.authService.isAdminOrPm();
 
-    this.loadUsersForAssignment();
+    this.loadAllAssignableUsers(); 
 
-    // Modifica qui: Prioritizza dialogConfig.data per i filtri iniziali
-    // Esegui la logica di inizializzazione dei filtri solo una volta
     if (!this.initialLoadCompleted) {
       this.initialLoadCompleted = true;
 
       if (this.dialogConfig && this.dialogConfig.data) {
-        // Se è una modale di selezione bozza (dal pulsante "Carica Bozza" in NewTicketComponent)
         if (this.dialogConfig.data.isModalSelection) {
           this.isModalSelectionMode = true;
           this.initialFilterStatusForChild = TicketStatus.DRAFT;
@@ -151,13 +159,11 @@ export class TicketListComponent implements OnInit, OnDestroy {
           this.filterOwnerId = this.currentUserId;
           this.disableStatusFilterInChild = true;
         } 
-        // Se è una modale aperta dalla dashboard (card di stato)
         else if (this.dialogConfig.data.filterStatus) {
           this.initialFilterStatusForChild = this.dialogConfig.data.filterStatus;
           this.selectedStatusFilter = this.dialogConfig.data.filterStatus;
           this.disableStatusFilterInChild = this.dialogConfig.data.disableStatusFilter || false;
           
-          // Passa anche gli altri filtri se presenti nel dialogConfig.data
           if (this.dialogConfig.data.filterPriority) {
               this.initialFilterPriorityForChild = this.dialogConfig.data.filterPriority;
               this.selectedPriorityFilter = this.dialogConfig.data.filterPriority;
@@ -168,9 +174,7 @@ export class TicketListComponent implements OnInit, OnDestroy {
           }
         }
       } 
-      // Se non è una modale (aperto direttamente via routing)
       else {
-        // Mantiene la logica esistente per i queryParams
         const queryParams = this.route.snapshot.queryParams;
         const statusFromUrl = queryParams['status'] as TicketStatus | 'ALL';
         if (statusFromUrl && (Object.values(TicketStatus).includes(statusFromUrl as TicketStatus) || statusFromUrl === 'ALL')) {
@@ -184,10 +188,9 @@ export class TicketListComponent implements OnInit, OnDestroy {
         if (queryParams['search']) {
           this.initialSearchTermForChild = queryParams['search'];
         }
-        this.disableStatusFilterInChild = false; // Di default non disabilitato se aperto via routing
+        this.disableStatusFilterInChild = false;
       }
 
-      // Assicurati che i filtri locali siano sincronizzati con quelli iniziali per il figlio
       this.selectedStatusFilter = this.initialFilterStatusForChild;
       this.selectedPriorityFilter = this.initialFilterPriorityForChild;
       this.searchTerm = this.initialSearchTermForChild;
@@ -200,7 +203,6 @@ export class TicketListComponent implements OnInit, OnDestroy {
     if (this.ref) {
       this.ref.close();
     }
-    // Chiudi anche selfRef se è stato aperto da un altro componente
     if (this.selfRef) {
       this.selfRef.close();
     }
@@ -212,30 +214,21 @@ export class TicketListComponent implements OnInit, OnDestroy {
     this.selectedStatusFilter = params.status;
     this.selectedPriorityFilter = params.priority;
     this.searchTerm = params.search;
-    this.first = 0; // Reset paginazione ad ogni cambio filtro
+    this.first = 0; 
     this.loadTickets();
   }
 
   onClearFilters(): void {
-    // Questa funzione viene chiamata quando il componente figlio (TicketFilterComponent)
-    // emette l'evento clearFiltersEvent.
-    // A questo punto, il TicketFilterComponent ha già resettato i suoi valori interni
-    // e ha già emesso un filtersChanged con i nuovi valori.
-    // Quindi, qui dobbiamo solo assicurarci che i filtri locali siano sincronizzati
-    // con i valori che il TicketFilterComponent ha resettato.
-    // Il filtro di stato deve rispettare la disabilitazione.
-
-    // Se il filtro di stato è disabilitato, mantiene il suo valore iniziale
     if (this.disableStatusFilterInChild) {
-      this.selectedStatusFilter = this.initialFilterStatusForChild; // Mantiene il valore iniziale
+      this.selectedStatusFilter = this.initialFilterStatusForChild; 
     } else {
-      this.selectedStatusFilter = 'ALL'; // Resetta a ALL se non disabilitato
+      this.selectedStatusFilter = 'ALL'; 
     }
     this.selectedPriorityFilter = 'ALL';
     this.searchTerm = '';
-    this.first = 0; // Reset paginazione
+    this.first = 0; 
 
-    this.loadTickets(); // Ricarica i ticket con i filtri aggiornati
+    this.loadTickets(); 
   }
 
   /**
@@ -264,7 +257,6 @@ export class TicketListComponent implements OnInit, OnDestroy {
 
     const params: any = { page, size, sort };
 
-    // Applica i filtri solo se non sono 'ALL' o vuoti
     if (this.selectedStatusFilter !== 'ALL') {
       params.status = this.selectedStatusFilter;
     }
@@ -277,14 +269,11 @@ export class TicketListComponent implements OnInit, OnDestroy {
 
     let apiCall: Observable<PageTicketResponseDto | TicketResponseDto[]>;
 
-    // Logica per filtrare le bozze per l'owner in modalità selezione modale
     if (this.isModalSelectionMode && this.selectedStatusFilter === TicketStatus.DRAFT && this.filterOwnerId) {
-      apiCall = this.ticketService.getMyDrafts(); // Questa API dovrebbe filtrare per l'utente loggato
+      apiCall = this.ticketService.getMyDrafts(); 
     } else if (this.isUserRole && !this.isAdminOrPmRole && !this.isHelperOrPmRole) {
-        // Utente normale: solo i propri ticket e quelli associati
         apiCall = this.ticketService.getMyTicketsAndAssociatedByEmail(params);
     } else {
-        // Admin/Helper/PM: tutti i ticket con i filtri
         apiCall = this.ticketService.getTickets(params);
     }
 
@@ -302,7 +291,6 @@ export class TicketListComponent implements OnInit, OnDestroy {
           this.tickets = res.content ?? [];
           this.totalRecords = res.totalElements ?? 0;
         } else {
-          // Questo caso è per getMyDrafts() che restituisce TicketResponseDto[]
           this.tickets = res as TicketResponseDto[];
           this.totalRecords = (res as TicketResponseDto[]).length;
         }
@@ -312,23 +300,30 @@ export class TicketListComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadUsersForAssignment(): void {
-    if (this.isHelperOrPmRole || this.isAdminOrPmRole) {
-      this.userService.getHelpersAndAdmins().pipe(
-        takeUntil(this.destroy$),
-        catchError(err => {
-          console.error('Errore nel caricamento degli utenti per assegnazione:', err);
-          this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare gli utenti per le azioni.' });
-          return of([]);
-        })
-      ).subscribe(users => {
-        if (this.isHelperOrPmRole && !this.isAdminRole) {
-          this.availableUsersForAssignment = users.filter(u => u.id !== this.currentUserId);
-        } else {
-          this.availableUsersForAssignment = users;
-        }
-      });
-    }
+  /**
+   * Carica la master list di tutti gli utenti assegnabili (Helper Junior, Helper Senior, PM, Admin).
+   * Questa lista viene caricata una sola volta e usata come base per i filtraggi specifici delle dialoghe.
+   */
+  loadAllAssignableUsers(): void {
+    console.log('loadAllAssignableUsers: Inizio caricamento utenti assegnabili...');
+    this.userService.getHelpersAndAdmins().pipe(
+      takeUntil(this.destroy$),
+      catchError(err => {
+        console.error('Errore nel caricamento degli utenti per assegnazione:', err);
+        this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare gli utenti per le azioni.' });
+        return of([]);
+      })
+    ).subscribe(users => {
+      // Mappa gli utenti per aggiungere la proprietà fullName
+      this._allAssignableUsers = users.map(user => ({
+        ...user,
+        fullName: `${user.firstName} ${user.lastName}`.trim() 
+      }));
+      console.log('loadAllAssignableUsers: Utenti assegnabili caricati e mappati:', this._allAssignableUsers);
+      if (this._allAssignableUsers.length === 0) {
+        this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'Nessun utente Helper/PM/Admin trovato nel sistema per le assegnazioni.' });
+      }
+    });
   }
 
   getBadgeSeverity(status: TicketStatus | undefined): BadgeSeverity {
@@ -343,7 +338,7 @@ export class TicketListComponent implements OnInit, OnDestroy {
 
   /**
    * Gestisce il click sulla riga del ticket o sul pulsante Dettagli/Modifica.
-   * Apre la modale appropriata (NewTicketComponent per bozze proprie, TicketDetailsModalComponent per dettagli).
+   * Apre la modale appropriata (DraftEditComponent per bozze proprie, TicketDetailsModalComponent per dettagli).
    * @param ticket Il ticket selezionato.
    */
   handleTicketAction(ticket: TicketResponseDto): void {
@@ -360,7 +355,7 @@ export class TicketListComponent implements OnInit, OnDestroy {
     }
 
     if (isDraft && isOwner) {
-      this.ref = this.dialogService.open(NewTicketComponent, {
+      this.ref = this.dialogService.open(DraftEditComponent, { 
         header: 'Modifica Bozza',
         width: '90%',
         height: '90%',
@@ -372,17 +367,8 @@ export class TicketListComponent implements OnInit, OnDestroy {
           isReadOnly: false
         }
       });
-    } else {
-      let isReadOnlyForDetails = true;
-
-      if (isDraft && !isOwner && (this.isAdminOrPmRole || this.isHelperOrPmRole)) {
-        isReadOnlyForDetails = true;
-      } else if (ticket.status === TicketStatus.SOLVED && (this.isAdminOrPmRole || this.isHelperOrPmRole)) {
-        isReadOnlyForDetails = true;
-      } else if (this.isAdminOrPmRole || this.isHelperOrPmRole) {
-        isReadOnlyForDetails = false;
-      }
-
+    } 
+    else {
       this.ref = this.dialogService.open(TicketDetailsModalComponent, {
         header: 'Dettagli Ticket',
         width: '90vw',
@@ -391,7 +377,7 @@ export class TicketListComponent implements OnInit, OnDestroy {
         baseZIndex: 10000,
         data: {
           ticket: ticket,
-          isReadOnly: isReadOnlyForDetails
+          isReadOnly: true 
         }
       });
     }
@@ -402,37 +388,13 @@ export class TicketListComponent implements OnInit, OnDestroy {
         this.loadTickets();
       } else if (result === 'OpenNewTicket') {
         this.navigateToCategorySelection();
-      } else if (result !== undefined) {
+      } else if (result !== undefined && result !== 'Close click') { 
         this.messageService.add({ severity: 'info', summary: 'Annullato', detail: 'Operazione annullata.' });
       }
     });
   }
 
-  confirmDeleteTicket(ticketId: number): void {
-    this.confirmationService.confirm({
-      message: `Sei sicuro di voler eliminare il ticket ${ticketId}?`,
-      header: 'Conferma Eliminazione',
-      icon: 'pi pi-exclamation-triangle',
-      accept: () => {
-        this.ticketService.deleteTicket({ ticketId: ticketId }).pipe(
-          takeUntil(this.destroy$),
-          catchError(err => {
-            console.error('Errore durante l\'eliminazione del ticket:', err);
-            this.messageService.add({ severity: 'error', summary: 'Errore', detail: err.error?.message || 'Impossibile eliminare il ticket.' });
-            return of(null);
-          })
-        ).subscribe({
-          next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Successo', detail: 'Ticket eliminato con successo.' });
-            this.loadTickets();
-          }
-        });
-      },
-      reject: (type: ConfirmEventType) => {
-        this.messageService.add({ severity: 'info', summary: 'Annullato', detail: 'Eliminazione ticket annullata.' });
-      }
-    });
-  }
+  // Metodi d'azione (Accetta, Rifiuta, Escala, Risolvi, Assegna, Elimina)
 
   acceptTicket(ticket: TicketResponseDto): void {
     this.confirmationService.confirm({
@@ -460,44 +422,75 @@ export class TicketListComponent implements OnInit, OnDestroy {
   }
 
   showRejectDialog(ticket: TicketResponseDto): void {
-    if (!this.isHelperOrPmRole && !this.isAdminOrPmRole) {
-      this.messageService.add({ severity: 'error', summary: 'Non Autorizzato', detail: 'Non hai i permessi per rifiutare ticket.' });
+    // 1. Reset dello stato della modale prima di aprirla
+    this.selectedTicketForAction = null;
+    this.selectedAssigneeId = null;
+    this.availableUsersForAssignment = []; 
+
+    // 2. Popola la lista filtrata
+    this.availableUsersForAssignment = this._allAssignableUsers.filter(u => u.id !== this.currentUserId);
+    
+    if (this.availableUsersForAssignment.length === 0) {
+      this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'Nessun utente disponibile per la riassegnazione.' });
       return;
     }
-    if (this.isHelperOrPmRole && ticket.assignedToId !== this.currentUserId) {
-      this.messageService.add({ severity: 'error', summary: 'Non Autorizzato', detail: 'Puoi rifiutare solo ticket assegnati a te.' });
-      return;
-    }
-    if (ticket.status !== TicketStatus.OPEN) {
-      this.messageService.add({ severity: 'warn', summary: 'Azione non consentita', detail: 'Puoi rifiutare solo ticket in stato OPEN.' });
-      return;
-    }
+
+    // 3. Imposta i dettagli del ticket e il tipo di azione
     this.selectedTicketForAction = ticket;
     this.actionType = 'reject';
     this.actionDialogHeader = `Rifiuta Ticket #${ticket.id}`;
-    this.actionDialogMessage = `Seleziona un utente a cui riassegnare il ticket "${ticket.title}".`;
-    this.selectedAssigneeId = null;
+    this.actionDialogMessage = `Seleziona un utente a cui riassegnare il ticket "${ticket.title}". Lo stato rimarrà OPEN.`;
+    
+    // 4. Apre la modale
     this.displayActionDialog = true;
   }
 
   showEscalateDialog(ticket: TicketResponseDto): void {
-    if (!this.isHelperOrPmRole && !this.isAdminOrPmRole) {
-      this.messageService.add({ severity: 'error', summary: 'Non Autorizzato', detail: 'Non hai i permessi per escalare ticket.' });
+    // 1. Reset dello stato della modale prima di aprirla
+    this.selectedTicketForAction = null;
+    this.selectedAssigneeId = null;
+    this.availableUsersForAssignment = []; 
+
+    // 2. Popola la lista filtrata
+    this.availableUsersForAssignment = this._allAssignableUsers.filter(u => u.id !== this.currentUserId);
+    
+    if (this.availableUsersForAssignment.length === 0) {
+      this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'Nessun utente disponibile per l\'escalation.' });
       return;
     }
-    if (this.isHelperOrPmRole && ticket.assignedToId !== this.currentUserId) {
-      this.messageService.add({ severity: 'error', summary: 'Non Autorizzato', detail: 'Puoi escalare solo ticket assegnati a te.' });
-      return;
-    }
-    if (ticket.status !== TicketStatus.ANSWERED) {
-      this.messageService.add({ severity: 'warn', summary: 'Azione non consentita', detail: 'Puoi escalare solo ticket in stato ANSWERED.' });
-      return;
-    }
+
+    // 3. Imposta i dettagli del ticket e il tipo di azione
     this.selectedTicketForAction = ticket;
     this.actionType = 'escalate';
     this.actionDialogHeader = `Escala Ticket #${ticket.id}`;
-    this.actionDialogMessage = `Seleziona un utente a cui escalare il ticket "${ticket.title}".`;
+    this.actionDialogMessage = `Seleziona un utente a cui escalare il ticket "${ticket.title}". Lo stato tornerà OPEN.`;
+    
+    // 4. Apri la modale
+    this.displayActionDialog = true;
+  }
+
+  showAssignDialog(ticket: TicketResponseDto): void {
+    // 1. Reset dello stato della modale prima di aprirla
+    this.selectedTicketForAction = null;
     this.selectedAssigneeId = null;
+    this.availableUsersForAssignment = []; 
+
+    // 2. Popola la lista filtrata
+    const currentAssigneeId = ticket.assignedToId;
+    this.availableUsersForAssignment = this._allAssignableUsers.filter(u => u.id !== currentAssigneeId);
+
+    if (this.availableUsersForAssignment.length === 0) {
+      this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'Nessun utente disponibile per l\'assegnazione.' });
+      return;
+    }
+
+    // 3. Imposta i dettagli del ticket e il tipo di azione
+    this.selectedTicketForAction = ticket;
+    this.actionType = 'assign';
+    this.actionDialogHeader = `Assegna Ticket #${ticket.id}`;
+    this.actionDialogMessage = `Seleziona un utente a cui assegnare il ticket "${ticket.title}".`;
+    
+    // 4. Apre la modale
     this.displayActionDialog = true;
   }
 
@@ -509,11 +502,23 @@ export class TicketListComponent implements OnInit, OnDestroy {
 
     const ticketId = this.selectedTicketForAction.id!;
     const assigneeId = this.selectedAssigneeId;
-    let actionObservable: Observable<TicketResponseDto>;
+    
+    let actionObservable: Observable<TicketResponseDto | null>; 
 
     switch (this.actionType) {
       case 'assign':
-        actionObservable = this.ticketService.assignTicket({ ticketId: ticketId, helperId: assigneeId });
+        if (this.selectedTicketForAction.status === TicketStatus.ANSWERED) {
+          actionObservable = this.ticketService.assignTicket({ ticketId: ticketId, helperId: assigneeId }).pipe(
+            switchMap(assignRes => { 
+              if (assignRes) {
+                return this.ticketService.updateTicketStatus({ ticketId: ticketId, newStatus: TicketStatus.OPEN });
+              }
+              return of(null); 
+            })
+          );
+        } else {
+          actionObservable = this.ticketService.assignTicket({ ticketId: ticketId, helperId: assigneeId });
+        }
         break;
       case 'reject':
         actionObservable = this.ticketService.rejectTicket({ ticketId: ticketId, newAssignedToId: assigneeId });
@@ -535,7 +540,7 @@ export class TicketListComponent implements OnInit, OnDestroy {
       })
     ).subscribe({
       next: (res) => {
-        if (res) {
+        if (res) { 
           this.messageService.add({ severity: 'success', summary: 'Successo', detail: `Ticket #${ticketId} ${this.actionType === 'assign' ? 'assegnato' : (this.actionType === 'reject' ? 'rifiutato' : 'escalato')} con successo.` });
           this.displayActionDialog = false;
           this.selectedTicketForAction = null;
@@ -644,23 +649,36 @@ export class TicketListComponent implements OnInit, OnDestroy {
   }
 
   showAssignButton(ticket: TicketResponseDto): boolean {
-    return (this.isAdminRole || this.isAdminOrPmRole) && ticket.status !== TicketStatus.DRAFT && ticket.status !== TicketStatus.SOLVED;
+    const isAssignedToMe = ticket.assignedToId === this.currentUserId;
+    const isDraftOrSolved = ticket.status === TicketStatus.DRAFT || ticket.status === TicketStatus.SOLVED;
+
+    if ((this.isAdminOrPmRole) && !isDraftOrSolved) {
+      if (!isAssignedToMe || !ticket.assignedToId) { 
+        return true;
+      }
+    }
+    return false;
   }
 
   showDeleteButton(ticket: TicketResponseDto): boolean {
     const isOwner = this.isTicketOwner(ticket);
     const isDraft = ticket.status === TicketStatus.DRAFT;
     const isAssignedToMe = ticket.assignedToId === this.currentUserId;
+    const isSolved = ticket.status === TicketStatus.SOLVED;
 
-    if (this.isAdminRole) {
+    if (this.isAdminRole && !isSolved) {
       return true;
     }
     if (isDraft && isOwner) {
       return true;
     }
-    if ((this.isHelperOrPmRole || this.isAdminOrPmRole) && isAssignedToMe && ticket.status !== TicketStatus.SOLVED) {
+    if ((this.isHelperOrPmRole || this.isAdminOrPmRole) && isAssignedToMe && !isSolved) {
       return true;
     }
+    if ((this.isAdminOrPmRole) && isDraft && !isOwner) {
+      return true;
+    }
+
     return false;
   }
 
@@ -672,3 +690,4 @@ export class TicketListComponent implements OnInit, OnDestroy {
     }
   }
 }
+

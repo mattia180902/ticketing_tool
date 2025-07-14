@@ -1,122 +1,226 @@
-<p-toast></p-toast> <!-- Per visualizzare i messaggi di PrimeNG -->
+<!-- eslint-disable @angular-eslint/template/elements-content -->
+<p-toast></p-toast>
+<!-- Per visualizzare i messaggi di PrimeNG -->
 
 <div class="modal-body p-6 bg-gray-50 flex-row flex-wrap">
   <form *ngIf="ticket" class="space-y-4">
     <!-- Sezione Dettagli Principali (Titolo, Descrizione, Stato, Priorità) -->
-    <div class="flex flex-wrap -mx-2 item"> <!-- Contenitore flexbox con margini negativi per compensare il padding dei figli -->
-      <div class="w-full md:w-1/2 px-2 double-line "> <!-- Metà larghezza su md+, intera su mobile -->
+    <div class="flex flex-wrap -mx-2 item">
+      <!-- Contenitore flexbox con margini negativi per compensare il padding dei figli -->
+      <div class="w-full md:w-1/2 px-2 double-line">
+        <!-- Metà larghezza su md+, intera su mobile -->
         <div class="form-field">
           <label for="title" class="form-label">Titolo</label>
-          <input type="text" id="title" class="form-input" [ngModel]="ticket.title" [disabled]="true" name="title">
+          <input
+            type="text"
+            id="title"
+            class="form-input"
+            [ngModel]="ticket.title"
+            [disabled]="true"
+            name="title"
+          />
         </div>
       </div>
-      <div class="w-full md:w-1/2 px-2 double-line ">
+      <div class="w-full md:w-1/2 px-2 double-line">
         <div class="form-field">
           <label for="description" class="form-label">Descrizione</label>
-          <textarea id="description" rows="1" class="form-input" [ngModel]="ticket.description" [disabled]="true" name="description"></textarea>
+          <textarea
+            id="description"
+            rows="1"
+            class="form-input"
+            [ngModel]="ticket.description"
+            [disabled]="true"
+            name="description"
+          ></textarea>
         </div>
       </div>
 
-      <div class="w-full md:w-1/2 px-2 double-line ">
+      <div class="w-full md:w-1/2 px-2 double-line">
         <div class="form-field">
           <label for="status" class="form-label">Stato</label>
-          <input type="text" id="status" class="form-input" [value]="ticket.status" [disabled]="true">
+          <input
+            type="text"
+            id="status"
+            class="form-input"
+            [value]="ticket.status"
+            [disabled]="true"
+          />
         </div>
       </div>
-      <div class="w-full md:w-1/2 px-2 double-line ">
+      <div class="w-full md:w-1/2 px-2 double-line">
         <div class="form-field">
           <label for="priority" class="form-label">Priorità</label>
-          <input type="text" id="priority" class="form-input" [value]="ticket.priority" [disabled]="true">
+          <input
+            type="text"
+            id="priority"
+            class="form-input"
+            [value]="ticket.priority"
+            [disabled]="true"
+          />
         </div>
       </div>
     </div>
 
     <!-- Sezione Categoria, Servizio di Supporto, Creato Da, Assegnato A -->
-    <div class="flex flex-wrap -mx-2 item ">
-      <div class="w-full md:w-1/2 px-2 double-line ">
+    <div class="flex flex-wrap -mx-2 item">
+      <div class="w-full md:w-1/2 px-2 double-line">
         <div class="form-field">
           <label for="category" class="form-label">Categoria</label>
-          <input type="text" id="category" class="form-input" [value]="ticket.categoryName" [disabled]="true">
+          <input
+            type="text"
+            id="category"
+            class="form-input"
+            [value]="ticket.categoryName"
+            [disabled]="true"
+          />
         </div>
       </div>
-      <div class="w-full md:w-1/2 px-2 double-line ">
+      <div class="w-full md:w-1/2 px-2 double-line">
         <div class="form-field">
-          <label for="supportService" class="form-label">Servizio di Supporto</label>
-          <input type="text" id="supportService" class="form-input" [value]="ticket.supportServiceName" [disabled]="true">
+          <label for="supportService" class="form-label"
+            >Servizio di Supporto</label
+          >
+          <input
+            type="text"
+            id="supportService"
+            class="form-input"
+            [value]="ticket.supportServiceName"
+            [disabled]="true"
+          />
         </div>
       </div>
 
-      <div class="w-full md:w-1/2 px-2 double-line ">
+      <div class="w-full md:w-1/2 px-2 double-line">
         <div class="form-field">
           <label for="createdBy" class="form-label">Proprietario</label>
-          <input type="text" id="createdBy" class="form-input" [value]="ticket.userFirstName + ' ' + ticket.userLastName" [disabled]="true">
+          <input
+            type="text"
+            id="createdBy"
+            class="form-input"
+            [value]="ticket.userFirstName + ' ' + ticket.userLastName"
+            [disabled]="true"
+          />
         </div>
       </div>
-      <div class="w-full md:w-1/2 px-2 double-line ">
+      <div class="w-full md:w-1/2 px-2 double-line">
         <div class="form-field" *ngIf="ticket.assignedToName">
           <label for="assignedTo" class="form-label">Assegnato A</label>
-          <input type="text" id="assignedTo" class="form-input" [value]="ticket.assignedToName" [disabled]="true">
+          <input
+            type="text"
+            id="assignedTo"
+            class="form-input"
+            [value]="ticket.assignedToName"
+            [disabled]="true"
+          />
         </div>
       </div>
     </div>
 
     <!-- Sezione Dettagli Contatto Utente -->
     <div class="flex flex-wrap -mx-2 item">
-      <div class="w-full md:w-1/2 px-2 double-line ">
+      <div class="w-full md:w-1/2 px-2 double-line">
         <div class="form-field">
           <label for="userEmail" class="form-label">Email Utente</label>
-          <input type="email" id="userEmail" class="form-input" [value]="ticket.userEmail" [disabled]="true">
+          <input
+            type="email"
+            id="userEmail"
+            class="form-input"
+            [value]="ticket.userEmail"
+            [disabled]="true"
+          />
         </div>
       </div>
-      <div class="w-full md:w-1/2 px-2 double-line ">
+      <div class="w-full md:w-1/2 px-2 double-line">
         <div class="form-field">
-          <label for="userPhoneNumber" class="form-label">Numero di Telefono Utente</label>
-          <input type="text" id="userPhoneNumber" class="form-input" [value]="ticket.userPhoneNumber" [disabled]="true">
+          <label for="userPhoneNumber" class="form-label"
+            >Numero di Telefono Utente</label
+          >
+          <input
+            type="text"
+            id="userPhoneNumber"
+            class="form-input"
+            [value]="ticket.userPhoneNumber"
+            [disabled]="true"
+          />
         </div>
       </div>
-      <div class="w-full md:w-1/2 px-2 double-line ">
+      <div class="w-full md:w-1/2 px-2 double-line">
         <div class="form-field">
-          <label for="userFiscalCode" class="form-label">Codice Fiscale Utente</label>
-          <input type="text" id="userFiscalCode" class="form-input" [value]="ticket.userFiscalCode" [disabled]="true">
+          <label for="userFiscalCode" class="form-label"
+            >Codice Fiscale Utente</label
+          >
+          <input
+            type="text"
+            id="userFiscalCode"
+            class="form-input"
+            [value]="ticket.userFiscalCode"
+            [disabled]="true"
+          />
         </div>
       </div>
     </div>
 
     <!-- Sezione Date -->
     <div class="flex flex-wrap -mx-2 item">
-      <div class="w-full md:w-1/2 px-2 double-line ">
+      <div class="w-full md:w-1/2 px-2 double-line">
         <div class="form-field">
           <label for="createdOn" class="form-label">Creato Il</label>
-          <input type="text" id="createdOn" class="form-input" [value]="(ticket.createdOn | date:'short')" [disabled]="true">
+          <input
+            type="text"
+            id="createdOn"
+            class="form-input"
+            [value]="ticket.createdOn | date : 'short'"
+            [disabled]="true"
+          />
         </div>
       </div>
-      <div class="w-full md:w-1/2 px-2 double-line " *ngIf="ticket.updatedOn">
+      <div class="w-full md:w-1/2 px-2 double-line" *ngIf="ticket.updatedOn">
         <div class="form-field">
           <label for="updatedOn" class="form-label">Ultima Modifica Il</label>
-          <input type="text" id="updatedOn" class="form-input" [value]="(ticket.updatedOn | date:'short')" [disabled]="true">
+          <input
+            type="text"
+            id="updatedOn"
+            class="form-input"
+            [value]="ticket.updatedOn | date : 'short'"
+            [disabled]="true"
+          />
         </div>
       </div>
-      <div class="w-full md:w-1/2 px-2 double-line " *ngIf="ticket.solvedOn">
+      <div class="w-full md:w-1/2 px-2 double-line" *ngIf="ticket.solvedOn">
         <div class="form-field">
           <label for="solvedOn" class="form-label">Risolto Il</label>
-          <input type="text" id="solvedOn" class="form-input" [value]="(ticket.solvedOn | date:'short')" [disabled]="true">
+          <input
+            type="text"
+            id="solvedOn"
+            class="form-input"
+            [value]="ticket.solvedOn | date : 'short'"
+            [disabled]="true"
+          />
         </div>
       </div>
     </div>
 
     <!-- Sezione Pulsanti -->
-    <div class="flex mt-5">
+    <div class="flex justify-content-end gap-2 mt-4">
       <!-- Pulsante Nuovo Ticket -->
-      <button pButton type="button" label="Nuovo Ticket" icon="pi pi-plus"
-              (click)="createNewTicket()"
-              class="p-button-success p-button-sm ml-auto">
-      </button>
+      <button
+        pButton
+        type="button"
+        label="Nuovo Ticket"
+        icon="pi pi-plus"
+        (click)="createNewTicket()"
+        class="p-button-success p-button-sm ml-auto"
+      ></button>
       <!-- Pulsante Elimina Ticket -->
-      <button pButton type="button" label="Elimina Ticket" icon="pi pi-trash"
-              (click)="deleteTicket()"
-              class="p-button-danger p-button-sm"
-              [disabled]="!canDeleteTicket()">
-      </button>
+      <button
+        pButton
+        type="button"
+        label="Elimina Ticket"
+        icon="pi pi-trash"
+        (click)="deleteTicket()"
+        class="p-button-danger p-button-sm"
+        [disabled]="!canDeleteTicket()"
+      ></button>
     </div>
   </form>
 </div>

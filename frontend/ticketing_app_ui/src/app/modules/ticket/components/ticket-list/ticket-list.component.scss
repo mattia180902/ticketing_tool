@@ -1,5 +1,3 @@
-/* src/app/modules/ticket/components/ticket-list/ticket-list.component.scss */
-
 .ticket-list-container {
   padding: 1rem;
   font-family: 'Inter', sans-serif;
@@ -83,6 +81,50 @@
       background-color: #f8f9fa;
       border-bottom-left-radius: 0.75rem;
       border-bottom-right-radius: 0.75rem;
+    }
+  }
+
+  // STILI PER IL P-DROPDOWN NELLA MODALE
+  .p-dropdown-panel {
+    max-height: 200px; /* Limita l'altezza massima del pannello */
+    overflow-y: auto;  /* Abilita lo scorrimento verticale */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); /* Aggiunge un'ombra per farlo risaltare */
+    border-radius: 0.5rem; /* Bordi arrotondati per il pannello */
+    background-color: #ffffff; 
+    border: 1px solid #ced4da; /* Bordo sottile */
+  }
+
+  .p-dropdown-item {
+    // Resetta gli stili di default per l'hover e la selezione
+    background-color: transparent !important; // Rimuove qualsiasi sfondo di default
+    color: #343a40 !important; // Colore testo di default
+    
+    // Stili per l'hover
+    &:hover {
+      background-color: #e9ecef !important; // Sfondo leggermente grigio all'hover
+      color: #343a40 !important; // Mantiene il colore del testo
+    }
+
+    // Stili per l'elemento selezionato
+    &.p-highlight {
+      background-color: #007bff !important; // Sfondo blu per l'elemento selezionato
+      color: #ffffff !important; // Testo bianco per l'elemento selezionato
+    }
+  }
+
+  // Stili per l'input di ricerca all'interno del dropdown (se filter è abilitato)
+  .p-dropdown-filter-container {
+    padding: 0.5rem; // Padding intorno all'input
+    border-bottom: 1px solid #dee2e6; // Separatore visivo
+    .p-dropdown-filter {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #ced4da;
+      border-radius: 0.5rem;
+      &:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+      }
     }
   }
 }
