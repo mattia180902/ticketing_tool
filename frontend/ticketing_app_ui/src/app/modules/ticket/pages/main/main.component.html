@@ -1,7 +1,35 @@
-<div class="d-flex flex-column gap-1">
-  <app-menu></app-menu>
+<p-toast></p-toast> 
 
-  <div class="pe-2 ps-2">
-    <router-outlet> </router-outlet>
-  </div>
+<app-menu></app-menu>
+
+<!-- Il contenuto delle rotte verrà caricato qui. -->
+<div class="page-content-wrapper">
+  <router-outlet></router-outlet>
 </div>
+
+<!-- footer -->
+<footer class="app-main-footer">
+  <div class="p-fluid grid">
+    <div class="col-12 md:col-4">
+      <h4>Contatti</h4>
+      <p><i class="pi pi-phone"></i> Telefono: (+39) 099 779 87 11</p>
+      <p><i class="pi pi-envelope"></i> Email: info&#64;sincon.it</p>
+      <p><i class="pi pi-fax"></i> PEC: sincon&#64;legalmail.it </p>
+    </div>
+    <div class="col-12 md:col-4">
+      <h4>Sede Legale e operativa</h4>
+      <p><i class="pi pi-map-marker"></i> Via Venezia Giulia 70 </p>
+      <p>Città: Taranto, 74121</p>
+      <p>Paese: Italia</p>
+    </div>
+    <div class="col-12 md:col-4">
+      <h4>Seguici</h4>
+      <p>
+        <a href="https://it.linkedin.com/company/sincon" target="_blank" class="text-white-alpha-80 hover:text-white-alpha-90 mr-2"><i class="pi pi-linkedin"></i> LinkedIn - Aziendale</a>
+        <a href="https://www.facebook.com/SinconSrl/" target="_blank" class="text-white-alpha-80 hover:text-white-alpha-90 mr-2"><i class="pi pi-facebook"></i> Facebook</a>
+        <a href="https://it.linkedin.com/in/mattia-colucci-8148a6304" target="_blank" class="text-white-alpha-80 hover:text-white-alpha-90"><i class="pi pi-linkedin"></i> LinkedIn - Sviluppatore</a>
+      </p>
+      <p> &copy; {{ currentYear }} - SINCON s.r.l. All Rights Reserved. | C.F. e P.IVA: 00787980739</p>
+    </div>
+  </div>
+</footer>

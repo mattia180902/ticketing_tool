@@ -1,78 +1,78 @@
-
 p-toolbar {
   z-index: 999;
-  position: relative;
+  position: fixed; 
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: var(--surface-a); 
+  box-shadow: var(--shadow-2); 
 }
+
 // Assicurati che i link occupino tutta la larghezza per facilitare il clic
 .sidebar-link {
   display: flex;
-  align-items: center; // Allinea icona e testo verticalmente
-  padding: 0.75rem 1rem; // Padding interno per spaziatura
-  margin-bottom: 0.25rem; // Spazio tra le voci del menu
-  border-radius: var(--border-radius); // Bordi arrotondati come il tema PrimeNG
-  color: var(--text-color); // Colore del testo dal tema PrimeNG
-  text-decoration: none; // Rimuovi sottolineatura predefinita
-  transition: background-color 0.2s ease-in-out; // Transizione per l'effetto hover
+  align-items: center; 
+  padding: 0.75rem 1rem; 
+  margin-bottom: 0.25rem; 
+  border-radius: var(--border-radius); 
+  color: var(--text-color); 
+  text-decoration: none; 
+  transition: background-color 0.2s ease-in-out; 
 
   .pi {
-    font-size: 1.15rem; // Dimensione leggermente più grande per le icone
+    font-size: 1.15rem; 
   }
 
   span {
-    flex-grow: 1; // Permette al testo di occupare lo spazio restante
-    font-size: 1rem; // Assicura una dimensione del font coerente
+    flex-grow: 1; 
+    font-size: 1rem; 
   }
 
   &:hover {
-    background-color: var(--surface-200); // Colore di sfondo al passaggio del mouse
+    background-color: var(--surface-200); 
     cursor: pointer;
   }
 }
 
 // Stile per la voce attiva (utilizzato con routerLinkActive)
 .sidebar-link.router-link-active {
-  background-color: var(--highlight-bg); // Sfondo evidenziato dal tema PrimeNG
-  color: var(--highlight-text-color); // Colore del testo evidenziato dal tema PrimeNG
-  font-weight: 600; // Grassetto per la voce attiva
+  background-color: var(--highlight-bg); 
+  color: var(--highlight-text-color); 
+  font-weight: 600; 
 
   .pi {
-    color: var(--highlight-text-color); // Assicura che l'icona abbia il colore evidenziato
+    color: var(--highlight-text-color); 
   }
 }
 
-// Miglioramento generale del p-sidebar
 ::ng-deep .p-sidebar {
-  width: 20rem !important; // Larghezza fissa per la sidebar
-  max-width: 80vw; // Massima larghezza per schermi piccoli
-  background-color: var(--surface-card); // Sfondo della sidebar
-  box-shadow: var(--shadow-2); // Ombra leggera per profondità
+  width: 20rem !important; 
+  max-width: 80vw; 
+  background-color: var(--surface-card); 
+  box-shadow: var(--shadow-2); 
 
   .p-sidebar-header {
-    padding: 1.5rem 1rem; // Padding per l'header della sidebar
-    border-bottom: 1px solid var(--surface-border); // Linea sotto l'header
+    padding: 1.5rem 1rem; 
+    border-bottom: 1px solid var(--surface-border); 
   }
 
   .p-sidebar-content {
-    padding: 0; // Rimuovi padding predefinito, gestito da sidebar-link
+    padding: 0; 
   }
 }
 
-// Selettori per pulizia generale
 ul.list-none {
-  padding: 0.5rem 0; // Padding leggero per la lista, i link hanno già il loro padding
+  padding: 0.5rem 0; 
 }
 
-// Assicurati che il logo nella sidebar sia centrato o abbia la giusta spaziatura
 .sidebar-logo {
   display: flex;
   align-items: center;
-  justify-content: center; // Centra il logo orizzontalmente
+  justify-content: center; 
   padding: 1rem;
 }
 
-// Spazio sotto l'avatar per renderlo più pulito
 .sidebar-account-link {
   padding-top: 1rem;
   padding-bottom: 1rem;
-  // Assicurati che le classi PrimeFlex gestiscano il layout interno (flex, align-items-center, gap-2)
 }

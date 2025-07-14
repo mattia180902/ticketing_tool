@@ -1,7 +1,10 @@
 <!-- eslint-disable @angular-eslint/template/click-events-have-key-events -->
 <!-- eslint-disable @angular-eslint/template/interactive-supports-focus -->
-<!-- src/app/modules/layout/menu/menu.component.html -->
-<p-toolbar styleClass="fixed top-0 left-0 w-full shadow-2 py-3 px-4"> 
+<!-- menu.component.html -->
+<!-- RIMOSSO: <p-toast></p-toast> - Spostato in app.component.html se è globale -->
+
+<!-- Toolbar fissa in alto -->
+<p-toolbar styleClass="fixed top-0 left-0 w-full shadow-2 py-3 px-4 z-5"> 
   <div class="p-toolbar-group-start flex align-items-center">
     <button
       pButton
@@ -43,7 +46,7 @@
 </p-toolbar>
 
 <!-- La sidebar avrà un z-index superiore al toolbar per essere visibile quando aperta -->
-<p-sidebar [(visible)]="sidebarVisible" (onHide)="closeSidebar()" styleClass="z-[1000000]"> <!-- Sidebar z-index -->
+<p-sidebar [(visible)]="sidebarVisible" (onHide)="closeSidebar()" styleClass="z-[1000000]">
   <ng-template pTemplate="headless">
     <div class="flex flex-column h-full">
       <div class="flex align-items-center justify-content-between px-4 pt-3 flex-shrink-0">
@@ -102,3 +105,5 @@
     </div>
   </ng-template>
 </p-sidebar>
+
+

@@ -74,9 +74,7 @@ export class KeycloakService {
     const realmRoles = tokenParsed?.realm_access?.roles || [];
 
     let clientRoles: string[] = [];
-    // Aggiungiamo un controllo per assicurarci che this.keycloak.clientId e tokenParsed?.resource_access siano disponibili
     if (this.keycloak.clientId && tokenParsed?.resource_access) {
-      // Ora TypeScript sa che this.keycloak.clientId è una stringa valida
       clientRoles = tokenParsed.resource_access[this.keycloak.clientId]?.roles || [];
     }
     

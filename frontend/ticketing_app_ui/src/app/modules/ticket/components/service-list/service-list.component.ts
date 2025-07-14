@@ -12,10 +12,9 @@ import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { InputTextareaModule } from 'primeng/inputtextarea';
 import { InputTextModule } from 'primeng/inputtext';
-//import { DataViewModule } from 'primeng/dataview';
 import { DividerModule } from 'primeng/divider';
 import { RippleModule } from 'primeng/ripple';
-import { DialogModule } from 'primeng/dialog'; // Importa DialogModule per la modale
+import { DialogModule } from 'primeng/dialog'; //  DialogModule per la modale
 import { SupportServicesService } from '../../../../services/services';
 
 @Component({
@@ -34,10 +33,9 @@ import { SupportServicesService } from '../../../../services/services';
     ButtonModule,
     MessageModule,
     CardModule,
-    //DataViewModule,
     DividerModule,
     RippleModule,
-    DialogModule, // Aggiunto DialogModule qui
+    DialogModule, 
   ],
   providers: [MessageService],
 })

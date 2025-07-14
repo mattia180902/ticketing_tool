@@ -1,14 +1,14 @@
 /* src/app/modules/ticket/components/ticket-dashboard/ticket-dashboard.component.scss */
 
 .dashboard-grid {
-  padding: 1rem;
+  padding: 0.5rem;
   font-family: 'Inter', sans-serif;
   position: relative;
   z-index: 1; // Z-index base per il contenuto della dashboard
   // Aggiungi un padding-top qui per spingere il contenuto sotto l'header fisso.
   // Assicurati che questo valore sia almeno l'altezza del tuo header.
   // Il tuo header (p-toolbar) sembra essere alto circa 60-70px, quindi 80px dovrebbe bastare.
-  padding-top: 40px; // <--- Regola questo valore in base all'altezza effettiva del tuo header
+  padding-top: 20px; // <--- Regola questo valore in base all'altezza effettiva del tuo header
 }
 
 .dashboard-card {
@@ -140,8 +140,4 @@
   .card-contrast {
     background: linear-gradient(to bottom right, #9ca3af, #4b5563);
   }
-
-  // Il tuo header (p-toolbar) ha z-[999999] in HTML, che è un valore altissimo.
-  // Questo è corretto e dovrebbe essere sufficiente per farlo rimanere sopra tutto.
-  // La sidebar ha z-[1000000], che è corretto perché deve apparire sopra l'header.
 }

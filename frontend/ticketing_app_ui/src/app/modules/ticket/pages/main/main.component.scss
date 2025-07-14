@@ -1,0 +1,56 @@
+/* Stili globali per il body per un layout full-height */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: "Inter", sans-serif; 
+  }
+  
+  /* Contenitore principale che gestisce il layout del contenuto dinamico */
+  .page-content-wrapper {
+    padding-bottom: 1.5rem; 
+    min-height: calc(100vh - 0rem - 1.5rem); /* Aggiorna il calcolo in base ai nuovi padding */
+    display: block;
+    box-sizing: border-box; /* Include padding nel calcolo dell'altezza */
+  }
+  
+  /* Stili per il footer principale dell'applicazione */
+  .app-main-footer {
+    background-color: var(--surface-700); 
+    color: var(--surface-0); /* Testo bianco */
+    padding: 1rem 1rem; 
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1); /* Ombra superiore */
+    text-align: center; /* Centra il testo */
+    font-size: 0.9rem; /* Dimensione del font leggermente più piccola */
+    width: 100%; /* Assicura che occupi tutta la larghezza */
+    box-sizing: border-box; /* Include padding nel calcolo della larghezza */
+  
+    h4 {
+      color: var(--primary-color); /* Colore del titolo per coerenza con il tema */
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+    }
+  
+    p {
+      margin-bottom: 0.5rem;
+      line-height: 1.4;
+    }
+  
+    a {
+      color: var(--surface-0); /* Colore link bianco */
+      text-decoration: none;
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  
+    .pi {
+      margin-right: 0.5rem;
+    }
+  }
+  
+  /* Assicurati che il p-toast sia posizionato correttamente */
+  p-toast {
+    z-index: 100000; 
+  }
+  
