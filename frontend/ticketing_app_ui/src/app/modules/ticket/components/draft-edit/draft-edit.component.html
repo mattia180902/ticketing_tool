@@ -5,7 +5,8 @@
 <p-confirmDialog></p-confirmDialog>
 
 <div class="draft-edit-container">
-  <p-card>
+  <p-card
+  >
     <form [formGroup]="ticketForm">
       <div class="p-fluid grid">
         <!-- Titolo -->
@@ -24,8 +25,7 @@
               ticketForm.get('title')?.touched
             "
             class="p-error"
-            >L'oggetto è obbligatorio.</small
-          >
+            >L'oggetto è obbligatorio.</small>
         </div>
 
         <!-- Descrizione -->
@@ -44,8 +44,7 @@
               ticketForm.get('description')?.touched
             "
             class="p-error"
-            >La descrizione è obbligatoria.</small
-          >
+            >La descrizione è obbligatoria.</small>
         </div>
 
         <!-- Categoria -->
@@ -68,8 +67,7 @@
               ticketForm.get('categoryId')?.touched
             "
             class="p-error"
-            >La categoria è obbligatoria.</small
-          >
+            >La categoria è obbligatoria.</small>
         </div>
 
         <!-- Servizio di Supporto -->
@@ -92,8 +90,7 @@
               ticketForm.get('supportServiceId')?.touched
             "
             class="p-error"
-            >Il servizio di supporto è obbligatorio.</small
-          >
+            >Il servizio di supporto è obbligatorio.</small>
         </div>
 
         <!-- Priorità -->
@@ -112,13 +109,11 @@
               ticketForm.get('priority')?.touched
             "
             class="p-error"
-            >La priorità è obbligatoria.</small
-          >
+            >La priorità è obbligatoria.</small>
         </div>
 
         <!-- Email (Condizionale: Input per USER o ReadOnly, Dropdown per Admin/PM/Helper) -->
         <div class="field col-12 md:col-6">
-          <!-- Se USER o in modalità sola lettura, mostra un input disabilitato -->
           <ng-container *ngIf="isUserRole || isReadOnly">
             <label for="email">Email Proprietario</label>
             <input
@@ -135,10 +130,8 @@
                 ticketForm.get('email')?.touched
               "
               class="p-error"
-              >Inserisci un'email valida.</small
-            >
+              >Inserisci un'email valida.</small>
           </ng-container>
-          <!-- Se Admin/Helper/PM e non in sola lettura, mostra un dropdown -->
           <ng-container *ngIf="!isUserRole && !isReadOnly">
             <label for="userEmailSelect">Email Proprietario</label>
             <p-dropdown
@@ -151,6 +144,7 @@
               [filter]="true"
               filterBy="email"
               [showClear]="true"
+              appendTo="body"
               (onChange)="onEmailFieldChange($event.value)"
             ></p-dropdown>
             <small
@@ -159,8 +153,7 @@
                 ticketForm.get('email')?.touched
               "
               class="p-error"
-              >L'email del proprietario è obbligatoria.</small
-            >
+              >L'email del proprietario è obbligatoria.</small>
           </ng-container>
         </div>
 
@@ -181,8 +174,7 @@
               ticketForm.get('fiscalCode')?.touched
             "
             class="p-error"
-            >Il codice fiscale è obbligatorio.</small
-          >
+            >Il codice fiscale è obbligatorio.</small>
         </div>
 
         <!-- Numero di Telefono - Abilitato solo se isUserOwnerSelected è true (per Admin/PM/Helper) o se è un USER -->
@@ -193,7 +185,7 @@
               type="text"
               pInputText
               formControlName="phoneNumber"
-              [disabled]="isReadOnly"
+              [readOnly]="isReadOnly"
               [disabled]="isReadOnly || (!isUserRole && !isUserOwnerSelected)"
             />
           <small
@@ -202,11 +194,10 @@
               ticketForm.get('phoneNumber')?.touched
             "
             class="p-error"
-            >Il numero di telefono è obbligatorio.</small
-          >
+            >Il numero di telefono è obbligatorio.</small>
         </div>
 
-        <!-- Assegnato a (visibile solo per Helper, PM, Admin) - Abilitato solo se isUserOwnerSelected è true e non è una bozza -->
+        <!-- Assegnato a (visibile solo per Helper, PM, Admin) - Abilitato solo se l'owner è USER -->
         <div
           class="field col-12 md:col-6"
           *ngIf="isHelperOrPmRole || isAdminOrPmRole"
@@ -222,7 +213,8 @@
             [filter]="true"
             filterBy="fullName"
             [showClear]="true"
-            [disabled]="isReadOnly || (!isUserRole && !isUserOwnerSelected)"
+            appendTo="body"
+            [disabled]="isReadOnly || isUserRole || !isUserOwnerSelected"
           >
           </p-dropdown>
           <small
@@ -231,12 +223,11 @@
               ticketForm.get('assignedToId')?.touched
             "
             class="p-error"
-            >L'assegnatario è obbligatorio.</small
-          >
+            >L'assegnatario è obbligatorio.</small>
         </div>
       </div>
 
-      <div class="flex justify-content-end gap-2 mt-4">
+      <div class="flex justify-content-end gap-2 mt-3">
         <!-- Pulsante "Elimina Bozza" -->
         <button
           pButton
@@ -245,7 +236,7 @@
           icon="pi pi-trash"
           class="p-button-danger"
           (click)="deleteDraft()"
-          [disabled]="isSaving"
+          [disabled]="isSaving || isReadOnly"
         ></button>
 
         <!-- Pulsante "Finalizza Bozza" -->
@@ -256,7 +247,7 @@
           icon="pi pi-check"
           class="p-button-success"
           (click)="finalizeDraft()"
-          [disabled]="isSaving || !isFormValidForFinalization()"
+          [disabled]="isSaving || isReadOnly || !isFinalizeButtonEnabled()" 
         ></button>
       </div>
     </form>

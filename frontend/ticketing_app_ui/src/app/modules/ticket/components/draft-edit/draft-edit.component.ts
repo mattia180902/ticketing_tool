@@ -14,10 +14,10 @@ import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MessageModule } from 'primeng/message';
 import { CardModule } from 'primeng/card';
-import { DynamicDialogRef, DynamicDialogConfig } from 'primeng/dynamicdialog'; 
+import { DynamicDialogRef, DynamicDialogConfig, DialogService } from 'primeng/dynamicdialog'; 
 import { MessageService, ConfirmationService, ConfirmEventType } from 'primeng/api';
 
-import { Subject, Observable, Subscription, of } from 'rxjs';
+import { Subject, Observable, Subscription, of, forkJoin } from 'rxjs';
 import { takeUntil, catchError, debounceTime, filter, distinctUntilChanged, finalize } from 'rxjs/operators';
 import { HttpErrorResponse } from '@angular/common/http';
 
@@ -31,6 +31,10 @@ import { TicketStatus } from '../../../../shared/enums/TicketStatus';
 import { TicketPriority } from '../../../../shared/enums/TicketPriority';
 import { AuthService } from '../../service/auth.service';
 import { DialogModule } from 'primeng/dialog';
+
+export interface AssignableUser extends UserDto {
+  fullName: string;
+}
 
 @Component({
   selector: 'app-draft-edit',
@@ -51,7 +55,7 @@ import { DialogModule } from 'primeng/dialog';
   ],
   templateUrl: './draft-edit.component.html',
   styleUrl: './draft-edit.component.scss',
-  providers: [MessageService, ConfirmationService] 
+  providers: [MessageService, ConfirmationService, DialogService]
 })
 export class DraftEditComponent implements OnInit, OnDestroy {
   ticketForm: FormGroup;
@@ -66,17 +70,17 @@ export class DraftEditComponent implements OnInit, OnDestroy {
   isReadOnly = false;
   currentTicket: TicketResponseDto | null = null;
   
-  assignableUsers: UserDto[] = [];
-  usersWithUserRole: UserDto[] = []; // Lista di utenti con ruolo USER per il dropdown dell'email
+  assignableUsers: AssignableUser[] = [];
+  usersWithUserRole: UserDto[] = []; 
 
   isSaving = false;
-  disableAutoSaveAfterEmailChange = false; // Flag per disabilitare l'auto-salvataggio
-  isUserOwnerSelected = false; // Indica se l'email selezionata è di un utente USER
+  disableAutoSaveAfterEmailChange = false; 
+  isUserOwnerSelected = false; 
 
   private destroy$ = new Subject<void>();
   private currentUserId = '';
   private formSubscription: Subscription | undefined;
-  private currentUserEmail = ''; // NUOVO: Email dell'utente corrente
+  private currentUserEmail = ''; 
 
   public isUserRole = false;
   public isHelperOrPmRole = false;
@@ -99,6 +103,7 @@ export class DraftEditComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
+    public dialogService: DialogService,
   ) {
     this.ticketForm = this.fb.group({
       title: ['', Validators.required],
@@ -123,29 +128,50 @@ export class DraftEditComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.currentUserId = this.authService.getUserId();
-    this.currentUserEmail = this.authService.getUserEmail(); //Ottieni l'email dell'utente corrente
+    this.currentUserEmail = this.authService.getUserEmail(); 
     this.isUserRole = this.authService.isUser();
     this.isHelperOrPmRole = this.authService.isHelperOrPm();
     this.isAdminRole = this.authService.isAdmin();
-    this.isAdminOrPmRole = this.authService.isAdminOrPm(); //Inizializza isAdminOrPmRole
+    this.isAdminOrPmRole = this.authService.isAdminOrPm(); 
 
-    this.loadCategories();
-    this.loadAllSupportServices();
-    this.loadAssignableUsers();
-    this.loadUsersWithUserRole(); //Carica la lista di utenti USER
+    // Carica tutte le dipendenze in parallelo per velocità
+    forkJoin([
+      this.categoryService.getAllCategories(),
+      this.supportServiceService.getAll(),
+      this.isHelperOrPmRole || this.isAdminRole ? this.userService.getHelpersAndAdmins() : of([]),
+      !this.isUserRole ? this.userService.getUsersByRole({ roleName: UserRole.USER }) : of([])
+    ]).pipe(
+      takeUntil(this.destroy$),
+      catchError(err => {
+        console.error('Errore nel caricamento delle dipendenze iniziali:', err);
+        this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare i dati iniziali del form.' });
+        this.ref.close();
+        return of([[], [], [], []]);
+      })
+    ).subscribe(([categories, allSupportServices, assignableUsers, usersWithUserRole]) => {
+      this.categories = categories;
+      this.allSupportServices = allSupportServices;
+      this.filteredSupportServices = allSupportServices;
+      this.assignableUsers = assignableUsers.map(user => ({
+        ...user,
+        fullName: `${user.firstName} ${user.lastName}`.trim() 
+      }));
+      this.usersWithUserRole = usersWithUserRole;
 
-    if (this.ticketId !== null) {
-      this.loadTicketDetails(this.ticketId);
-    } else {
-      this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare la bozza.' });
-      this.ref.close();
-    }
+      // Ora che tutti i dati sono caricati, carica i dettagli del ticket
+      if (this.ticketId !== null) {
+        this.loadTicketDetails(this.ticketId);
+      } else {
+        this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare la bozza.' });
+        this.ref.close();
+      }
 
-    // L'auto-salvataggio si attiva solo se non è in modalità sola lettura e se l'utente è autorizzato
-    // E se non è già disabilitato a causa del cambio email
-    if (!this.isReadOnly && (this.isUserRole || this.isHelperOrPmRole || this.isAdminRole)) {
-      this.setupAutoSave();
-    }
+      // Configura l'auto-salvataggio solo dopo il caricamento iniziale e se non è readOnly
+      // La logica di disableAutoSaveAfterEmailChange sarà impostata in loadTicketDetails o onEmailFieldChange
+      if (!this.isReadOnly && (this.isUserRole || this.isHelperOrPmRole || this.isAdminRole)) {
+        this.setupAutoSave();
+      }
+    });
 
     this.ticketForm.get('categoryId')?.valueChanges.pipe(
       takeUntil(this.destroy$)
@@ -153,10 +179,9 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       this.onCategoryChange(selectedCategoryId);
     });
 
-    //Listener per il cambio dell'email per i ruoli Admin/Helper/PM
     this.ticketForm.get('email')?.valueChanges.pipe(
       takeUntil(this.destroy$),
-      filter(() => !this.isUserRole && !this.isReadOnly), // Solo per Admin/Helper/PM e non in sola lettura
+      filter(() => !this.isUserRole && !this.isReadOnly), 
       distinctUntilChanged() 
     ).subscribe(newEmail => {
       this.onEmailFieldChange(newEmail);
@@ -187,9 +212,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (ticket) => {
         if (ticket) {
-          // La logica di autorizzazione per la modifica della bozza è più stringente qui:
-          // Solo l'owner può modificare la propria bozza.
-          // Se non è una bozza O l'owner non è l'utente corrente, chiudi la modale.
           if (ticket.status !== TicketStatus.DRAFT || ticket.userId !== this.currentUserId) {
             this.messageService.add({ severity: 'warn', summary: 'Non Autorizzato', detail: 'Non puoi modificare questa bozza.' });
             this.ref.close();
@@ -199,37 +221,49 @@ export class DraftEditComponent implements OnInit, OnDestroy {
           this.currentTicket = ticket;
           this.isDraft = true;
           this.isEditMode = true;
-          this.isReadOnly = false; // La bozza è sempre modificabile dal suo proprietario
+          this.isReadOnly = false; 
 
-          // Imposta i validatori iniziali e lo stato di abilitazione/disabilitazione
           this.ticketForm.get('email')?.setValidators([Validators.required, Validators.email]);
-          this.ticketForm.get('assignedToId')?.clearValidators(); // Non richiesto per le bozze
+          this.ticketForm.get('assignedToId')?.clearValidators(); 
 
           if (this.isUserRole) {
-            this.ticketForm.get('email')?.disable(); // L'email dell'utente è fissa e disabilitata
-            this.ticketForm.get('email')?.clearValidators(); // Rimuovi validatori se disabilitato
-            this.isUserOwnerSelected = true; // Per USER, l'owner è sempre un USER
-            this.ticketForm.get('fiscalCode')?.enable(); // Abilita per USER
-            this.ticketForm.get('phoneNumber')?.enable(); // Abilita per USER
-          } else { // Admin/PM/Helper
-            this.ticketForm.get('email')?.enable(); // Il campo email è abilitato per la modifica (dropdown)
+            this.ticketForm.get('email')?.disable(); 
+            this.ticketForm.get('email')?.clearValidators(); 
+            this.isUserOwnerSelected = true; 
             
-            // Determina isUserOwnerSelected basandosi sull'email del ticket caricato
+            // Carica e pre-compila fiscalCode e phoneNumber per l'utente USER loggato
+            this.userService.getMe().pipe(
+              takeUntil(this.destroy$),
+              catchError(err => {
+                console.error('Errore nel caricamento del profilo utente per pre-compilazione:', err);
+                this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'Impossibile pre-compilare codice fiscale e telefono. Inseriscili manualmente se necessario.' });
+                return of(null);
+              })
+            ).subscribe(userProfile => {
+              console.log('USER Profile for pre-fill:', userProfile); // LOG DI DEBUG
+              this.ticketForm.patchValue({
+                fiscalCode: userProfile?.fiscalCode || '', 
+                phoneNumber: userProfile?.phoneNumber || '' 
+              });
+              this.ticketForm.get('fiscalCode')?.setValidators(Validators.required);
+              this.ticketForm.get('phoneNumber')?.setValidators(Validators.required);
+              this.ticketForm.get('fiscalCode')?.updateValueAndValidity();
+              this.ticketForm.get('phoneNumber')?.updateValueAndValidity();
+              this.ticketForm.updateValueAndValidity(); 
+            });
+
+            this.ticketForm.get('fiscalCode')?.enable(); 
+            this.ticketForm.get('phoneNumber')?.enable(); 
+
+          } else { // Admin/PM/Helper
+            this.ticketForm.get('email')?.enable(); 
+            
             const ownerUserDto = this.usersWithUserRole.find(u => u.email === ticket.userEmail);
             this.isUserOwnerSelected = ownerUserDto?.role?.includes(UserRole.USER) || false;
 
-            // Abilita/disabilita i campi dettagli proprietario e assegnatario in base a isUserOwnerSelected
-            if (this.isUserOwnerSelected) {
-              this.ticketForm.get('fiscalCode')?.enable();
-              this.ticketForm.get('phoneNumber')?.enable();
-              this.ticketForm.get('assignedToId')?.disable(); // Assegnatario disabilitato per bozze
-              this.ticketForm.get('assignedToId')?.clearValidators();
-            } else {
-              this.ticketForm.get('fiscalCode')?.disable();
-              this.ticketForm.get('phoneNumber')?.disable();
-              this.ticketForm.get('assignedToId')?.disable();
-              this.ticketForm.get('assignedToId')?.clearValidators();
-            }
+            // Chiamata cruciale per impostare correttamente lo stato iniziale dei campi dipendenti
+            // e la validazione, oltre che l'auto-salvataggio.
+            this.onEmailFieldChange(ticket.userEmail!); 
           }
 
           this.ticketForm.patchValue({
@@ -237,23 +271,16 @@ export class DraftEditComponent implements OnInit, OnDestroy {
             description: ticket.description,
             categoryId: ticket.categoryId,
             priority: ticket.priority,
-            email: ticket.userEmail,
-            fiscalCode: ticket.userFiscalCode,
-            phoneNumber: ticket.userPhoneNumber,
+            email: ticket.userEmail, 
             assignedToId: ticket.assignedToId
           });
 
           this.onCategoryChange(ticket.categoryId!, () => {
             this.ticketForm.get('supportServiceId')?.setValue(ticket.supportServiceId);
           });
-
-          // Imposta disableAutoSaveAfterEmailChange se l'email del ticket non è la propria
-          // SOLO se il ticket è una bozza e l'utente corrente è Admin/PM/Helper
-          if (this.isDraft && (this.isAdminOrPmRole || this.isHelperOrPmRole) && ticket.userEmail !== this.currentUserEmail) {
-            this.disableAutoSaveAfterEmailChange = true;
-            this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'L\'auto-salvataggio è disabilitato perché il proprietario del ticket è un altro utente. Finalizza per salvare le modifiche.' });
-          }
-          this.ticketForm.updateValueAndValidity(); // Forza ricalcolo validità del form
+          
+          this.ticketForm.updateValueAndValidity(); 
+          this.ticketForm.markAllAsTouched(); 
         }
       }
     });
@@ -269,37 +296,44 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       return; 
     }
 
-    // Trova l'utente selezionato dalla lista degli utenti USER
     const selectedUser = this.usersWithUserRole.find(u => u.email === newEmail);
-    // Imposta isUserOwnerSelected in base al ruolo dell'utente selezionato
     this.isUserOwnerSelected = selectedUser?.role?.includes(UserRole.USER) || false;
 
-    // Logica per disabilitare auto-salvataggio
-    // Si applica solo se è una bozza e l'email selezionata non è la propria
-    if (this.isDraft && (this.isAdminOrPmRole || this.isHelperOrPmRole) && newEmail !== this.currentUserEmail) {
+    // Logica per disabilitare auto-salvataggio:
+    // Disabilita l'auto-salvataggio se l'owner selezionato è un USER (per Admin/PM/Helper)
+    if (this.isUserOwnerSelected && (this.isAdminOrPmRole || this.isHelperOrPmRole)) {
       this.disableAutoSaveAfterEmailChange = true;
-      this.messageService.add({ severity: 'warn', summary: 'Auto-salvataggio Disabilitato', detail: 'Il proprietario del ticket è stato cambiato. L\'auto-salvataggio è disabilitato. Finalizza per salvare le modifiche.' });
+      this.messageService.add({ severity: 'warn', summary: 'Auto-salvataggio Disabilitato', detail: 'Il proprietario del ticket è un utente USER. Finalizza per salvare le modifiche.' });
     } else {
       this.disableAutoSaveAfterEmailChange = false;
     }
 
-    // Logica per abilitare/disabilitare campi dettagli proprietario e assegnatario
     if (this.isUserOwnerSelected) {
       this.ticketForm.get('fiscalCode')?.enable();
       this.ticketForm.get('phoneNumber')?.enable();
-      this.ticketForm.get('assignedToId')?.disable(); // Assegnatario è sempre disabilitato per le bozze
-      this.ticketForm.get('assignedToId')?.clearValidators();
+      this.ticketForm.patchValue({
+        fiscalCode: selectedUser?.fiscalCode || '',
+        phoneNumber: selectedUser?.phoneNumber || ''
+      });
+      this.ticketForm.get('fiscalCode')?.setValidators(Validators.required);
+      this.ticketForm.get('phoneNumber')?.setValidators(Validators.required);
+      
+      this.ticketForm.get('assignedToId')?.enable(); 
+      this.ticketForm.get('assignedToId')?.setValidators(Validators.required); 
     } else {
-      // Se l'email selezionata non è di un USER o è la propria (Admin/PM/Helper)
-      // Disabilita i campi e pulisci i loro valori
       this.ticketForm.get('fiscalCode')?.disable();
       this.ticketForm.get('fiscalCode')?.setValue(''); 
       this.ticketForm.get('phoneNumber')?.disable();
       this.ticketForm.get('phoneNumber')?.setValue(''); 
-      this.ticketForm.get('assignedToId')?.disable();
+      this.ticketForm.get('fiscalCode')?.clearValidators();
+      this.ticketForm.get('phoneNumber')?.clearValidators();
+
+      this.ticketForm.get('assignedToId')?.disable(); 
       this.ticketForm.get('assignedToId')?.clearValidators(); 
       this.ticketForm.get('assignedToId')?.setValue(null); 
     }
+    this.ticketForm.get('fiscalCode')?.updateValueAndValidity();
+    this.ticketForm.get('phoneNumber')?.updateValueAndValidity();
     this.ticketForm.get('assignedToId')?.updateValueAndValidity(); 
     this.ticketForm.updateValueAndValidity(); 
   }
@@ -317,8 +351,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)),
       takeUntil(this.destroy$)
     ).subscribe(() => {
-      // L'auto-salvataggio si attiva solo se non c'è un salvataggio in corso
-      // E se non è stato disabilitato a causa del cambio email
       if (!this.isSaving && !this.disableAutoSaveAfterEmailChange) {
         this.autoSaveDraft();
       }
@@ -330,7 +362,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
    */
   autoSaveDraft(): void {
     if (this.isSaving || this.disableAutoSaveAfterEmailChange) { 
-      console.log('autoSaveDraft: Save already in progress or auto-save disabled, skipping.');
       return;
     }
     this.isSaving = true; 
@@ -341,7 +372,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
     saveObservable.pipe(
       takeUntil(this.destroy$),
       catchError((err: HttpErrorResponse) => {
-        console.error('Errore nell\'auto-salvataggio della bozza:', err);
         let errorMessage = err.error?.message || 'Impossibile salvare la bozza automaticamente.';
         this.messageService.add({ severity: 'error', summary: 'Errore Auto-salvataggio', detail: errorMessage });
         return of(null);
@@ -368,7 +398,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
     this.categoryService.getAllCategories().pipe(
       takeUntil(this.destroy$),
       catchError(err => {
-        console.error('Errore nel caricamento delle categorie:', err);
         this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare le categorie.' });
         return of([]);
       })
@@ -382,7 +411,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
     this.supportServiceService.getAll().pipe(
       takeUntil(this.destroy$),
       catchError(err => {
-        console.error('Errore nel caricamento di tutti i servizi di supporto:', err);
         this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare i servizi di supporto.' });
         return of([]);
       })
@@ -403,12 +431,14 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       this.userService.getHelpersAndAdmins().pipe(
         takeUntil(this.destroy$),
         catchError(err => {
-          console.error('Errore nel caricamento degli utenti assegnabili:', err);
           this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare gli utenti assegnabili.' });
           return of([]);
         })
       ).subscribe(users => {
-        this.assignableUsers = users;
+        this.assignableUsers = users.map(user => ({
+          ...user,
+          fullName: `${user.firstName} ${user.lastName}`.trim() 
+        }));
       });
     }
   }
@@ -418,13 +448,10 @@ export class DraftEditComponent implements OnInit, OnDestroy {
    * Utilizzato per il dropdown di selezione email per Admin/PM/Helper.
    */
   loadUsersWithUserRole(): void {
-    // Carica sempre se non è un USER, perché anche un PM/Admin/Helper può aprire la propria bozza
-    // e volerla riassegnare a un USER.
     if (!this.isUserRole) { 
       this.userService.getUsersByRole({ roleName: UserRole.USER }).pipe(
         takeUntil(this.destroy$),
         catchError(err => {
-          console.error('Errore nel caricamento degli utenti con ruolo USER:', err);
           this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare la lista degli utenti USER.' });
           return of([]);
         })
@@ -445,7 +472,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
       this.supportServiceService.getByCategory({ categoryId: categoryId }).pipe(
         takeUntil(this.destroy$),
         catchError(err => {
-          console.error('Errore nel caricamento dei servizi per categoria:', err);
           this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare i servizi per la categoria selezionata.' });
           return of([]);
         })
@@ -484,33 +510,70 @@ export class DraftEditComponent implements OnInit, OnDestroy {
 
   /**
    * Controlla se il form è valido per la finalizzazione (non bozza).
+   * Questo metodo è chiamato dal template per controllare lo stato del pulsante.
    * @returns True se il form è valido, false altrimenti.
    */
-  isFormValidForFinalization(): boolean {
-    // Per le bozze, il codice fiscale e il numero di telefono non sono obbligatori
-    // a meno che non si finalizzi il ticket con un owner USER.
-    // La validazione sul backend garantirà che siano presenti al momento della finalizzazione.
-    // Qui controlliamo solo la validità generale del form per i campi abilitati.
-    return this.ticketForm.valid;
+  isFinalizeButtonEnabled(): boolean {
+    // Se l'utente è un USER, la validazione standard del form è sufficiente.
+    if (this.isUserRole) {
+      return this.ticketForm.valid;
+    }
+
+    // Per Admin/Helper/PM:
+    // 1. Se l'owner selezionato NON è un USER (cioè Admin/Helper/PM stesso),
+    //    il pulsante "Finalizza Bozza" deve essere SEMPRE DISABLED.
+    //    Non possono finalizzare una bozza che non è di un USER.
+    if (!this.isUserOwnerSelected) {
+        return false; 
+    }
+
+    // Se l'owner IS a USER, allora procedi con la validazione completa per la finalizzazione.
+    const emailControl = this.ticketForm.get('email');
+    const fiscalCodeControl = this.ticketForm.get('fiscalCode');
+    const phoneNumberControl = this.ticketForm.get('phoneNumber');
+    const assignedToIdControl = this.ticketForm.get('assignedToId');
+
+    // Controlla la validità dei campi principali
+    if (!emailControl?.valid || !this.ticketForm.get('title')?.valid || !this.ticketForm.get('description')?.valid ||
+        !this.ticketForm.get('categoryId')?.valid || !this.ticketForm.get('supportServiceId')?.valid || !this.ticketForm.get('priority')?.valid) {
+      return false;
+    }
+
+    // Se l'owner è un USER, i campi fiscalCode, phoneNumber e assignedToId sono obbligatori.
+    // Controlla che abbiano un valore.
+    if (!fiscalCodeControl?.value || !phoneNumberControl?.value || !assignedToIdControl?.value) {
+        return false;
+    }
+    // Controlla anche la loro validità (se abilitati, il che dovrebbero essere qui)
+    if (fiscalCodeControl?.enabled && !fiscalCodeControl?.valid) return false;
+    if (phoneNumberControl?.enabled && !phoneNumberControl?.valid) return false;
+    if (assignedToIdControl?.enabled && !assignedToIdControl?.valid) return false;
+
+    return true; // Tutti i controlli richiesti sono validi o non applicabili
   }
+
 
   /**
    * Finalizza la bozza (la trasforma in un ticket OPEN).
    */
   finalizeDraft(): void {
     if (this.isSaving) { 
-      console.log('finalizeDraft: Save already in progress, skipping.');
       this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'Un\'operazione di salvataggio è già in corso. Attendi.' });
       return;
     }
 
-    // Prima di finalizzare, assicurati che i campi siano validi se l'owner è un USER
-    const emailControl = this.ticketForm.get('email');
+    // Qui la validazione viene gestita dal metodo isFormValidForFinalization
+    // Applica temporaneamente i validatori per il controllo finale prima del submit
+    
     const fiscalCodeControl = this.ticketForm.get('fiscalCode');
     const phoneNumberControl = this.ticketForm.get('phoneNumber');
     const assignedToIdControl = this.ticketForm.get('assignedToId');
 
-    // Se l'owner è un USER, fiscalCode e phoneNumber diventano obbligatori
+    const originalFiscalCodeValidators = fiscalCodeControl?.validator ?? null;
+    const originalPhoneNumberValidators = phoneNumberControl?.validator ?? null;
+    const originalAssignedToIdValidators = assignedToIdControl?.validator ?? null;
+
+    // Applica i validatori richiesti per la finalizzazione
     if (this.isUserOwnerSelected) {
         fiscalCodeControl?.setValidators(Validators.required);
         phoneNumberControl?.setValidators(Validators.required);
@@ -518,24 +581,42 @@ export class DraftEditComponent implements OnInit, OnDestroy {
         fiscalCodeControl?.clearValidators();
         phoneNumberControl?.clearValidators();
     }
-    // L'assegnatario è obbligatorio solo per i ticket finalizzati da Admin/PM/Helper
-    if (!this.isUserRole && !this.isDraft && this.isUserOwnerSelected) { // Se non è una bozza e l'owner è USER
+    if (!this.isUserRole && this.isUserOwnerSelected) { 
       assignedToIdControl?.setValidators(Validators.required);
     } else {
       assignedToIdControl?.clearValidators();
     }
     
-    // Forza la ricalcolazione della validità dopo aver modificato i validatori
     fiscalCodeControl?.updateValueAndValidity();
     phoneNumberControl?.updateValueAndValidity();
     assignedToIdControl?.updateValueAndValidity();
     this.ticketForm.updateValueAndValidity();
 
-    if (!this.isFormValidForFinalization()) {
+    if (!this.ticketForm.valid) {
       this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Compila tutti i campi obbligatori per finalizzare la bozza.' });
-      this.ticketForm.markAllAsTouched();
+      this.ticketForm.markAllAsTouched(); 
+      
+      // Ripristina i validatori originali dopo la validazione fallita
+      fiscalCodeControl?.setValidators(originalFiscalCodeValidators);
+      phoneNumberControl?.setValidators(originalPhoneNumberValidators);
+      assignedToIdControl?.setValidators(originalAssignedToIdValidators);
+      fiscalCodeControl?.updateValueAndValidity();
+      phoneNumberControl?.updateValueAndValidity();
+      assignedToIdControl?.updateValueAndValidity();
+      this.ticketForm.updateValueAndValidity();
+
       return;
     }
+
+    // Ripristina i validatori originali prima di procedere con il salvataggio
+    fiscalCodeControl?.setValidators(originalFiscalCodeValidators);
+    phoneNumberControl?.setValidators(originalPhoneNumberValidators);
+    assignedToIdControl?.setValidators(originalAssignedToIdValidators);
+    fiscalCodeControl?.updateValueAndValidity();
+    phoneNumberControl?.updateValueAndValidity();
+    assignedToIdControl?.updateValueAndValidity();
+    this.ticketForm.updateValueAndValidity();
+
 
     this.isSaving = true; 
     const ticketDto = this.prepareTicketDto(TicketStatus.OPEN);
@@ -545,7 +626,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
     saveObservable.pipe(
       takeUntil(this.destroy$),
       catchError((err: HttpErrorResponse) => {
-        console.error('Errore nella finalizzazione della bozza:', err);
         let errorMessage = err.error?.message || 'Impossibile finalizzare la bozza.';
         
         if (err.status === 500 && errorMessage.includes("Un ticket creato da un Admin/PM/Helper deve avere come proprietario un utente con ruolo USER.")) {
@@ -554,7 +634,7 @@ export class DraftEditComponent implements OnInit, OnDestroy {
           errorMessage = "L'email specificata per l'utente non è registrata. Assicurati che l'utente esista in Keycloak.";
         }
 
-        this.messageService.add({ severity: 'error', summary: 'Errore', detail: errorMessage });
+        this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Errore nella finalizzazione: ' + errorMessage }); 
         return of(null);
       }),
       finalize(() => {
@@ -587,7 +667,6 @@ export class DraftEditComponent implements OnInit, OnDestroy {
         this.ticketService.deleteTicket({ ticketId: this.ticketId! }).pipe(
           takeUntil(this.destroy$),
           catchError(err => {
-            console.error('Errore nell\'eliminazione della bozza:', err);
             this.messageService.add({ severity: 'error', summary: 'Errore', detail: err.error?.message || 'Impossibile eliminare la bozza.' });
             return of(null);
           })

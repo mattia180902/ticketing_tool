@@ -93,7 +93,6 @@ export class TicketListComponent implements OnInit, OnDestroy {
   actionType: 'assign' | 'reject' | 'escalate' | null = null;
   selectedTicketForAction: TicketResponseDto | null = null;
   
-
   private _allAssignableUsers: AssignableUser[] = []; 
   availableUsersForAssignment: AssignableUser[] = []; 
 
@@ -104,6 +103,8 @@ export class TicketListComponent implements OnInit, OnDestroy {
   ref: DynamicDialogRef | undefined;
 
   public selfRef: DynamicDialogRef | undefined | null = inject(DynamicDialogRef, { optional: true });
+
+  private closedBySelection = false; 
 
   private firstLazyLoadFromTable = true;
 
@@ -203,8 +204,11 @@ export class TicketListComponent implements OnInit, OnDestroy {
     if (this.ref) {
       this.ref.close();
     }
-    if (this.selfRef) {
-      this.selfRef.close();
+    // MODIFICATO: Chiudi selfRef solo se NON è in modalità selezione modale.
+    // In modalità selezione modale, la chiusura è gestita dal DialogService e dalla logica di selezione/annullamento.
+    // Chiamare selfRef.close() qui è ridondante e causa la doppia notifica.
+    if (this.selfRef && !this.isModalSelectionMode) { 
+        this.selfRef.close();
     }
     this.destroy$.next();
     this.destroy$.complete();
@@ -305,7 +309,6 @@ export class TicketListComponent implements OnInit, OnDestroy {
    * Questa lista viene caricata una sola volta e usata come base per i filtraggi specifici delle dialoghe.
    */
   loadAllAssignableUsers(): void {
-    console.log('loadAllAssignableUsers: Inizio caricamento utenti assegnabili...');
     this.userService.getHelpersAndAdmins().pipe(
       takeUntil(this.destroy$),
       catchError(err => {
@@ -314,12 +317,10 @@ export class TicketListComponent implements OnInit, OnDestroy {
         return of([]);
       })
     ).subscribe(users => {
-      // Mappa gli utenti per aggiungere la proprietà fullName
       this._allAssignableUsers = users.map(user => ({
         ...user,
         fullName: `${user.firstName} ${user.lastName}`.trim() 
       }));
-      console.log('loadAllAssignableUsers: Utenti assegnabili caricati e mappati:', this._allAssignableUsers);
       if (this._allAssignableUsers.length === 0) {
         this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'Nessun utente Helper/PM/Admin trovato nel sistema per le assegnazioni.' });
       }
@@ -347,6 +348,7 @@ export class TicketListComponent implements OnInit, OnDestroy {
 
     if (this.isModalSelectionMode) {
       if (isDraft && isOwner) {
+        this.closedBySelection = true; // Imposta il flag prima di chiudere
         this.selfRef?.close(ticket.id);
       } else {
         this.messageService.add({ severity: 'warn', summary: 'Selezione Non Valida', detail: 'Puoi selezionare solo le tue bozze.' });
@@ -422,12 +424,10 @@ export class TicketListComponent implements OnInit, OnDestroy {
   }
 
   showRejectDialog(ticket: TicketResponseDto): void {
-    // 1. Reset dello stato della modale prima di aprirla
     this.selectedTicketForAction = null;
     this.selectedAssigneeId = null;
     this.availableUsersForAssignment = []; 
 
-    // 2. Popola la lista filtrata
     this.availableUsersForAssignment = this._allAssignableUsers.filter(u => u.id !== this.currentUserId);
     
     if (this.availableUsersForAssignment.length === 0) {
@@ -435,23 +435,19 @@ export class TicketListComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // 3. Imposta i dettagli del ticket e il tipo di azione
     this.selectedTicketForAction = ticket;
     this.actionType = 'reject';
     this.actionDialogHeader = `Rifiuta Ticket #${ticket.id}`;
     this.actionDialogMessage = `Seleziona un utente a cui riassegnare il ticket "${ticket.title}". Lo stato rimarrà OPEN.`;
     
-    // 4. Apre la modale
     this.displayActionDialog = true;
   }
 
   showEscalateDialog(ticket: TicketResponseDto): void {
-    // 1. Reset dello stato della modale prima di aprirla
     this.selectedTicketForAction = null;
     this.selectedAssigneeId = null;
     this.availableUsersForAssignment = []; 
 
-    // 2. Popola la lista filtrata
     this.availableUsersForAssignment = this._allAssignableUsers.filter(u => u.id !== this.currentUserId);
     
     if (this.availableUsersForAssignment.length === 0) {
@@ -459,23 +455,19 @@ export class TicketListComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // 3. Imposta i dettagli del ticket e il tipo di azione
     this.selectedTicketForAction = ticket;
     this.actionType = 'escalate';
     this.actionDialogHeader = `Escala Ticket #${ticket.id}`;
     this.actionDialogMessage = `Seleziona un utente a cui escalare il ticket "${ticket.title}". Lo stato tornerà OPEN.`;
     
-    // 4. Apri la modale
     this.displayActionDialog = true;
   }
 
   showAssignDialog(ticket: TicketResponseDto): void {
-    // 1. Reset dello stato della modale prima di aprirla
     this.selectedTicketForAction = null;
     this.selectedAssigneeId = null;
     this.availableUsersForAssignment = []; 
 
-    // 2. Popola la lista filtrata
     const currentAssigneeId = ticket.assignedToId;
     this.availableUsersForAssignment = this._allAssignableUsers.filter(u => u.id !== currentAssigneeId);
 
@@ -484,13 +476,11 @@ export class TicketListComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // 3. Imposta i dettagli del ticket e il tipo di azione
     this.selectedTicketForAction = ticket;
     this.actionType = 'assign';
     this.actionDialogHeader = `Assegna Ticket #${ticket.id}`;
     this.actionDialogMessage = `Seleziona un utente a cui assegnare il ticket "${ticket.title}".`;
     
-    // 4. Apre la modale
     this.displayActionDialog = true;
   }
 
@@ -690,4 +680,3 @@ export class TicketListComponent implements OnInit, OnDestroy {
     }
   }
 }
-
