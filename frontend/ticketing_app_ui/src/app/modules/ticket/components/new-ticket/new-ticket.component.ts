@@ -1,5 +1,3 @@
-// src/app/modules/ticket/components/new-ticket/new-ticket.component.ts
-
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -28,7 +26,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 
 import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { Subject, of, Observable, Subscription } from 'rxjs';
+import { Subject, of, Observable, Subscription, forkJoin } from 'rxjs';
 import { takeUntil, catchError, debounceTime, distinctUntilChanged, finalize, filter } from 'rxjs/operators';
 import { MessageModule } from 'primeng/message';
 import { AuthService } from '../../service/auth.service';
@@ -39,6 +37,10 @@ import { TicketListComponent } from '../ticket-list/ticket-list.component';
 import { TicketStatus } from '../../../../shared/enums/TicketStatus';
 import { UserRole } from '../../../../shared/enums/UserRole';
 import { TicketPriority } from '../../../../shared/enums/TicketPriority';
+
+export interface AssignableUser extends UserDto {
+  fullName: string;
+}
 
 @Component({
   selector: 'app-new-ticket',
@@ -73,17 +75,18 @@ export class NewTicketComponent implements OnInit, OnDestroy {
   isReadOnly = false;
   currentTicket: TicketResponseDto | null = null;
   
-  assignableUsers: UserDto[] = [];
-  usersWithUserRole: UserDto[] = []; //Lista di utenti con ruolo USER per il dropdown dell'email
+  assignableUsers: AssignableUser[] = []; 
+  usersWithUserRole: UserDto[] = []; 
 
   isSaving = false;
-  disableAutoSaveAfterEmailChange = false; // lag per disabilitare l'auto-salvataggio dopo il cambio email
-  isUserOwnerSelected = false; //Indica se l'email selezionata è di un utente USER
+  disableAutoSaveAfterEmailChange = false; 
+  isUserOwnerSelected = false; 
 
   private destroy$ = new Subject<void>();
-  private currentUserId = '';
   private formSubscription: Subscription | undefined;
+  private currentUserId = '';
   private currentUserEmail = '';
+  private isInitialFormSetup = true; // Flag per tracciare l'inizializzazione del form
 
   public isUserRole = false;
   public isHelperOrPmRole = false;
@@ -119,8 +122,8 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       supportServiceId: [null, Validators.required],
       priority: [TicketPriority.MEDIUM, Validators.required],
       email: ['', [Validators.required, Validators.email]], 
-      fiscalCode: ['',Validators.required],
-      phoneNumber: ['',Validators.required],
+      fiscalCode: ['', Validators.required], 
+      phoneNumber: ['', Validators.required], 
       assignedToId: [null]
     });
 
@@ -130,10 +133,11 @@ export class NewTicketComponent implements OnInit, OnDestroy {
         this.isEditMode = true;
         this.isDraft = this.config.data.isDraft || false;
         this.isReadOnly = this.config.data.isReadOnly || false;
-        this.loadTicketDetails(this.ticketId!);
       } else {
         this.initializeNewTicketForm();
       }
+    } else {
+      this.initializeNewTicketForm();
     }
   }
 
@@ -145,43 +149,58 @@ export class NewTicketComponent implements OnInit, OnDestroy {
     this.isAdminRole = this.authService.isAdmin();
     this.isAdminOrPmRole = this.authService.isAdminOrPm();
 
-    console.log('NGONINIT: ticketId=', this.ticketId, 'isEditMode=', this.isEditMode, 'isDraft=', this.isDraft, 'isReadOnly=', this.isReadOnly);
+    forkJoin([
+      this.categoryService.getAllCategories(),
+      this.supportServiceService.getAll(),
+      (this.isHelperOrPmRole || this.isAdminRole) ? this.userService.getHelpersAndAdmins() : of([]),
+      !this.isUserRole ? this.userService.getUsersByRole({ roleName: UserRole.USER }) : of([])
+    ]).pipe(
+      takeUntil(this.destroy$),
+      catchError(err => {
+        console.error('Errore nel caricamento delle dipendenze iniziali:', err);
+        this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Impossibile caricare i dati iniziali del form.' });
+        if (this.ref) { this.ref.close(); } else { this.router.navigate(['/dashboard']); }
+        return of([[], [], [], []]);
+      })
+    ).subscribe(([categories, allSupportServices, assignableUsers, usersWithUserRole]) => {
+      this.categories = categories;
+      this.allSupportServices = allSupportServices;
+      this.filteredSupportServices = allSupportServices;
+      this.assignableUsers = assignableUsers.map(user => ({
+        ...user,
+        fullName: `${user.firstName} ${user.lastName}`.trim() 
+      }));
+      this.usersWithUserRole = usersWithUserRole;
 
-    this.loadCategories();
-    this.loadAllSupportServices();
-    this.loadAssignableUsers();
-    this.loadUsersWithUserRole(); 
-
-    if (!this.ticketId && !this.config?.data?.ticketId) {
-      const routeSnapshot = this.route.snapshot;
-      const idFromQueryParams = routeSnapshot.queryParams['ticketId'] ? +routeSnapshot.queryParams['ticketId'] : null;
-      const initialCategoryId = routeSnapshot.queryParams['categoryId'] ? +routeSnapshot.queryParams['categoryId'] : null;
-      const initialSupportServiceId = routeSnapshot.queryParams['supportServiceId'] ? +routeSnapshot.queryParams['supportServiceId'] : (routeSnapshot.queryParams['serviceId'] ? +routeSnapshot.queryParams['serviceId'] : null);
-
-      if (typeof idFromQueryParams === 'number' && idFromQueryParams !== null) {
-        this.ticketId = idFromQueryParams;
-        this.isEditMode = true;
-        this.isReadOnly = false; 
-        this.loadTicketDetails(this.ticketId!);
-      } else {
-        this.initializeNewTicketForm();
-        if (initialCategoryId) {
-          this.ticketForm.get('categoryId')?.setValue(initialCategoryId);
-          this.supportServiceService.getByCategory({ categoryId: initialCategoryId }).pipe(
-            takeUntil(this.destroy$)
-          ).subscribe(services => {
-            this.filteredSupportServices = services;
-            if (initialSupportServiceId && services.some(s => s.id === initialSupportServiceId)) {
-              this.ticketForm.get('supportServiceId')?.setValue(initialSupportServiceId);
-            }
-          });
+      if (this.ticketId !== null) {
+        this.loadTicketDetails(this.ticketId);
+      } else if (!this.isEditMode) { 
+        const idFromQueryParams = this.route.snapshot.queryParams['ticketId'] ? +this.route.snapshot.queryParams['ticketId'] : null;
+        if (typeof idFromQueryParams === 'number' && idFromQueryParams !== null) {
+          this.ticketId = idFromQueryParams;
+          this.isEditMode = true;
+          this.isReadOnly = false; 
+          this.loadTicketDetails(this.ticketId!);
+        } else {
+          this.initializeNewTicketForm();
+          const initialCategoryId = this.route.snapshot.queryParams['categoryId'] ? +this.route.snapshot.queryParams['categoryId'] : null;
+          const initialSupportServiceId = this.route.snapshot.queryParams['supportServiceId'] ? +this.route.snapshot.queryParams['supportServiceId'] : (this.route.snapshot.queryParams['serviceId'] ? +this.route.snapshot.queryParams['serviceId'] : null);
+          if (initialCategoryId) {
+            this.ticketForm.get('categoryId')?.setValue(initialCategoryId);
+            this.onCategoryChange(initialCategoryId, () => {
+              if (initialSupportServiceId && this.filteredSupportServices.some(s => s.id === initialSupportServiceId)) {
+                this.ticketForm.get('supportServiceId')?.setValue(initialSupportServiceId);
+              }
+            });
+          }
         }
       }
-    }
 
-    if (!this.isReadOnly && (this.isUserRole || this.isHelperOrPmRole || this.isAdminRole)) {
-      this.setupAutoSave();
-    }
+      if (!this.isReadOnly && (this.isUserRole || this.isHelperOrPmRole || this.isAdminRole)) {
+        this.setupAutoSave();
+      }
+      this.isInitialFormSetup = false; // Imposta il flag a false dopo l'inizializzazione completa
+    });
 
     this.ticketForm.get('categoryId')?.valueChanges.pipe(
       takeUntil(this.destroy$)
@@ -225,7 +244,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
     this.ticketId = null;
     this.currentTicket = null;
     this.disableAutoSaveAfterEmailChange = false; 
-    this.isUserOwnerSelected = false; // Inizialmente false per Admin/PM/Helper
+    this.isUserOwnerSelected = false; 
     this.ticketForm.reset(); 
     this.ticketForm.enable(); 
 
@@ -249,26 +268,33 @@ export class NewTicketComponent implements OnInit, OnDestroy {
         this.ticketForm.get('email')?.disable(); 
         this.ticketForm.get('email')?.clearValidators(); 
         this.ticketForm.get('email')?.updateValueAndValidity();
-        this.isUserOwnerSelected = true; // Per USER, l'owner è sempre un USER
+        this.isUserOwnerSelected = true; 
+        this.ticketForm.get('fiscalCode')?.setValidators(Validators.required); 
+        this.ticketForm.get('phoneNumber')?.setValidators(Validators.required); 
+        this.ticketForm.get('fiscalCode')?.updateValueAndValidity();
+        this.ticketForm.get('phoneNumber')?.updateValueAndValidity();
+        this.ticketForm.updateValueAndValidity(); 
       });
-    } else { // Admin/PM/Helper
+    } else { 
       this.ticketForm.patchValue({
         email: this.currentUserEmail, 
         fiscalCode: '',
         phoneNumber: ''
       });
       this.ticketForm.get('email')?.enable(); 
-      // All'inizio, l'email è quella dell'Admin/PM/Helper, quindi isUserOwnerSelected è false
       this.isUserOwnerSelected = false; 
-      // Disabilita i campi dettagli proprietario e assegnatario inizialmente
       this.ticketForm.get('fiscalCode')?.disable();
       this.ticketForm.get('phoneNumber')?.disable();
       this.ticketForm.get('assignedToId')?.disable();
+      this.ticketForm.get('fiscalCode')?.clearValidators(); 
+      this.ticketForm.get('phoneNumber')?.clearValidators(); 
+      this.ticketForm.get('assignedToId')?.clearValidators(); 
     }
     this.ticketForm.get('priority')?.setValue(TicketPriority.MEDIUM);
     this.ticketForm.get('assignedToId')?.setValue(null);
     this.filteredSupportServices = [];
     this.ticketForm.updateValueAndValidity(); 
+    this.ticketForm.markAllAsTouched(); 
   }
 
   /**
@@ -280,7 +306,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
     this.ticketId = id;
     this.isEditMode = true;
     this.disableAutoSaveAfterEmailChange = false; 
-    this.isUserOwnerSelected = false; // Reset iniziale
+    this.isUserOwnerSelected = false; 
 
     this.ticketService.getTicketDetails({ ticketId: id }).pipe(
       takeUntil(this.destroy$),
@@ -310,40 +336,43 @@ export class NewTicketComponent implements OnInit, OnDestroy {
             this.ticketForm.disable(); 
             this.ticketForm.get('email')?.clearValidators(); 
             this.ticketForm.get('assignedToId')?.clearValidators(); 
-            this.isUserOwnerSelected = false; // Se readOnly, i campi dettagli proprietario sono disabilitati
+            this.isUserOwnerSelected = false; 
           } else {
             this.ticketForm.enable(); 
             if (this.isUserRole) {
               this.ticketForm.get('email')?.disable(); 
               this.ticketForm.get('email')?.clearValidators(); 
+              this.isUserOwnerSelected = true; 
+              this.userService.getMe().pipe(
+                takeUntil(this.destroy$),
+                catchError(err => {
+                  console.error('Errore nel caricamento del profilo utente per pre-compilazione:', err);
+                  this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'Impossibile pre-compilare codice fiscale e telefono. Inseriscili manualmente se necessario.' });
+                  return of(null);
+                })
+              ).subscribe(userProfile => {
+                this.ticketForm.patchValue({
+                  fiscalCode: userProfile?.fiscalCode || '', 
+                  phoneNumber: userProfile?.phoneNumber || '' 
+                });
+                this.ticketForm.get('fiscalCode')?.setValidators(Validators.required);
+                this.ticketForm.get('phoneNumber')?.setValidators(Validators.required);
+                this.ticketForm.get('fiscalCode')?.updateValueAndValidity();
+                this.ticketForm.get('phoneNumber')?.updateValueAndValidity();
+                this.ticketForm.updateValueAndValidity(); 
+              });
+              this.ticketForm.get('fiscalCode')?.enable();
+              this.ticketForm.get('phoneNumber')?.enable();
               this.ticketForm.get('assignedToId')?.clearValidators(); 
-              this.isUserOwnerSelected = true; // Per USER, l'owner è sempre un USER
-            } else { // Admin/PM/Helper
+              this.ticketForm.get('assignedToId')?.disable(); 
+            } else { 
               this.ticketForm.get('email')?.enable(); 
               this.ticketForm.get('email')?.setValidators([Validators.required, Validators.email]); 
               
-              // Determina isUserOwnerSelected basandosi sull'email del ticket caricato
               const ownerUserDto = this.usersWithUserRole.find(u => u.email === ticket.userEmail);
               this.isUserOwnerSelected = ownerUserDto?.role?.includes(UserRole.USER) || false;
 
-              // Abilita/disabilita i campi dettagli proprietario e assegnatario in base a isUserOwnerSelected
-              if (this.isUserOwnerSelected) {
-                this.ticketForm.get('fiscalCode')?.enable();
-                this.ticketForm.get('phoneNumber')?.enable();
-                // Assegnatario abilitato solo se non è una bozza
-                if (!this.isDraft) {
-                  this.ticketForm.get('assignedToId')?.enable();
-                  this.ticketForm.get('assignedToId')?.setValidators(Validators.required);
-                } else {
-                  this.ticketForm.get('assignedToId')?.disable();
-                  this.ticketForm.get('assignedToId')?.clearValidators();
-                }
-              } else {
-                this.ticketForm.get('fiscalCode')?.disable();
-                this.ticketForm.get('phoneNumber')?.disable();
-                this.ticketForm.get('assignedToId')?.disable();
-                this.ticketForm.get('assignedToId')?.clearValidators();
-              }
+              this.onEmailFieldChange(ticket.userEmail!); 
             }
           }
 
@@ -353,20 +382,17 @@ export class NewTicketComponent implements OnInit, OnDestroy {
             categoryId: ticket.categoryId,
             priority: ticket.priority,
             email: ticket.userEmail, 
-            fiscalCode: ticket.userFiscalCode,
-            phoneNumber: ticket.userPhoneNumber,
+            fiscalCode: ticket.userFiscalCode, 
+            phoneNumber: ticket.userPhoneNumber, 
             assignedToId: ticket.assignedToId
           });
 
           this.onCategoryChange(ticket.categoryId!, () => {
             this.ticketForm.get('supportServiceId')?.setValue(ticket.supportServiceId);
           });
-
-          if (this.isDraft && (this.isAdminOrPmRole || this.isHelperOrPmRole) && ticket.userEmail !== this.currentUserEmail) {
-            this.disableAutoSaveAfterEmailChange = true;
-            this.messageService.add({ severity: 'warn', summary: 'Attenzione', detail: 'L\'auto-salvataggio è disabilitato perché il proprietario del ticket è un altro utente. Finalizza per salvare le modifiche.' });
-          }
+          
           this.ticketForm.updateValueAndValidity(); 
+          this.ticketForm.markAllAsTouched(); 
           console.log('loadTicketDetails: Ticket loaded. ticketId=', this.ticketId, 'isEditMode=', this.isEditMode, 'isDraft=', this.isDraft, 'isReadOnly=', this.isReadOnly);
         }
       }
@@ -403,46 +429,60 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       return; 
     }
 
-    // Trova l'utente selezionato dalla lista degli utenti USER
+    // Salva lo stato precedente di disableAutoSaveAfterEmailChange per rilevare la transizione
+    const previousDisableAutoSaveState = this.disableAutoSaveAfterEmailChange; 
+    
     const selectedUser = this.usersWithUserRole.find(u => u.email === newEmail);
-    // Imposta isUserOwnerSelected in base al ruolo dell'utente selezionato
     this.isUserOwnerSelected = selectedUser?.role?.includes(UserRole.USER) || false;
 
-    // Logica per disabilitare auto-salvataggio
-    if ((this.isAdminOrPmRole || this.isHelperOrPmRole) && this.isDraft && newEmail !== this.currentUserEmail) {
-      this.disableAutoSaveAfterEmailChange = true;
-      this.messageService.add({ severity: 'warn', summary: 'Auto-salvataggio Disabilitato', detail: 'Il proprietario del ticket è stato cambiato. L\'auto-salvataggio è disabilitato. Finalizza il ticket per salvare le modifiche.' });
-    } else {
-      this.disableAutoSaveAfterEmailChange = false;
+    // Determina il nuovo stato di disableAutoSaveAfterEmailChange
+    // L'auto-salvataggio è disabilitato se:
+    // 1. L'owner selezionato è un USER (per Admin/PM/Helper)
+    // 2. L'email è stata pulita (newEmail è falsy)
+    const newDisableAutoSaveState = (this.isUserOwnerSelected) || (!newEmail);
+    
+    // Mostra il messaggio SOLO se lo stato di disabilitazione è cambiato da false a true
+    // E l'utente corrente è Admin/Helper/PM, E NON siamo nella fase di setup iniziale del form.
+    if ((this.isAdminOrPmRole || this.isHelperOrPmRole) && newDisableAutoSaveState && !previousDisableAutoSaveState && !this.isInitialFormSetup) {
+      this.messageService.add({ severity: 'warn', summary: 'Auto-salvataggio Disabilitato', detail: 'Il proprietario del ticket è un utente USER o l\'email è stata pulita. Finalizza per salvare le modifiche.' });
+    } 
+    // Se lo stato è cambiato da true a false, pulisci i messaggi di warning
+    else if ((this.isAdminOrPmRole || this.isHelperOrPmRole) && !newDisableAutoSaveState && previousDisableAutoSaveState) {
+        this.messageService.clear('warn'); 
     }
 
-    // Logica per abilitare/disabilitare campi dettagli proprietario e assegnatario
+    // Aggiorna il flag di stato dell'auto-salvataggio
+    this.disableAutoSaveAfterEmailChange = newDisableAutoSaveState;
+
+
     if (this.isUserOwnerSelected) {
       this.ticketForm.get('fiscalCode')?.enable();
       this.ticketForm.get('phoneNumber')?.enable();
-      // Assegnatario abilitato solo se non è una bozza
-      if (!this.isDraft) {
-        this.ticketForm.get('assignedToId')?.enable();
-        this.ticketForm.get('assignedToId')?.setValidators(Validators.required);
-      } else {
-        this.ticketForm.get('assignedToId')?.disable();
-        this.ticketForm.get('assignedToId')?.clearValidators();
-      }
+      this.ticketForm.patchValue({
+        fiscalCode: selectedUser?.fiscalCode || '',
+        phoneNumber: selectedUser?.phoneNumber || ''
+      }, { emitEvent: false }); // Aggiunto { emitEvent: false } per evitare loop ricorsivi
+      this.ticketForm.get('fiscalCode')?.setValidators(Validators.required);
+      this.ticketForm.get('phoneNumber')?.setValidators(Validators.required);
+      
+      this.ticketForm.get('assignedToId')?.enable(); 
+      this.ticketForm.get('assignedToId')?.setValidators(Validators.required); 
     } else {
-      // Se l'email selezionata non è di un USER o è la propria (Admin/PM/Helper)
-      // Disabilita i campi e pulisci i loro valori se non sono già disabilitati globalmente
-      if (!this.isReadOnly) {
-        this.ticketForm.get('fiscalCode')?.disable();
-        this.ticketForm.get('fiscalCode')?.setValue(''); // Pulisci il valore
-        this.ticketForm.get('phoneNumber')?.disable();
-        this.ticketForm.get('phoneNumber')?.setValue(''); // Pulisci il valore
-        this.ticketForm.get('assignedToId')?.disable();
-        this.ticketForm.get('assignedToId')?.clearValidators(); // Rimuovi validatori
-        this.ticketForm.get('assignedToId')?.setValue(null); // Pulisci il valore
-      }
+      this.ticketForm.get('fiscalCode')?.disable();
+      this.ticketForm.get('fiscalCode')?.setValue(''); 
+      this.ticketForm.get('phoneNumber')?.disable();
+      this.ticketForm.get('phoneNumber')?.setValue(''); 
+      this.ticketForm.get('fiscalCode')?.clearValidators();
+      this.ticketForm.get('phoneNumber')?.clearValidators();
+
+      this.ticketForm.get('assignedToId')?.disable(); 
+      this.ticketForm.get('assignedToId')?.clearValidators(); 
+      this.ticketForm.get('assignedToId')?.setValue(null); 
     }
-    this.ticketForm.get('assignedToId')?.updateValueAndValidity(); // Forza ricalcolo validità assegnatario
-    this.ticketForm.updateValueAndValidity(); // Forza ricalcolo validità del form
+    this.ticketForm.get('fiscalCode')?.updateValueAndValidity();
+    this.ticketForm.get('phoneNumber')?.updateValueAndValidity();
+    this.ticketForm.get('assignedToId')?.updateValueAndValidity(); 
+    this.ticketForm.updateValueAndValidity(); 
   }
 
   /**
@@ -564,7 +604,10 @@ export class NewTicketComponent implements OnInit, OnDestroy {
           return of([]);
         })
       ).subscribe(users => {
-        this.assignableUsers = users;
+        this.assignableUsers = users.map(user => ({
+          ...user,
+          fullName: `${user.firstName} ${user.lastName}`.trim() 
+        })); 
       });
     }
   }
@@ -637,11 +680,36 @@ export class NewTicketComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Controlla se il form è valido per la finalizzazione (non bozza).
-   * @returns True se il form è valido, false altrimenti.
+   * Controlla se il pulsante "Finalizza Ticket" deve essere abilitato.
+   * @returns True se il pulsante deve essere abilitato, false altrimenti.
    */
-  isFormValidForFinalization(): boolean {
-    return this.ticketForm.valid;
+  isFinalizeButtonEnabled(): boolean {
+    if (this.isUserRole) {
+      return this.ticketForm.valid;
+    }
+
+    if (!this.isUserOwnerSelected) {
+        return false; 
+    }
+
+    const emailControl = this.ticketForm.get('email');
+    const fiscalCodeControl = this.ticketForm.get('fiscalCode');
+    const phoneNumberControl = this.ticketForm.get('phoneNumber');
+    const assignedToIdControl = this.ticketForm.get('assignedToId');
+
+    if (!emailControl?.valid || !this.ticketForm.get('title')?.valid || !this.ticketForm.get('description')?.valid ||
+        !this.ticketForm.get('categoryId')?.valid || !this.ticketForm.get('supportServiceId')?.valid || !this.ticketForm.get('priority')?.valid) {
+      return false;
+    }
+
+    if (!fiscalCodeControl?.value || !phoneNumberControl?.value || !assignedToIdControl?.value) {
+        return false;
+    }
+    if (fiscalCodeControl?.enabled && !fiscalCodeControl?.valid) return false;
+    if (phoneNumberControl?.enabled && !phoneNumberControl?.valid) return false;
+    if (assignedToIdControl?.enabled && !assignedToIdControl?.valid) return false;
+
+    return true; 
   }
 
   /**
@@ -654,11 +722,55 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.isFormValidForFinalization()) {
+    const fiscalCodeControl = this.ticketForm.get('fiscalCode');
+    const phoneNumberControl = this.ticketForm.get('phoneNumber');
+    const assignedToIdControl = this.ticketForm.get('assignedToId');
+
+    const originalFiscalCodeValidators = fiscalCodeControl?.validator ?? null;
+    const originalPhoneNumberValidators = phoneNumberControl?.validator ?? null;
+    const originalAssignedToIdValidators = assignedToIdControl?.validator ?? null;
+
+    if (this.isUserOwnerSelected) {
+        fiscalCodeControl?.setValidators(Validators.required);
+        phoneNumberControl?.setValidators(Validators.required);
+    } else {
+        fiscalCodeControl?.clearValidators();
+        phoneNumberControl?.clearValidators();
+    }
+    if (!this.isUserRole && this.isUserOwnerSelected) { 
+      assignedToIdControl?.setValidators(Validators.required);
+    } else {
+      assignedToIdControl?.clearValidators();
+    }
+    
+    fiscalCodeControl?.updateValueAndValidity();
+    phoneNumberControl?.updateValueAndValidity();
+    assignedToIdControl?.updateValueAndValidity();
+    this.ticketForm.updateValueAndValidity();
+
+    if (!this.ticketForm.valid) {
       this.messageService.add({ severity: 'error', summary: 'Errore', detail: 'Compila tutti i campi obbligatori per finalizzare il ticket.' });
-      this.ticketForm.markAllAsTouched();
+      this.ticketForm.markAllAsTouched(); 
+      
+      fiscalCodeControl?.setValidators(originalFiscalCodeValidators);
+      phoneNumberControl?.setValidators(originalPhoneNumberValidators);
+      assignedToIdControl?.setValidators(originalAssignedToIdValidators);
+      fiscalCodeControl?.updateValueAndValidity();
+      phoneNumberControl?.updateValueAndValidity();
+      assignedToIdControl?.updateValueAndValidity();
+      this.ticketForm.updateValueAndValidity();
+
       return;
     }
+
+    fiscalCodeControl?.setValidators(originalFiscalCodeValidators);
+    phoneNumberControl?.setValidators(originalPhoneNumberValidators);
+    assignedToIdControl?.setValidators(originalAssignedToIdValidators);
+    fiscalCodeControl?.updateValueAndValidity();
+    phoneNumberControl?.updateValueAndValidity();
+    assignedToIdControl?.updateValueAndValidity();
+    this.ticketForm.updateValueAndValidity();
+
 
     this.isSaving = true;
     const ticketDto = this.prepareTicketDto(TicketStatus.OPEN);
@@ -680,7 +792,9 @@ export class NewTicketComponent implements OnInit, OnDestroy {
         console.error('Errore nel salvataggio/finalizzazione del ticket:', err);
         let errorMessage = err.error?.message || 'Impossibile salvare il ticket.';
 
-        if (err.status === 500 && errorMessage.includes("Utente con email") && errorMessage.includes("non trovato nel sistema")) {
+        if (err.status === 500 && errorMessage.includes("Un ticket creato da un Admin/PM/Helper deve avere come proprietario un utente con ruolo USER.")) {
+          errorMessage = "Il proprietario del ticket deve essere un utente con ruolo USER per finalizzare la bozza.";
+        } else if (err.status === 500 && errorMessage.includes("Utente con email") && errorMessage.includes("non trovato nel sistema")) {
           errorMessage = "L'email specificata per l'utente non è registrata. Assicurati che l'utente esista in Keycloak.";
         }
         
@@ -697,10 +811,10 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       next: (ticket) => {
         if (ticket) {
           this.messageService.add({ severity: 'success', summary: 'Successo', detail: 'Ticket salvato/finalizzato con successo!' });
-          if (!this.ref) {
+          if (!this.ref) { 
             this.router.navigate(['/dashboard']);
           }
-          if (!this.ref) {
+          if (!this.ref || (this.ref && !this.isEditMode)) { 
             this.initializeNewTicketForm();
           }
         }
@@ -713,7 +827,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
    * Resetta il form per un nuovo ticket o chiude la modale.
    */
   onNewTicket(): void {
-    if (this.ref) {
+    if (this.ref) { 
       this.ref.close();
       return; 
     }
@@ -736,7 +850,7 @@ export class NewTicketComponent implements OnInit, OnDestroy {
       data: {
         filterStatus: TicketStatus.DRAFT, 
         isModalSelection: true,
-        filterOwnerId: this.currentUserId // Filtra per l'ID dell'utente corrente
+        filterOwnerId: this.currentUserId 
       }
     });
 

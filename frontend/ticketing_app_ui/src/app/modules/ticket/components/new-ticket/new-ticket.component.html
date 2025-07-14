@@ -182,6 +182,14 @@
             [readOnly]="isReadOnly"
             [disabled]="isReadOnly || (!isUserRole && !isUserOwnerSelected)"
           />
+          <small
+            *ngIf="
+              ticketForm.get('fiscalCode')?.invalid &&
+              ticketForm.get('fiscalCode')?.touched
+            "
+            class="p-error"
+            >Il codice fiscale è obbligatorio.</small
+          >
         </div>
 
         <!-- Numero di Telefono - Abilitato solo se isUserOwnerSelected è true (per Admin/PM/Helper) o se è un USER -->
@@ -192,12 +200,20 @@
             type="text"
             pInputText
             formControlName="phoneNumber"
-            [disabled]="isReadOnly"
+            [readOnly]="isReadOnly"
             [disabled]="isReadOnly || (!isUserRole && !isUserOwnerSelected)"
           />
+          <small
+            *ngIf="
+              ticketForm.get('phoneNumber')?.invalid &&
+              ticketForm.get('phoneNumber')?.touched
+            "
+            class="p-error"
+            >Il numero di telefono è obbligatorio.</small
+          >
         </div>
 
-        <!-- Assegnato a (visibile solo per Helper, PM, Admin) - Abilitato solo se isUserOwnerSelected è true e non è una bozza -->
+        <!-- Assegnato a (visibile solo per Helper, PM, Admin) -->
         <div
           class="field col-12 md:col-6"
           *ngIf="isHelperOrPmRole || isAdminOrPmRole"
@@ -213,18 +229,12 @@
             [filter]="true"
             filterBy="fullName"
             [showClear]="true"
-            [disabled]="
-              isReadOnly ||
-              (!isUserOwnerSelected && isDraft) ||
-              (!isUserOwnerSelected && !isDraft) ||
-              (isDraft && !isUserOwnerSelected)
-            "
+            [disabled]="isReadOnly || !isUserOwnerSelected || isDraft"
           >
             <!-- Logica di disabilitazione per assegnatario: -->
             <!-- 1. Se isReadOnly è true (sempre disabilitato) -->
-            <!-- 2. Se NON è un USER e isUserOwnerSelected è FALSE (cioè l'owner è Admin/PM/Helper stesso) -->
-            <!--    allora è disabilitato, indipendentemente dallo stato della bozza. -->
-            <!--    Questo copre sia le nuove bozze che le bozze proprie modificate. -->
+            <!-- 2. Se isUserOwnerSelected è FALSE (cioè l'owner NON è un USER) -->
+            <!-- 3. Se isDraft è TRUE (non si assegna una bozza) -->
           </p-dropdown>
           <small
             *ngIf="
@@ -232,7 +242,7 @@
               ticketForm.get('assignedToId')?.touched
             "
             class="p-error"
-            >L'assegnatario è obbligatorio per i ticket non bozza.</small
+            >L'assegnatario è obbligatorio.</small
           >
         </div>
       </div>
@@ -276,7 +286,7 @@
           [icon]="
             isDraft ? 'pi pi-check' : isEditMode ? 'pi pi-save' : 'pi pi-plus'
           "
-          [disabled]="isReadOnly || isSaving || !isFormValidForFinalization()"
+          [disabled]="isReadOnly || isSaving || !isFinalizeButtonEnabled()"
           [class]="
             isEditMode && !isDraft ? 'p-button-primary' : 'p-button-success'
           "
