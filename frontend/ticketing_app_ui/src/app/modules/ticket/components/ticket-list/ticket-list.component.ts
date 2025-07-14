@@ -204,11 +204,8 @@ export class TicketListComponent implements OnInit, OnDestroy {
     if (this.ref) {
       this.ref.close();
     }
-    // MODIFICATO: Chiudi selfRef solo se NON è in modalità selezione modale.
-    // In modalità selezione modale, la chiusura è gestita dal DialogService e dalla logica di selezione/annullamento.
-    // Chiamare selfRef.close() qui è ridondante e causa la doppia notifica.
-    if (this.selfRef && !this.isModalSelectionMode) { 
-        this.selfRef.close();
+    if (this.selfRef && !this.closedBySelection) {
+      this.selfRef.close(); 
     }
     this.destroy$.next();
     this.destroy$.complete();

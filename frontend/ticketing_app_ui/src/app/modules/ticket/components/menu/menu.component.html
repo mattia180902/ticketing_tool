@@ -1,7 +1,6 @@
-<!-- eslint-disable @angular-eslint/template/click-events-have-key-events -->
 <!-- eslint-disable @angular-eslint/template/interactive-supports-focus -->
-<!-- menu.component.html -->
-<!-- RIMOSSO: <p-toast></p-toast> - Spostato in app.component.html se è globale -->
+<!-- eslint-disable @angular-eslint/template/click-events-have-key-events -->
+<p-toast life="1000"></p-toast>
 
 <!-- Toolbar fissa in alto -->
 <p-toolbar styleClass="fixed top-0 left-0 w-full shadow-2 py-3 px-4 z-5"> 
@@ -21,17 +20,20 @@
   </div>
 
   <div class="p-toolbar-group-end flex flex-wrap align-items-center justify-content-end flex-grow-1">
-    <span class="p-input-icon-left mr-3">
+    <!-- Campo di ricerca per i servizi -->
+    <span class="p-input-icon-left mr-2">
       <i class="pi pi-search"></i>
       <input
         type="search"
         pInputText
-        placeholder="Find a service"
+        placeholder="Cerca un servizio..."
         class="p-inputtext-sm"
+        [(ngModel)]="searchTerm"
+        (keyup.enter)="searchService()"
       />
     </span>
 
-    <span class="mr-2">Welcome</span>
+    <span class="mr-2">Benvenuto</span>
     <span class="font-bold text-capitalize mr-3">{{ username }}</span>
 
     <button
@@ -105,5 +107,3 @@
     </div>
   </ng-template>
 </p-sidebar>
-
-
