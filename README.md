@@ -247,7 +247,7 @@ mvn clean install
 Avvia l'applicazione:
 mvn spring-boot:run
 
-L'API sarà disponibile su http://localhost:8080/swagger-ui/index.html#/
+L'API sarà disponibile su http://localhost:8080/
 
 Esecuzione dei Test
 mvn test
@@ -260,7 +260,8 @@ Sicurezza: Integrazione con Spring Security per l'autenticazione JWT (tramite Ke
 Logica di Business: Implementazione della logica per l'auto-salvataggio delle bozze, l'assegnazione dei ticket e la gestione degli stati.
 Gestione Eccezioni: Gestione centralizzata delle eccezioni per risposte API coerenti.
 Notifiche Email: Invio di notifiche via email per eventi importanti (es. creazione ticket, assegnazione).
-Documentazione API: Swagger UI disponibile all'indirizzo /swagger-ui.html (es. http://localhost:8080/swagger-ui.html).
+Documentazione API: Swagger UI disponibile all'indirizzo: http://localhost:8080/swagger-ui/index.html#/
+
 🚀 Deployment
 Frontend: L'applicazione Angular può essere deployata su qualsiasi server web statico (es. Nginx, Apache, Netlify, Vercel) dopo aver eseguito ng build --configuration production.
 Backend: L'applicazione Spring Boot può essere impacchettata come un file JAR eseguibile (java -jar target/ticketing_app-0.0.1-SNAPSHOT.jar) e deployata su un server (es. un'istanza EC2, un container Docker, un servizio cloud come Heroku o Google Cloud Run).
@@ -275,5 +276,7 @@ Effettua il commit delle tue modifiche (git commit -m 'feat: aggiunta nuova funz
 Effettua il push del branch (git push origin feature/nome-funzionalita).
 Apri una Pull Request.
 📄 Licenza
+
 Questo progetto è rilasciato sotto la licenza MIT License.
+Sviluppato By Mattia Colucci.
 
